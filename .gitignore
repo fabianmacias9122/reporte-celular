@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+.Python
+env/
+venv/
+.env
+*.egg-info/
+
+# DB (no subir la base de datos local, se crea automáticamente en el server)
+data/*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp

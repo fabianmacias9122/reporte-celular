@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reporte Celular</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./app.css?v=20260509-129">
+</head>
+<body class="app-fixed">
+  <!-- TOPBAR -->
+  <header class="iafcj-topbar">
+    <div class="iafcj-topbar-brand">
+      <img
+        src="https://images.builderservices.io/s/cdn/v1.0/i/m?url=https%3A%2F%2Fstorage.googleapis.com%2Fproduction-hostgator-mexico-v1-0-8%2F808%2F1211808%2F678J13Az%2Fb0b80e00f02b49eb84fce02bb27ff40f&methods=resize%2C500%2C5000"
+        alt="IAFCJ"
+        class="iafcj-topbar-logo">
+    </div>
+    <div class="iafcj-topbar-inner">
+      <div class="iafcj-topbar-left">
+        <span class="iafcj-topbar-kicker">IAFCJ · Ministerio Celular</span>
+        <strong class="iafcj-topbar-title" id="topbar-route-label">Reporte</strong>
+      </div>
+      <div class="iafcj-topbar-right">
+        <!-- Language switcher -->
+        <div class="lang-switcher" id="lang-switcher">
+          <button type="button" class="lang-btn is-active" data-lang="es" aria-label="Español">ES</button>
+          <button type="button" class="lang-btn" data-lang="en" aria-label="English">EN</button>
+        </div>
+        <button id="user-chip" class="user-chip is-hidden" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span id="user-chip-name"></span>
+          <span class="user-chip-exit" data-i18n="nav.exit">Salir</span>
+        </button>
+        <div class="iafcj-topbar-status">
+          <span class="iafcj-topbar-status-dot" id="health-status-dot"></span>
+          <strong id="health-status" class="iafcj-topbar-status-text" data-i18n="nav.checking">Revisando...</strong>
+        </div>
+        <!-- Mobile-only user icon button -->
+        <button id="topbar-mobile-btn" class="topbar-mobile-btn is-hidden" type="button" aria-label="Menú de usuario" aria-expanded="false">
+          <span id="topbar-mobile-initials" class="topbar-mobile-initials">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          </span>
+        </button>
+      </div>
+    </div>
+    <p id="hero-caption" hidden></p>
+  </header>
+  <!-- Mobile user dropdown card -->
+  <div id="topbar-mobile-card" class="topbar-mobile-card" hidden>
+    <div class="tmc-user-row">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span id="tmc-user-name" class="tmc-user-name">—</span>
+    </div>
+    <div class="tmc-status-row">
+      <span class="iafcj-topbar-status-dot" id="tmc-status-dot"></span>
+      <span id="tmc-status-text" class="tmc-status-text" data-i18n="nav.checking">Revisando...</span>
+    </div>
+    <button id="tmc-logout-btn" type="button" class="tmc-logout-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      <span data-i18n="nav.exit">Salir</span>
+    </button>
+  </div>
+
+  <!-- LOGIN OVERLAY -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-card-head">
+        <img
+          src="https://images.builderservices.io/s/cdn/v1.0/i/m?url=https%3A%2F%2Fstorage.googleapis.com%2Fproduction-hostgator-mexico-v1-0-8%2F808%2F1211808%2F678J13Az%2Fb0b80e00f02b49eb84fce02bb27ff40f&methods=resize%2C500%2C5000"
+          alt="IAFCJ"
+          class="login-card-logo">
+      </div>
+      <div class="login-card-body">
+        <div>
+          <h1 class="login-card-title" data-i18n="login.title">Reporte Celular</h1>
+          <p class="login-card-sub" data-i18n="login.subtitle">Selecciona tu nombre para acceder</p>
+        </div>
+        <div class="form-field">
+          <label class="field-label" for="login-person-select" data-i18n="login.who">¿Quién eres?</label>
+          <select id="login-person-select" class="field-input">
+            <option value="">— Elige tu nombre —</option>
+          </select>
+        </div>
+        <button id="login-btn" class="btn-save-next" type="button" disabled data-i18n="login.enter">Entrar →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div id="app-layout">
+    <!-- SIDEBAR -->
+    <aside class="app-sidebar">
+      <nav class="sidebar-nav" aria-label="Navegación principal">
+        <button class="sidebar-link is-active" id="show-report-view" type="button" data-label="Reporte">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span data-i18n="nav.report">Reporte</span>
+        </button>
+        <button class="sidebar-link is-hidden" id="show-seguimiento-view" type="button" data-label="Seguimiento">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span data-i18n="nav.seguimiento">Seguimiento</span>
+        </button>
+        <button class="sidebar-link" id="show-dashboard-view" type="button" data-label="Dashboard" hidden aria-hidden="true">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span data-i18n="nav.dashboard">Dashboard</span>
+        </button>
+        <button class="sidebar-link" id="show-admin-view" type="button" data-label="Catálogos">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span data-i18n="nav.catalogs">Catálogos</span>
+        </button>
+        <button class="sidebar-link is-hidden" id="show-settings-view" type="button" data-label="Configuración">
+          <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span data-i18n="nav.settings">Config.</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- CONTENT -->
+    <main id="app-content">
+      <div class="page-shell">
+        <div id="feedback" class="feedback" hidden></div>
+        <div class="workspace-grid">
+      <section id="report-view" class="workspace-main">
+        <!-- STAGE NAV -->
+        <nav class="stage-nav full-width" id="stage-nav" aria-label="Etapas del reporte">
+          <button type="button" class="stage-tab is-active" data-stage="encabezado">
+            <span class="stage-tab-num">1</span>
+            <span class="stage-tab-label" data-i18n="stage.start">Inicio</span>
+            <span class="stage-tab-badge" id="stage-badge-encabezado" hidden>✓</span>
+          </button>
+          <button type="button" class="stage-tab" data-stage="planificacion">
+            <span class="stage-tab-num">2</span>
+            <span class="stage-tab-label" data-i18n="stage.planning">Planeación</span>
+            <span class="stage-tab-badge" id="stage-badge-planificacion" hidden>✓</span>
+          </button>
+          <button type="button" class="stage-tab" data-stage="alcance">
+            <span class="stage-tab-num">3</span>
+            <span class="stage-tab-label" data-i18n="stage.reach">Alcance</span>
+            <span class="stage-tab-badge" id="stage-badge-alcance" hidden>✓</span>
+          </button>
+          <button type="button" class="stage-tab" data-stage="culto">
+            <span class="stage-tab-num">4</span>
+            <span class="stage-tab-label" data-i18n="stage.service">Culto</span>
+            <span class="stage-tab-badge" id="stage-badge-culto" hidden>✓</span>
+          </button>
+          <button type="button" class="stage-tab" data-stage="cierre">
+            <span class="stage-tab-num">5</span>
+            <span class="stage-tab-label" data-i18n="stage.closing">Cierre</span>
+            <span class="stage-tab-badge" id="stage-badge-cierre" hidden>✓</span>
+          </button>
+        </nav>
+
+        <form id="report-form" class="stack-grid">
+          <!-- ── 1. ENCABEZADO ─────────────────────────── -->
+          <section class="panel inicio-capture-card" data-stage="encabezado">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="form.capture">Captura</p>
+                <h2 data-i18n="form.reportStart">Inicio del reporte</h2>
+              </div>
+              <span class="panel-tag" data-i18n="form.activeWeek">Semana activa</span>
+            </div>
+            <div class="inicio-primary-fields">
+              <label>
+                <span data-i18n="form.week">Semana</span>
+                <select id="week-field" name="week" required></select>
+              </label>
+              <label>
+                <span data-i18n="form.cell">Célula</span>
+                <select id="cell-field" name="cellNumber" required></select>
+              </label>
+            </div>
+            <div class="report-grid inicio-secondary-fields">
+              <label>
+                <span data-i18n="form.network">Red</span>
+                <input name="networkName" type="text">
+              </label>
+              <label>
+                <span data-i18n="form.sector">Sector</span>
+                <input name="sector" type="text" required>
+              </label>
+              <label>
+                <span data-i18n="form.zone">Zona</span>
+                <input name="zoneName" type="text">
+              </label>
+              <label>
+                <span data-i18n="form.district">Distrito</span>
+                <input name="districtName" type="text">
+              </label>
+            </div>
+            <div id="rcm-phase-indicator" class="rcm-phase-indicator rcm-phase-card-footer is-hidden"></div>
+          </section>
+
+          <!-- ── 2. EQUIPO (mismo encabezado) ──────────────── -->
+          <section class="panel panel-soft inicio-team-card" data-stage="encabezado">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Equipo</p>
+                <h2>Liderazgo y reunión</h2>
+              </div>
+              <span id="member-count-chip" class="count-chip">0 miembros</span>
+            </div>
+            <div class="inicio-team-grid">
+              <label class="inicio-leader-field">
+                <span data-i18n="form.leader">Líder</span>
+                <select id="leader-field" name="leaderName" required></select>
+              </label>
+              <label>
+                <span data-i18n="form.assistant">Asistente</span>
+                <select id="assistant-field" name="assistantName"></select>
+              </label>
+              <label>
+                <span data-i18n="form.host">Anfitrión</span>
+                <select id="host-field" name="hostName"></select>
+              </label>
+            </div>
+            <div class="inicio-location-row">
+              <label class="inicio-address-field">
+                <span data-i18n="form.address">Domicilio</span>
+                <input id="report-address" name="address" type="text">
+              </label>
+              <label class="inicio-date-field">
+                <span data-i18n="form.meetingDate">Fecha de reunión</span>
+                <input name="reportDate" type="date" required>
+              </label>
+            </div>
+            <div class="member-summary">
+              <span class="member-summary-label" data-i18n="form.assignedMembers">Miembros asignados a la célula</span>
+              <div id="report-member-pills" class="pill-row"></div>
+            </div>
+          </section>
+
+          <!-- SAVE BAR: encabezado -->
+          <div class="stage-save-bar full-width" data-stage="encabezado">
+            <button type="button" id="save-draft-encabezado" class="btn-save-draft btn-save-draft-only" data-i18n="form.saveDraft">💾 Guardar borrador</button>
+            <button type="button" id="save-next-encabezado" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+          </div>
+
+          <!-- Resumen de totales — visible desde Planeación -->
+          <div class="full-width" data-stage="planificacion alcance culto">
+            <div id="attendance-summary-cards" class="summary-grid summary-grid-compact"></div>
+          </div>
+
+          <!-- ── 3. PLANEACIÓN ──────────────────────────── -->
+          <section class="panel panel-soft full-width" data-stage="planificacion alcance culto">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
+                <h2 data-i18n="att.memberAttendance">Asistencia de miembros</h2>
+              </div>
+              <span id="attendance-progress-chip" class="count-chip">0 marcados</span>
+            </div>
+            <div class="helper-actions" aria-label="Atajos de miembros">
+              <button type="button" class="secondary helper-action-button" id="fill-planning-members" data-i18n="att.allPlanning">Todos en planeación</button>
+              <button type="button" class="secondary helper-action-button" id="copy-planning-to-reach" data-i18n="att.planToReach">Planeación → Alcance</button>
+              <button type="button" class="secondary helper-action-button" id="copy-reach-to-sunday" data-i18n="att.reachToSunday">Alcance → Culto</button>
+              <button type="button" class="secondary helper-action-button" id="sync-status-from-activities" data-i18n="att.statusFromActs">Estado según actividades</button>
+              <button type="button" class="secondary helper-action-button" id="clear-member-activities" data-i18n="att.clearActivities">Limpiar actividades</button>
+            </div>
+            <div class="table-wrap weekly-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="att.member">Miembro</th>
+                    <th data-i18n="att.weeklyStatus">Estado semanal</th>
+                    <th data-i18n="att.planning">Planeación</th>
+                    <th data-i18n="att.reach">Alcance</th>
+                    <th data-i18n="att.privileges">Privilegios</th>
+                    <th data-i18n="att.service">Culto</th>
+                    <th id="member-event-col-header" hidden data-i18n="att.event">Evento</th>
+                    <th data-i18n="att.observation">Observación</th>
+                  </tr>
+                </thead>
+                <tbody id="attendance-table-body">
+                  <tr>
+                    <td colspan="7" class="empty-state">Selecciona una célula para marcar asistencia.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="member-summary">
+              <span class="member-summary-label" data-i18n="att.absentThisWeek">Faltaron esta semana</span>
+              <div id="absent-member-pills" class="pill-row"></div>
+            </div>
+          </section>
+
+          <!-- SAVE BAR: planificacion -->
+          <div class="stage-save-bar full-width" data-stage="planificacion">
+            <button type="button" id="save-draft-planificacion" class="btn-save-draft btn-save-draft-only" data-i18n="form.saveDraft">💾 Guardar borrador</button>
+            <button type="button" id="save-next-planificacion" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+          </div>
+
+          <!-- ── 4. ALCANCE ─────────────────────────────── -->
+          <section class="panel panel-soft full-width" data-stage="alcance culto">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
+                <h2 data-i18n="vis.title">Visitas y amigos</h2>
+              </div>
+              <button id="add-visitor-button" type="button" class="secondary" data-i18n="vis.addManual">Agregar fila manual</button>
+            </div>
+            <div id="visitor-quick-form" class="visitor-quick-form">
+              <label>
+                <span data-i18n="vis.prevVisit">Visita previa</span>
+                <select id="visitor-quick-history">
+                  <option value="">Elegir del historial</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="vis.visitorName">Nombre de la visita</span>
+                <input id="visitor-quick-name" name="visitorName" type="text" placeholder="Nombre completo">
+              </label>
+              <label>
+                <span data-i18n="vis.invitedBy">Invitó</span>
+                <select id="visitor-quick-invited-by" name="invitedBy">
+                  <option value="">— Quién invitó —</option>
+                </select>
+              </label>
+              <label class="quick-toggle-field">
+                <span data-i18n="att.reach">Alcance</span>
+                <input id="visitor-quick-reach" name="reachAttended" type="checkbox" checked>
+              </label>
+              <label class="quick-toggle-field">
+                <span data-i18n="stage.service">Culto</span>
+                <input id="visitor-quick-sunday" name="sundayAttended" type="checkbox">
+              </label>
+              <label class="quick-toggle-field">
+                <span data-i18n="vis.firstTime">Primera vez</span>
+                <input id="visitor-quick-first-visit" name="firstVisit" type="checkbox" checked>
+              </label>
+              <label class="quick-toggle-field">
+                <span data-i18n="vis.conversion">Conversión</span>
+                <input id="visitor-quick-converted" name="converted" type="checkbox">
+              </label>
+              <label id="visitor-event-toggle-field" class="quick-toggle-field" hidden>
+                <span id="visitor-event-toggle-label">Evento</span>
+                <input id="visitor-quick-event" name="eventAttended" type="checkbox">
+              </label>
+              <div class="visitor-quick-actions">
+                <button id="add-visitor-quick-button" type="button" data-i18n="vis.addVisitor">Agregar visita</button>
+                <button id="reset-visitor-quick-button" type="button" class="secondary" data-i18n="vis.clear">Limpiar</button>
+              </div>
+            </div>
+            <div class="helper-actions" aria-label="Atajos de amigos">
+              <button type="button" class="secondary helper-action-button" id="copy-visitor-reach-to-sunday" data-i18n="vis.reachToSunday">Alcance → Culto</button>
+              <button type="button" class="secondary helper-action-button" id="mark-visitor-first-visit" data-i18n="vis.allFirstTime">Todos primera vez</button>
+              <button type="button" class="secondary helper-action-button" id="clear-visitor-activities" data-i18n="vis.clearFriends">Limpiar amigos</button>
+            </div>
+            <div class="table-wrap weekly-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="vis.name">Nombre</th>
+                    <th data-i18n="vis.invitedBy">Invitó</th>
+                    <th data-i18n="att.reach">Alcance</th>
+                    <th data-i18n="stage.service">Culto</th>
+                    <th data-i18n="vis.firstTime">Primera vez</th>
+                    <th data-i18n="vis.conversion">Conversión</th>
+                    <th id="visitor-event-col-header" hidden data-i18n="att.event">Evento</th>
+                    <th data-i18n="vis.contacted">Contactado</th>
+                    <th data-i18n="vis.phone">Teléfono</th>
+                    <th data-i18n="att.observation">Observación</th>
+                    <th data-i18n="vis.actions">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="visitor-table-body">
+                  <tr>
+                    <td colspan="10" class="empty-state">Todavía no hay visitas registradas para esta semana.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel panel-soft full-width" data-stage="alcance">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
+                <h2 data-i18n="kids.title">Niños</h2>
+              </div>
+              <button id="add-kid-button" type="button" class="secondary" data-i18n="kids.addVisit">Agregar niño de visita</button>
+            </div>
+            <div class="helper-actions" aria-label="Atajos de niños">
+              <button type="button" class="secondary helper-action-button" id="copy-kid-reach-to-sunday" data-i18n="kids.reachToSunday">Alcance → Culto</button>
+              <button type="button" class="secondary helper-action-button" id="clear-kid-activities" data-i18n="kids.clear">Limpiar niños</button>
+            </div>
+            <div class="member-summary">
+              <span class="member-summary-label" data-i18n="kids.preloaded">Niños precargados de la célula</span>
+              <div id="report-kid-pills" class="pill-row"></div>
+            </div>
+            <div class="table-wrap weekly-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="kids.child">Niño</th>
+                    <th data-i18n="kids.guardian">Responsable</th>
+                    <th data-i18n="kids.origin">Origen</th>
+                    <th data-i18n="att.reach">Alcance</th>
+                    <th data-i18n="stage.service">Culto</th>
+                    <th data-i18n="att.observation">Observación</th>
+                    <th data-i18n="vis.actions">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="kids-table-body">
+                  <tr>
+                    <td colspan="7" class="empty-state">No hay niños cargados para esta célula.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel panel-soft" data-stage="alcance">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="reach.extras">Extras</p>
+                <h2 data-i18n="reach.meeting">Reunión de alcance</h2>
+              </div>
+            </div>
+            <div class="metric-fields">
+              <label class="metric-field">
+                <span data-i18n="reach.offering">Ofrenda ($)</span>
+                <input name="reachOffering" type="number" min="0" step="0.01" value="0">
+              </label>
+              <label class="metric-field">
+                <span data-i18n="reach.totalOffering">Total de ofrendas ($)</span>
+                <input name="multiplyTotalOfferings" type="number" min="0" step="0.01" value="0">
+              </label>
+            </div>
+          </section>
+
+          <!-- ── 5. SUPERVISIÓN (solo Alcance) ──────── -->
+          <section class="panel panel-soft" data-stage="alcance">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="reach.manual">Manual</p>
+                <h2 data-i18n="reach.supervision">Supervisión</h2>
+              </div>
+            </div>
+            <div class="metric-fields">
+              <label class="metric-field">
+                <span>Sup. Red</span>
+                <input name="supervisionNetwork" type="number" min="0" step="1" value="0">
+              </label>
+              <label class="metric-field">
+                <span>Sup. Sector</span>
+                <input name="supervisionSector" type="number" min="0" step="1" value="0">
+              </label>
+              <label class="metric-field">
+                <span>Sup. Zona</span>
+                <input name="supervisionZone" type="number" min="0" step="1" value="0">
+              </label>
+              <label class="metric-field">
+                <span>Sup. Región</span>
+                <input name="supervisionRegion" type="number" min="0" step="1" value="0">
+              </label>
+              <label class="metric-field">
+                <span>Sup. Área</span>
+                <input name="supervisionArea" type="number" min="0" step="1" value="0">
+              </label>
+            </div>
+          </section>
+
+          <!-- SAVE BAR: alcance -->
+          <div class="stage-save-bar full-width" data-stage="alcance">
+            <button type="button" id="save-draft-alcance" class="btn-save-draft btn-save-draft-only" data-i18n="form.saveDraft">💾 Guardar borrador</button>
+            <button type="button" id="save-next-alcance" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+          </div>
+
+          <section class="panel panel-soft full-width" data-stage="culto">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="bap.quarterly">Cierre cuatrimestral</p>
+                <h2 data-i18n="bap.title">Bautismos</h2>
+              </div>
+              <button id="add-baptism-button" type="button" class="secondary" data-i18n="bap.register">Registrar bautismo</button>
+            </div>
+            <div class="member-summary">
+              <span class="member-summary-label" data-i18n="bap.quarterSummary">Bautismos del cierre del cuatrimestre</span>
+              <div id="baptism-summary-pills" class="pill-row"></div>
+            </div>
+            <p class="member-admin-caption" data-i18n="bap.promotionNote">Si marcas la opción de miembro, se agregará a la célula cuando guardes el reporte.</p>
+            <div class="table-wrap weekly-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="bap.person">Persona</th>
+                    <th data-i18n="bap.date">Fecha</th>
+                    <th data-i18n="bap.origin">Origen</th>
+                    <th data-i18n="bap.addAsMember">Agregar como miembro al guardar</th>
+                    <th data-i18n="att.observation">Observación</th>
+                    <th data-i18n="vis.actions">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="baptism-table-body">
+                  <tr>
+                    <td colspan="6" class="empty-state">Selecciona la fecha del reporte para registrar bautismos y decidir si también se agregan como miembros.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- SAVE BAR: culto -->
+          <div class="stage-save-bar full-width" data-stage="culto">
+            <button type="button" id="save-draft-culto" class="btn-save-draft btn-save-draft-only" data-i18n="form.saveDraft">💾 Guardar borrador</button>
+            <button type="button" id="save-next-culto" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+          </div>
+
+          <details class="metrics-section-collapse full-width" data-stage="cierre">
+            <summary class="metrics-section-summary">
+              <span data-i18n="metrics.title">Métricas del reporte</span>
+              <span class="metrics-section-chevron">▾</span>
+            </summary>
+            <div class="metrics-grid" id="metric-sections"></div>
+          </details>
+
+          <section class="panel panel-soft full-width" data-stage="cierre">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="metrics.closure">Cierre</p>
+                <h2 data-i18n="metrics.reportNotes">Notas del reporte</h2>
+              </div>
+            </div>
+            <label>
+              <span data-i18n="form.observations">Observaciones</span>
+              <textarea name="notes" rows="5" placeholder="Observaciones de la reunión, seguimiento o acuerdos."></textarea>
+            </label>
+            <div class="form-actions">
+              <button id="report-preview-open-btn" type="button" data-i18n="form.preview">Vista previa y guardar</button>
+              <button id="reset-button" type="button" class="secondary" data-i18n="form.reset">Limpiar</button>
+            </div>
+          </section>
+
+          <!-- SAVE BAR: cierre -->
+          <div class="stage-save-bar full-width" data-stage="cierre">
+            <button type="button" id="save-draft-cierre" class="btn-save-draft btn-save-draft-only" data-i18n="form.saveDraft">💾 Guardar borrador</button>
+            <button type="button" id="finalizar-reporte" class="btn-save-next btn-finalizar" data-i18n="form.finalize">✅ Finalizar reporte</button>
+          </div>
+        </form>
+
+
+
+        <section class="panel panel-table full-width">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow" data-i18n="hist.history">Historial</p>
+              <h2 data-i18n="hist.myReports">Mis reportes</h2>
+            </div>
+            <span id="report-count" class="count-chip">0</span>
+          </div>
+          <div id="report-cycles-list"></div>
+          <!-- hidden tbody kept for JS compat (edit/delete click handler) -->
+          <table hidden><tbody id="report-table-body"></tbody></table>
+        </section>
+      </section>
+
+      <aside id="admin-view" class="workspace-side stack-grid" hidden>
+        <nav id="admin-section-nav" class="admin-section-nav admin-overview-span" aria-label="Navegación de catálogos">
+          <button type="button" class="admin-section-button is-active" data-admin-target="admin-overview-section" data-i18n="admin.summary">Resumen</button>
+          <button type="button" class="admin-section-button" data-admin-target="admin-people-section" data-i18n="admin.members">Miembros</button>
+          <button type="button" class="admin-section-button" data-admin-target="admin-cells-section" data-i18n="admin.cells">Células</button>
+        </nav>
+
+        <section id="admin-overview-section" class="panel panel-soft admin-overview admin-overview-span admin-section-anchor">
+          <div class="panel-head admin-overview-head">
+            <div>
+              <p class="eyebrow">Panorama</p>
+              <h2>Resumen operativo</h2>
+            </div>
+            <span class="panel-tag">Catálogos vivos</span>
+          </div>
+          <div id="admin-summary-cards" class="summary-grid"></div>
+        </section>
+
+        <section id="admin-people-section" class="panel panel-strong admin-section-anchor">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Administración</p>
+              <h2>Miembros</h2>
+            </div>
+            <span class="panel-tag">Líderes y miembros</span>
+          </div>
+          <p class="admin-section-copy">Consulta, agrega y edita personas desde la tabla. Usa los filtros para navegar rápido.</p>
+          <div class="admin-catalog-grid admin-catalog-grid-people">
+
+            <section class="catalog-card catalog-card-list catalog-card-full">
+              <div class="catalog-card-head">
+                <div>
+                  <p class="eyebrow">Listado</p>
+                  <h3>Estado del catálogo</h3>
+                </div>
+                <div class="catalog-head-actions">
+                  <button id="people-new-btn" type="button" class="btn btn-sm btn-primary" data-tooltip="Agregar una nueva persona al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> Nueva persona</button>
+                  <button id="convocar-open-btn" type="button" class="btn btn-sm btn-outline-brand" data-tooltip="Registrar convocatoria a clase RCM para miembros seleccionados"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Convocar a clase</button>
+                </div>
+              </div>
+              <div class="catalog-list-controls">
+                <div id="people-filter-tabs" class="filter-tabs" role="tablist" aria-label="Filtros de personas">
+                  <button type="button" class="filter-tab is-active" data-role-filter="all">Todos</button>
+                  <button type="button" class="filter-tab" data-role-filter="coordinator">Coordinadores</button>
+                  <button type="button" class="filter-tab" data-role-filter="supervisor">Supervisores</button>
+                  <button type="button" class="filter-tab" data-role-filter="leader">Líderes</button>
+                  <button type="button" class="filter-tab" data-role-filter="assistant">Asistentes</button>
+                  <button type="button" class="filter-tab" data-role-filter="host">Anfitrión</button>
+                  <button type="button" class="filter-tab" data-role-filter="member">Miembros</button>
+                  <button type="button" class="filter-tab" data-role-filter="kid">Niños</button>
+                </div>
+                <select id="people-filter-select" class="people-filter-select">
+                  <option value="all">Todos</option>
+                  <option value="coordinator">Coordinadores</option>
+                  <option value="supervisor">Supervisores</option>
+                  <option value="leader">Líderes</option>
+                  <option value="assistant">Asistentes</option>
+                  <option value="host">Anfitrión</option>
+                  <option value="member">Miembros</option>
+                  <option value="kid">Niños</option>
+                </select>
+                <label class="search-field">
+                  <span>Buscar persona</span>
+                  <input id="people-search" type="search" placeholder="Nombre, correo, teléfono o célula">
+                </label>
+              </div>
+              <div class="catalog-table-scroll">
+                <table class="catalog-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Función</th>
+                      <th>Asignación</th>
+                      <th class="col-rcm">Progreso RCM</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="people-table-body">
+                    <tr>
+                      <td colspan="5" class="empty-state">Sin personas registradas.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="catalog-card-grid" id="people-card-grid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="admin-cells-section" class="panel panel-strong admin-section-anchor">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Administración</p>
+              <h2>Células</h2>
+            </div>
+          </div>
+          <div class="admin-catalog-grid admin-catalog-grid-people">
+            <section class="catalog-card catalog-card-list catalog-card-full">
+              <div class="catalog-card-head">
+                <div>
+                  <p class="eyebrow">Listado</p>
+                  <h3>Estado del catálogo</h3>
+                </div>
+                <div class="catalog-head-actions">
+                  <button id="cell-renumber-btn" type="button" class="btn-secondary" data-tooltip="Reorganiza los números en orden consecutivo para cerrar huecos tras eliminar una célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:-8px"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Reorganizar</button>
+                  <button id="cell-new-btn" type="button" data-tooltip="Agregar una nueva célula al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Nueva célula</button>
+                </div>
+              </div>
+              <div class="catalog-list-controls">
+                <label class="search-field" style="flex:0 0 260px;margin:0">
+                  <span>Buscar célula</span>
+                  <input id="cell-search" type="search" placeholder="Número, red, sector…">
+                </label>
+              </div>
+              <div class="catalog-table-scroll">
+              <table class="catalog-table">
+                <thead>
+                  <tr>
+                    <th>Célula</th>
+                    <th>Red · Sector</th>
+                    <th>Líder</th>
+                    <th>Miembros</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="cells-table-body"></tbody>
+              </table>
+              </div>
+              <div class="catalog-card-grid" id="cells-card-grid"></div>
+            </section>
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- SEGUIMIENTO VIEW -->
+      <section id="seguimiento-view" class="workspace-main" hidden>
+
+        <!-- Sub-tab bar -->
+        <div class="seg-view-tabs" id="seg-view-tab-bar">
+          <button type="button" class="seg-view-tab is-active" data-segtab="seguimiento" data-i18n="nav.seguimiento">Seguimiento</button>
+          <button type="button" class="seg-view-tab" data-segtab="dashboard" data-i18n="nav.dashboard">Dashboard</button>
+        </div>
+
+        <!-- Tab: Seguimiento -->
+        <div id="seg-tab-seguimiento" class="seg-tab-panel">
+          <!-- Compact weekly context strip -->
+          <div id="report-context-strip" class="report-context-strip" hidden>
+            <div class="rcs-col">
+              <span class="rcs-label" id="dashboard-pending-eyebrow">Pendientes esta semana</span>
+              <div class="rcs-chips" id="rcs-pending"></div>
+            </div>
+            <div class="rcs-divider"></div>
+            <div class="rcs-col">
+              <span class="rcs-label">Reportaron esta semana</span>
+              <div class="rcs-chips" id="rcs-activity"></div>
+            </div>
+          </div>
+          <!-- Keep hidden containers so existing JS refs don't break -->
+          <div id="dashboard-pending-cells" hidden></div>
+          <div id="dashboard-recent-activity" hidden></div>
+
+          <!-- Totals panel -->
+          <section class="panel panel-soft" id="seg-totals-panel" hidden>
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Esta semana</p>
+                <h2>Totales de asistencia</h2>
+              </div>
+              <div class="seg-totals-scope-tabs">
+                <button type="button" class="seg-totals-tab is-active" data-tscope="total">Total</button>
+                <button type="button" class="seg-totals-tab" data-tscope="sector">Por sector</button>
+                <button type="button" class="seg-totals-tab" data-tscope="cell">Por célula</button>
+              </div>
+            </div>
+            <div id="seg-totals-body"></div>
+          </section>
+          <section class="panel panel-soft full-width">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="seg.supervision">Supervisión</p>
+                <h2 data-i18n="seg.cellTracking">Seguimiento de células</h2>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span id="seg-report-count" class="count-chip">0</span>
+                <div id="seguimiento-scope-tabs" class="filter-tabs">
+                  <button type="button" class="filter-tab is-active" data-sgscope="current" data-i18n="seg.thisQuarter">Este cuatrimestre</button>
+                  <button type="button" class="filter-tab" data-sgscope="all" data-i18n="seg.all">Todo</button>
+                </div>
+              </div>
+            </div>
+            <div class="seg-legend">
+              <span class="seg-legend-label" data-i18n="seg.phases">Fases:</span>
+              <span class="seg-legend-chip seg-legend-ganar" data-i18n="seg.win">Ganar (sem. 1–6)</span>
+              <span class="seg-legend-chip seg-legend-consolidar" data-i18n="seg.consolidate">Consolidar (7–12)</span>
+              <span class="seg-legend-chip seg-legend-discipular" data-i18n="seg.disciple">Discipular (13–15)</span>
+              <span class="seg-legend-chip seg-legend-cierre" data-i18n="seg.closing">Cierre (16)</span>
+              <span class="seg-legend-sep">·</span>
+              <span class="seg-legend-chip seg-legend-pending" data-i18n="seg.pending">Pendiente (clic para capturar)</span>
+            </div>
+            <div id="seguimiento-cycles-list"></div>
+          </section>
+
+        </div>
+
+        <!-- Tab: Dashboard -->
+        <div id="seg-tab-dashboard" class="seg-tab-panel" hidden>
+          <section class="panel panel-soft">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="dash.dashboard">Dashboard</p>
+                <h2 id="dashboard-scope-title">Semana en curso</h2>
+              </div>
+              <div class="dashboard-period-controls">
+                <label class="dashboard-period-field">
+                  <span data-i18n="dash.period">Periodo</span>
+                  <select id="dashboard-period-select"></select>
+                </label>
+                <span id="dashboard-week-chip" class="panel-tag">Semana 0</span>
+                <span id="dashboard-scope-chip" class="panel-tag panel-tag-scope" hidden></span>
+              </div>
+            </div>
+            <div class="dashboard-time-tabs" id="dashboard-time-tabs">
+              <button type="button" class="dashboard-time-tab is-active" data-timescope="week">Semana</button>
+              <button type="button" class="dashboard-time-tab" data-timescope="quarter">Cuatrimestre</button>
+              <button type="button" class="dashboard-time-tab" data-timescope="year">Año</button>
+            </div>
+            <div id="dashboard-summary-grid" class="summary-grid"></div>
+          </section>
+
+          <section class="panel panel-soft">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Seguimiento</p>
+                <h2 id="dashboard-absence-title" data-i18n="dash.absenceAlerts">Alertas de faltas</h2>
+              </div>
+            </div>
+            <div id="absence-legend" class="absence-legend">
+              <span class="absence-legend-item"><span class="alert-chip alert-chip-absent">P</span> Planeación</span>
+              <span class="absence-legend-item"><span class="alert-chip alert-chip-absent">A</span> Alcance</span>
+              <span class="absence-legend-item"><span class="alert-chip alert-chip-absent">C</span> Culto</span>
+              <span class="absence-legend-sep">·</span>
+              <span class="absence-legend-item"><span class="alert-chip alert-chip-justified">J</span> Justificado</span>
+              <span class="absence-legend-sep">·</span>
+              <span class="absence-legend-item"><span class="alert-streak-pill alert-streak-medium">3×</span> semanas seguidas</span>
+            </div>
+            <div id="dashboard-absence-alerts" class="dashboard-list"></div>
+          </section>
+
+          <section class="panel panel-soft" id="dashboard-metrics-section">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" id="dashboard-metrics-eyebrow">Métricas consolidadas</p>
+                <h2 data-i18n="dash.meetingSummary">Resumen de reuniones</h2>
+              </div>
+              <div id="dashboard-metrics-toggle" class="dashboard-metrics-toggle" hidden>
+                <button type="button" class="metrics-toggle-btn is-active" data-metrics-scope="total">Total</button>
+                <button type="button" class="metrics-toggle-btn" data-metrics-scope="sector">Por sector</button>
+              </div>
+            </div>
+            <div id="dashboard-metrics-body"></div>
+          </section>
+
+          <section class="panel panel-soft" id="dashboard-baptisms-section">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="dash.accumulated">Acumulado</p>
+                <h2 data-i18n="dash.baptisms">Bautismos</h2>
+              </div>
+              <span id="dashboard-baptisms-total-chip" class="count-chip">0 total</span>
+            </div>
+            <div id="dashboard-baptisms-body"></div>
+          </section>
+        </div><!-- /seg-tab-dashboard -->
+
+      </section>
+
+      <!-- SETTINGS VIEW -->
+      <section id="settings-view" class="workspace-main" hidden>
+        <div class="page-shell" style="padding-top:0">
+          <div class="panel-head" style="margin-bottom:20px">
+            <div>
+              <p class="eyebrow">Sistema</p>
+              <h2>Configuración</h2>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-card" id="settings-cycle-card">
+              <div class="settings-card-header">
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.activeCycle">Ciclo RCM activo</strong>
+                  <p class="settings-card-desc" data-i18n="set.cycleDesc">Fecha en que inició el ciclo actual. El sistema calcula la semana en curso automáticamente a partir de este día.</p>
+                </div>
+              </div>
+              <div class="settings-card-body">
+                <label class="settings-label" for="setting-cycle-start" data-i18n="set.cycleStart">Fecha de inicio del ciclo</label>
+                <input id="setting-cycle-start" type="date" class="settings-input" />
+                <label class="settings-label" for="setting-week-start-day" style="margin-top:12px" data-i18n="set.weekStartDay">Día de inicio de semana</label>
+                <select id="setting-week-start-day" class="settings-input">
+                  <option value="0" data-i18n="set.sunday">Domingo</option>
+                  <option value="1" data-i18n="set.monday">Lunes</option>
+                  <option value="2" data-i18n="set.tuesday">Martes</option>
+                  <option value="3" data-i18n="set.wednesday">Miércoles</option>
+                  <option value="4" data-i18n="set.thursday">Jueves</option>
+                  <option value="5" data-i18n="set.friday">Viernes</option>
+                  <option value="6" data-i18n="set.saturday">Sábado</option>
+                </select>
+                <div id="settings-week-preview" class="settings-week-preview" style="margin-top:10px"></div>
+              </div>
+              <div class="settings-card-footer">
+                <button id="settings-save-btn" type="button" class="btn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  Guardar
+                </button>
+                <span id="settings-save-status" class="settings-save-status"></span>
+              </div>
+            </div>
+            <!-- Tarjeta Preferencias — visible a todos -->
+            <div class="settings-card" id="settings-prefs-card">
+              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.prefs">Preferencias de historial</strong>
+                  <p class="settings-card-desc" data-i18n="set.prefsDesc">Controla cuántos cuatrimestres se muestran en tus reportes registrados.</p>
+                </div>
+              </div>
+              <div class="settings-card-body">
+                <label class="settings-label" data-i18n="set.histVisible">Historial visible</label>
+                <div class="settings-toggle-group">
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="history_scope" id="pref-history-current" value="current" checked />
+                    <span data-i18n="set.currentOnly">Solo cuatrimestre actual</span>
+                  </label>
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="history_scope" id="pref-history-all" value="all" />
+                    <span data-i18n="set.allQuarters">Todos los cuatrimestres</span>
+                  </label>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button id="settings-prefs-save-btn" type="button" class="btn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span data-i18n="set.savePrefs">Guardar preferencias</span>
+                </button>
+                <span id="settings-prefs-save-status" class="settings-save-status"></span>
+              </div>
+            </div>
+            <div class="settings-card settings-card--info" id="settings-quarter-card">
+              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.yearContext">Contexto del año</strong>
+                  <p class="settings-card-desc" data-i18n="set.yearDesc">Referencia del cuatrimestre y año en curso según el calendario de la IAFCJ.</p>
+                </div>
+              </div>
+              <div id="settings-quarter-body" class="settings-quarter-body"></div>
+            </div>
+            <!-- Language card -->
+            <div class="settings-card" id="settings-language-card">
+              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.language">Idioma</strong>
+                  <p class="settings-card-desc" data-i18n="set.langDesc">Selecciona el idioma de la interfaz.</p>
+                </div>
+              </div>
+              <div class="settings-card-body">
+                <div class="settings-toggle-group">
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="settings_lang" id="settings-lang-es" value="es" />
+                    <span>Español</span>
+                  </label>
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="settings_lang" id="settings-lang-en" value="en" />
+                    <span>English</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+        </div><!-- /.workspace-grid -->
+      </div><!-- /.page-shell -->
+    </main><!-- /#app-content -->
+  </div><!-- /#app-layout -->
+
+  <!-- ── People edit dialog ──────────────────────────────────── -->
+  <dialog id="people-edit-dialog" class="app-dialog">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Catálogo</p>
+        <h3 id="people-dialog-title">Nueva persona</h3>
+      </div>
+      <button id="people-dialog-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div id="people-dialog-info-row" class="people-dialog-info-row" hidden>
+        <div class="people-dialog-info-item">
+          <span class="info-label">Funciones actuales</span>
+          <div id="people-dialog-function-badges" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+        <div class="people-dialog-info-item">
+          <span class="info-label">Célula actual</span>
+          <span id="people-dialog-cell-badge" class="catalog-assignment-chip"></span>
+        </div>
+      </div>
+      <form id="people-form" class="stack-grid compact-stack">
+        <input id="people-edit-id" type="hidden">
+        <label>
+          <span>Nombre</span>
+          <input name="name" type="text" required>
+        </label>
+        <div class="split-grid">
+          <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
+            <input id="people-is-kid" name="isKid" type="checkbox" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
+            <span>Es menor de edad <small style="font-weight:400;opacity:.6">(niño/a)</small></span>
+          </label>
+          <label>
+            <span>Teléfono</span>
+            <input name="phone" type="text">
+          </label>
+        </div>
+        <div id="people-guardian-fields" class="split-grid guardian-grid" hidden>
+          <label>
+            <span>Responsable en catálogo</span>
+            <select id="people-guardian-person" name="guardianPersonId"></select>
+          </label>
+          <label>
+            <span>Responsable de referencia</span>
+            <input id="people-guardian-name" name="guardianName" type="text" placeholder="Ej. mamá de la visita">
+          </label>
+        </div>
+        <label>
+          <span>Correo</span>
+          <input name="email" type="email">
+        </label>
+      </form>
+
+      <!-- ── Sección de célula ──────────────────────────────── -->
+      <div class="dialog-section-divider">
+        <span>Célula</span>
+      </div>
+      <label>
+        <span>Asignar a célula <small style="font-weight:400;opacity:.6">(mover retira de la anterior)</small></span>
+        <select id="people-dialog-cell-select">
+          <option value="">— Sin célula —</option>
+        </select>
+      </label>
+      <div id="people-dialog-leader-warn" class="dialog-warn-box" hidden></div>
+
+      <!-- ── Sección de rol / acceso ────────────────────────── -->
+      <div class="dialog-section-divider">
+        <span>Función en la célula</span>
+      </div>
+      <div id="people-dialog-role-fields" class="stack-grid compact-stack">
+        <label id="people-dialog-cell-role-field">
+          <span>Función <small style="font-weight:400;opacity:.6">(dentro de su célula asignada)</small></span>
+          <select id="people-dialog-cell-role-select">
+            <option value="">— Solo miembro —</option>
+            <option value="leader">Líder</option>
+            <option value="assistant">Asistente</option>
+            <option value="host">Anfitrión</option>
+          </select>
+        </label>
+        <label id="people-supervisor-field">
+          <span>Supervisa sector <small style="font-weight:400;opacity:.6">(dejar vacío si no aplica)</small></span>
+          <select name="supervisorSector" form="people-form">
+            <option value="">— No es supervisor —</option>
+          </select>
+        </label>
+        <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
+          <input id="people-is-coordinator" name="isCoordinator" type="checkbox" form="people-form" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
+          <span>Es coordinador <small style="font-weight:400;opacity:.6">(acceso total)</small></span>
+        </label>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button id="people-reset-button" type="button" class="btn btn-ghost" data-tooltip="Descartar cambios y cerrar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> <span data-i18n="pdlg.cancel">Cancelar</span></button>
+      <button id="people-dialog-save-btn" type="submit" form="people-form" class="btn btn-primary" data-tooltip="Guardar los datos de esta persona"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span data-i18n="pdlg.savePerson">Guardar persona</span></button>
+    </div>
+  </dialog>
+
+  <!-- ── RCM progress dialog ───────────────────────────────────── -->
+  <dialog id="people-rcm-dialog" class="app-dialog app-dialog-wide">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Progreso RCM</p>
+        <h3 id="rcm-dialog-title">Persona</h3>
+      </div>
+      <button id="rcm-dialog-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="people-rcm-panel" class="dialog-body rcm-dialog-body"></div>
+    <div class="dialog-footer">
+      <button id="rcm-dialog-done-btn" type="button" class="btn btn-primary" data-tooltip="Cerrar el panel de progreso RCM"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> <span data-i18n="rcm.done">Listo</span></button>
+    </div>
+  </dialog>
+
+  <!-- ── Cell edit dialog ─────────────────────────────────────── -->
+  <dialog id="cell-edit-dialog" class="app-dialog app-dialog-wide">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Catálogo</p>
+        <h3 id="cell-dialog-title">Nueva célula</h3>
+      </div>
+      <button id="cell-dialog-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="dialog-body">
+      <form id="cells-form" class="stack-grid compact-stack">
+        <input id="cells-edit-id" type="hidden">
+        <input id="cell-admin-select" type="hidden">
+        <div class="split-grid split-grid-4">
+          <label>
+            <span>Célula #</span>
+            <input name="cellNumber" type="text" required placeholder="Ej. 12">
+          </label>
+          <label>
+            <span>Red</span>
+            <input name="networkName" type="text" placeholder="Ej. Rosarito">
+          </label>
+          <label>
+            <span>Sector</span>
+            <select id="cell-sector-select" name="sector" required></select>
+          </label>
+          <label>
+            <span>Zona</span>
+            <input name="zoneName" type="text">
+          </label>
+        </div>
+        <div class="split-grid split-grid-2">
+          <label>
+            <span>Distrito</span>
+            <input name="districtName" type="text">
+          </label>
+          <label style="flex:2">
+            <span>Domicilio</span>
+            <input name="address" type="text" placeholder="Calle, número, colonia…">
+          </label>
+        </div>
+        <!-- hidden fields still used by form submission -->
+        <input id="cell-leader-select" name="leaderPersonId" type="hidden">
+        <input id="cell-assistant-select" name="assistantPersonId" type="hidden">
+        <input id="cell-host-select" name="hostPersonId" type="hidden">
+      </form>
+      <div class="dialog-section-divider"><span>Miembros y roles</span></div>
+      <p class="member-admin-caption" style="margin:0 0 8px">Asigna roles a los miembros de esta célula. Solo personas sin célula asignada pueden agregarse.</p>
+      <form id="member-form" class="member-form">
+        <select id="member-person-select" style="flex:1"></select>
+        <button type="submit" data-tooltip="Agregar la persona seleccionada como miembro de esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button>
+        <button type="button" id="cell-dialog-new-person-btn" class="btn-secondary" data-tooltip="Crear una nueva persona y asignarla a esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> Nueva persona</button>
+      </form>
+      <div id="cell-dialog-msg" class="cell-dialog-msg" hidden></div>
+      <div id="cell-member-role-table" style="margin-top:10px"></div>
+      <div id="member-list" class="member-list" style="display:none"></div>
+    </div>
+    <div class="dialog-footer">
+      <span id="selected-cell-name" style="flex:1;font-size:0.8rem;color:var(--muted)"></span>
+      <button id="cells-reset-button" type="button" class="btn-secondary" data-tooltip="Descartar cambios y cerrar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancelar</button>
+      <button type="submit" form="cells-form" class="btn-primary" data-tooltip="Guardar los datos de esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar célula</button>
+    </div>
+  </dialog>
+
+  <!-- ── Report preview dialog ────────────────────────────────── -->
+  <dialog id="report-preview-dialog" class="app-dialog app-dialog-wide">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Vista previa</p>
+        <h3 id="preview-dialog-title">Reporte — Semana</h3>
+      </div>
+      <button id="preview-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="preview-dialog-body" class="dialog-body preview-dialog-body"></div>
+    <div class="dialog-footer" id="preview-dialog-footer">
+      <button id="preview-cancel-btn" type="button" class="btn btn-ghost">Seguir editando</button>
+      <button id="preview-edit-from-seg-btn" type="button" class="btn btn-ghost" hidden>Editar reporte</button>
+      <button id="preview-confirm-btn" type="button" class="btn btn-primary" data-tooltip="Confirmar y enviar el reporte"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Confirmar y guardar</button>
+    </div>
+  </dialog>
+
+  <!-- ── Global tooltip ──────────────────────────────────── -->
+  <div id="app-tooltip" class="app-tooltip" hidden></div>
+
+  <!-- ── Generic confirm dialog ───────────────────────────── -->
+  <dialog id="app-confirm-dialog" class="app-dialog app-confirm-dialog">
+    <div class="dialog-head">
+      <h3 id="app-confirm-title">Confirmar</h3>
+    </div>
+    <div class="dialog-body">
+      <p id="app-confirm-message" style="margin:0;white-space:pre-line;line-height:1.6;"></p>
+    </div>
+    <div class="dialog-footer">
+      <button id="app-confirm-cancel" class="btn-secondary" data-tooltip="Cancelar esta acción"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancelar</button>
+      <button id="app-confirm-ok" class="btn-primary" data-tooltip="Confirmar y ejecutar la acción"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirmar</button>
+    </div>
+  </dialog>
+
+  <!-- ── Convocar a clase dialog ──────────────────────────── -->
+  <dialog id="convocar-dialog" class="app-dialog">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Convocatoria</p>
+        <h3>Registrar inicio de clase</h3>
+      </div>
+      <button id="convocar-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="field-row">
+        <label for="convocar-clase-select">Clase</label>
+        <select id="convocar-clase-select"></select>
+      </div>
+      <p class="eyebrow" style="margin-top:12px">Miembros que inician esta clase hoy</p>
+      <div id="convocar-member-list" class="convocar-member-list"></div>
+    </div>
+    <div class="dialog-footer">
+      <button id="convocar-cancel-btn" type="button" class="btn btn-ghost">Cancelar</button>
+      <button id="convocar-confirm-btn" type="button" class="btn btn-primary">Registrar convocatoria</button>
+    </div>
+  </dialog>
+
+  <!-- Member detail modal -->
+  <dialog id="member-detail-modal" class="member-modal">
+    <div class="member-modal-inner">
+      <div class="member-modal-head">
+        <div>
+          <p class="eyebrow" id="member-modal-period"></p>
+          <h2 id="member-modal-name"></h2>
+        </div>
+        <button type="button" class="member-modal-close" id="member-modal-close" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="member-modal-stats" id="member-modal-stats"></div>
+      <div class="member-modal-body" id="member-modal-body"></div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./app.js?v=20260509-rcm155"></script>
+</body>
+</html>
