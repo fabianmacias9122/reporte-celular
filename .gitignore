@@ -9,8 +9,8 @@ venv/
 .env
 *.egg-info/
 
-# DB (no subir la base de datos local, se crea automáticamente en el server)
-data/*.db
+# DB - se sube al repo para persistencia en Render free tier
+# data/*.db
 
 # OS
 .DS_Store
