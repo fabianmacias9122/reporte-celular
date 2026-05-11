@@ -3766,15 +3766,13 @@ function renderReports(reports) {
           const verb = info?.verb || (w === "16" ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            const editable = isReportEditable(rep);
-            const action   = editable ? "edit-report" : "view-report";
-            const lockIcon = editable ? "" : '<span class="cycle-chip-lock" title="Semana cerrada">🔒</span>';
-            return `<button type="button" class="cycle-week-chip is-done phase-chip-${phaseKey}${editable ? "" : " is-locked"}"
-              data-action="${action}" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${escapeHtml(formatShortDate(rep.reportDate))}${editable ? "" : " (cerrada)"}">
+            // Siempre abrir modal preview; el botón "Editar" dentro del modal
+            // decide si puede editarse (semana actual o gracia).
+            return `<button type="button" class="cycle-week-chip is-done phase-chip-${phaseKey}"
+              data-action="view-report" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${escapeHtml(formatShortDate(rep.reportDate))}">
               <span class="cycle-chip-num">${w}</span>
               <span class="cycle-chip-verb">${escapeHtml(verb)}</span>
               ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
-              ${lockIcon}
             </button>`;
           }
           return `<button type="button" class="cycle-week-chip is-pending" disabled
