@@ -250,6 +250,7 @@ let appSettings = {};   // loaded from /api/settings
 let historyScope = "current"; // "current" = solo cuatrimestre activo, "all" = todo
 let editingReportId = null;
 let reportReadOnlyMode = false;  // true when viewing a closed-week report in the form
+let suppressWeekChangeHandler = false;  // prevents re-entrant change events from form.reset()
 let activePeopleFilter = "all";
 let activePeopleSearch = "";
 let activeCellSearch = "";
@@ -4246,7 +4247,9 @@ function enterReadOnlyMode(report) {
 
   // Load form data
   const formData = report.formData || report;
+  suppressWeekChangeHandler = true;
   reportForm.reset();
+  suppressWeekChangeHandler = false;
   Object.entries(formData).forEach(([name, value]) => {
     const field = reportForm.elements.namedItem(name);
     if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
@@ -4299,7 +4302,9 @@ function exitReadOnlyMode() {
 function resetReportForm() {
   exitReadOnlyMode();
   editingReportId = null;
+  suppressWeekChangeHandler = true;
   reportForm.reset();
+  suppressWeekChangeHandler = false;
   currentVisitors = [];
   currentMemberAttendance = [];
   currentKids = [];
@@ -5502,6 +5507,7 @@ cellMemberRoleTable?.addEventListener("click", async (e) => {
 });
 weekField.addEventListener("change", syncPhaseIndicator);
 weekField.addEventListener("change", async () => {
+  if (suppressWeekChangeHandler) return; // form.reset() triggered this — ignore
   if (editingReportId) return; // don't interfere when editing a specific report
   const selectedWeek = parseInt(weekField.value, 10);
   if (!selectedWeek) return;
