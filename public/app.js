@@ -3930,6 +3930,7 @@ function renderSeguimiento(reports) {
         const baptismChip  = baptismCount > 0
           ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
           : "";
+        const progressPct = Math.round((totalDone / 16) * 100);
         return `
           <div class="cycle-card" data-cell-number="${escapeHtml(String(cell))}">
             <div class="cycle-card-head">
@@ -5507,37 +5508,40 @@ cellMemberRoleTable?.addEventListener("click", async (e) => {
 });
 weekField.addEventListener("change", syncPhaseIndicator);
 weekField.addEventListener("change", async () => {
-  if (suppressWeekChangeHandler) return; // form.reset() triggered this — ignore
-  if (editingReportId) return; // don't interfere when editing a specific report
+  if (suppressWeekChangeHandler) { console.log("[week-change] suppressed"); return; }
+  if (editingReportId) { console.log("[week-change] editing"); return; }
   const selectedWeek = parseInt(weekField.value, 10);
-  if (!selectedWeek) return;
+  if (!selectedWeek) { console.log("[week-change] no week"); return; }
   const cell = cellField.value;
-  if (!cell) return;
+  if (!cell) { console.log("[week-change] no cell"); return; }
   const realWeek = getQuarterWeekNumber();
+  console.log("[week-change] selectedWeek=", selectedWeek, "realWeek=", realWeek, "cell=", cell);
   if (selectedWeek >= realWeek) {
-    // Current or future week — exit read-only if we were in it
     if (reportReadOnlyMode) exitReadOnlyMode();
     return;
   }
   // Past week — check if there's an existing report
   const cycleStartStr = appSettings.cycle_start_date;
-  const existing = reportsData.find(r => {
+  console.log("[week-change] searching past report, cycleStartStr=", cycleStartStr, "reportsData.length=", reportsData.length);
+  const matches = reportsData.filter(r => {
     const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
     const rWeek = Number(getReportWeek(r));
-    if (rCell !== String(cell) || rWeek !== selectedWeek) return false;
-    if (cycleStartStr) {
-      const rDate = String(r.reportDate || r.formData?.reportDate || "");
-      return rDate >= cycleStartStr;
-    }
-    return true;
+    return rCell === String(cell) && rWeek === selectedWeek;
   });
+  console.log("[week-change] matches by cell+week:", matches.map(r => ({ id: r.id, date: r.reportDate })));
+  const existing = matches.find(r => {
+    if (!cycleStartStr) return true;
+    const rDate = String(r.reportDate || r.formData?.reportDate || "");
+    return rDate >= cycleStartStr;
+  });
+  console.log("[week-change] existing chosen:", existing?.id);
   if (existing) {
     try {
       const payload = await request(`/api/reports/${existing.id}`);
+      console.log("[week-change] loaded payload, entering readonly");
       enterReadOnlyMode(payload.report);
-    } catch { /* silently ignore */ }
+    } catch (err) { console.error("[week-change] fetch error:", err); }
   } else {
-    // No report for this past week — closed for everyone
     setFeedback(`La semana ${selectedWeek} ya cerró y no tiene reporte registrado.`, true);
     weekField.value = String(realWeek);
     syncPhaseIndicator();
