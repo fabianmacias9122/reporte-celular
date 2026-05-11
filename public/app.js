@@ -5761,6 +5761,7 @@ async function saveDraft(stage) {
   clearFeedback();
   const fd = new FormData(reportForm);
   const payload = Object.fromEntries(fd.entries());
+  payload.week          = weekField.value      || payload.week          || "";
   payload.cellNumber    = cellField.value        || payload.cellNumber    || "";
   payload.leaderName    = leaderField.value    || payload.leaderName    || "";
   payload.assistantName = assistantField.value || payload.assistantName || "";
@@ -5810,6 +5811,7 @@ async function finalizarReporte() {
   clearFeedback();
   const fd = new FormData(reportForm);
   const payload = Object.fromEntries(fd.entries());
+  payload.week          = weekField.value      || payload.week          || "";
   payload.cellNumber    = cellField.value        || payload.cellNumber    || "";
   payload.leaderName    = leaderField.value    || payload.leaderName    || "";
   payload.assistantName = assistantField.value || payload.assistantName || "";
