@@ -1194,6 +1194,7 @@ function initGraceBanner() {
   const banner     = document.getElementById("grace-banner");
   const bannerText = document.getElementById("grace-banner-text");
   const closeBtn   = document.getElementById("grace-banner-close");
+  const captureBtn = document.getElementById("grace-banner-capture");
   if (!banner || !bannerText) return;
 
   let _timer = null;
@@ -1261,6 +1262,23 @@ function initGraceBanner() {
   closeBtn?.addEventListener("click", () => {
     banner.hidden = true;
     if (_timer) { clearInterval(_timer); _timer = null; }
+  });
+
+  // Botón "Capturar ahora" — abre el formulario en la semana de gracia (semana anterior)
+  captureBtn?.addEventListener("click", () => {
+    const prevWeek = getCurrentWeekNumber();
+    const cell = currentUser?.assignedCellNumber || cellField.value;
+    if (cell) {
+      cellField.value = String(cell);
+      syncReportWithCell(true);
+    }
+    // Repoblar para que la semana de gracia esté habilitada
+    populateWeekOptions();
+    weekField.value = String(prevWeek);
+    syncPhaseIndicator();
+    showView("report");
+    showStage("encabezado", { skipWeekCheck: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
   tick();

@@ -1777,6 +1777,12 @@ th#member-event-col-header::before { content: "★ "; }
   line-height:1;
 }
 .grace-banner-close:hover { background: rgba(0,0,0,.06); }
+.grace-banner-action {
+  background: #f6c90e; border: none; color: #4a3800; font-weight: 700;
+  cursor: pointer; padding: 5px 12px; border-radius: 6px; font-size: 0.78rem;
+  flex-shrink: 0; line-height: 1.2;
+}
+.grace-banner-action:hover { background: #e6b80b; }
 .rcm-panel-section { display: flex; flex-direction: column; gap: 4px; }
 .rcm-panel-section-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; padding: 2px 7px; border-radius: 999px; display: inline-block; margin-bottom: 2px; }
 .phase-badge-ganar.rcm-panel-section-title { background: var(--warning-soft); color: #92600a; }
