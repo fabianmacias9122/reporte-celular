@@ -1242,18 +1242,36 @@ function renderMetricSections() {
 }
 
 function populateWeekOptions() {
-  const maxAllowed = getCurrentWeekNumber();
+  const currentWeek = getCurrentWeekNumber();
+  const graceHours  = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+
+  // During grace period the previous week is also selectable
+  const inGrace = graceHours > 0 && (() => {
+    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
+    const now = new Date();
+    if (now.getDay() !== weekStartDay) return false;
+    const hoursElapsed = now.getHours() + now.getMinutes() / 60;
+    return hoursElapsed < graceHours;
+  })();
+
+  // minAllowed: during grace, allow previous week; otherwise only current and future are blocked by > maxAllowed
+  const minAllowed = inGrace ? currentWeek - 1 : currentWeek;
+
   weekField.innerHTML = Array.from({ length: 16 }, (_, index) => {
     const value = String(index + 1);
-    const num = index + 1;
-    const info = getRcmWeekInfo(value);
+    const num   = index + 1;
+    const info  = getRcmWeekInfo(value);
     const phaseLabel = info ? info.phaseLabel : "";
-    const verbPart = info && info.verb ? ` · ${info.verb}` : "";
-    const eventMark = info && info.isEventWeek ? " ★" : "";
-    const disabled = num > maxAllowed ? " disabled" : "";
-    const future = num > maxAllowed ? " (no disponible)" : "";
-    return `<option value="${value}"${disabled}>${value} — ${phaseLabel}${verbPart}${eventMark}${future}</option>`;
+    const verbPart   = info && info.verb ? ` · ${info.verb}` : "";
+    const eventMark  = info && info.isEventWeek ? " ★" : "";
+    const disabled   = (num > currentWeek || num < minAllowed) ? " disabled" : "";
+    const future     = num > currentWeek ? " (no disponible)" : "";
+    const pastNote   = num < minAllowed ? " (cerrada)" : "";
+    return `<option value="${value}"${disabled}>${value} — ${phaseLabel}${verbPart}${eventMark}${future}${pastNote}</option>`;
   }).join("");
+
+  // Always force-select the current week
+  weekField.value = String(currentWeek);
 }
 
 function syncPhaseIndicator() {
