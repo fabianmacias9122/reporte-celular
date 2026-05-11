@@ -5741,7 +5741,16 @@ async function autoLoadExistingReportIfAny(cell, week) {
     assistantField.value = formData.assistantName || "";
     hostField.value = formData.hostName || "";
     syncReportWithCell(false, formData);
-    setFeedback(`Semana ${week} ya tiene reporte — editando el existente.`);
+    // Si el borrador trae registrada la última etapa guardada, avanzar a la siguiente
+    const savedStage = formData.lastStage;
+    if (savedStage) {
+      const idx = STAGES.indexOf(savedStage);
+      const nextStage = (idx >= 0 && idx < STAGES.length - 1) ? STAGES[idx + 1] : savedStage;
+      showStage(nextStage, { skipWeekCheck: true });
+      setFeedback(`Continuando borrador en “${nextStage}”.`);
+    } else {
+      setFeedback(`Semana ${week} ya tiene reporte — editando el existente.`);
+    }
   } catch {
     // silently ignore, leave form in new-report mode
   }
@@ -5763,6 +5772,7 @@ async function saveDraft(stage) {
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
   payload.attendanceSummary = computeWeeklySummary();
   payload._draft = true;
+  payload.lastStage = stage;
   payload.cycleReportId = computeCycleReportId(payload.cellNumber, getReportYearValue());
 
   if (!payload.week || !payload.cellNumber) {
@@ -5784,12 +5794,7 @@ async function saveDraft(stage) {
   }
 }
 
-document.querySelector("#save-draft-encabezado")?.addEventListener("click",    () => saveDraft("encabezado"));
-document.querySelector("#save-draft-planificacion")?.addEventListener("click",  () => saveDraft("planificacion"));
-document.querySelector("#save-draft-alcance")?.addEventListener("click",        () => saveDraft("alcance"));
-document.querySelector("#save-draft-culto")?.addEventListener("click",          () => saveDraft("culto"));
 document.querySelector("#save-next-culto")?.addEventListener("click",           () => saveDraftAndAdvance("culto"));
-document.querySelector("#save-draft-cierre")?.addEventListener("click",         () => saveDraft("cierre"));
 document.querySelector("#finalizar-reporte")?.addEventListener("click",         () => finalizarReporte());
 
 // Guardar y continuar — saves then advances to next stage
@@ -5817,6 +5822,7 @@ async function finalizarReporte() {
   payload.attendanceSummary = computeWeeklySummary();
   payload.cycleReportId     = computeCycleReportId(payload.cellNumber, getReportYearValue());
   delete payload._draft;
+  delete payload.lastStage;
 
   if (!payload.week || !payload.cellNumber) {
     setFeedback(t("err.selectWeekCellFin"), true);
