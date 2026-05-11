@@ -4175,7 +4175,7 @@ function resetReportForm() {
   // Clear all stage badges and draft indicators
   document.querySelectorAll(".stage-tab-badge").forEach(b => b.hidden = true);
   document.querySelectorAll(".stage-tab").forEach(t => t.classList.remove("has-draft"));
-  weekField.value = String(getCurrentWeekNumber());
+  weekField.value = "";
   renderReportPersonSelects();
   renderCellOptions();
   if (catalogs.cells.length) {
@@ -4189,7 +4189,10 @@ function resetReportForm() {
   if (dateField instanceof HTMLInputElement) {
     dateField.value = new Date().toISOString().slice(0, 10);
   }
-  syncWeekFieldWithReportDate(true);
+  // Set current week — populateWeekOptions already locked disabled options,
+  // just ensure the value matches the current week (respects grace hours)
+  weekField.value = String(getCurrentWeekNumber());
+  syncPhaseIndicator();
   renderBaptismTable();
 }
 
@@ -6353,7 +6356,6 @@ if (convocarDialog) convocarDialog.addEventListener("click", (e) => { if (e.targ
 if (convocarConfirmBtn) convocarConfirmBtn.addEventListener("click", handleConvocarConfirm);
 
 
-populateWeekOptions();
 syncPhaseIndicator();
 renderMetricSections();
 populatePeopleForm();
@@ -6381,6 +6383,7 @@ if (_savedSession) {
 
 await loadCatalogs();
 await loadSettings();
+populateWeekOptions();
 resetReportForm();
 await loadHealth();
 await loadReports();
