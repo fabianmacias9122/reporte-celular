@@ -3737,11 +3737,15 @@ function renderReports(reports) {
           const verb = info?.verb || (w === "16" ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            return `<button type="button" class="cycle-week-chip is-done phase-chip-${phaseKey}"
-              data-action="edit-report" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${escapeHtml(formatShortDate(rep.reportDate))}">
+            const editable = isReportEditable(rep);
+            const action   = editable ? "edit-report" : "view-report";
+            const lockIcon = editable ? "" : '<span class="cycle-chip-lock" title="Semana cerrada">🔒</span>';
+            return `<button type="button" class="cycle-week-chip is-done phase-chip-${phaseKey}${editable ? "" : " is-locked"}"
+              data-action="${action}" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${escapeHtml(formatShortDate(rep.reportDate))}${editable ? "" : " (cerrada)"}">
               <span class="cycle-chip-num">${w}</span>
               <span class="cycle-chip-verb">${escapeHtml(verb)}</span>
               ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
+              ${lockIcon}
             </button>`;
           }
           return `<button type="button" class="cycle-week-chip is-pending" disabled
@@ -3892,16 +3896,33 @@ function renderSeguimiento(reports) {
               ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
             </button>`;
           }
-          return `<button type="button" class="cycle-week-chip is-pending is-capturable"
-            data-action="new-report-for-cell" data-cell="${escapeHtml(cell)}" data-week="${w}"
-            title="Sem ${w} · ${verb} — sin reporte, clic para capturar">
+          // Pending chip: only allow capture if week is still open
+          const realWeek = getQuarterWeekNumber();
+          const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+          const inGrace = graceHours > 0 && (() => {
+            const wsd = parseInt(appSettings?.week_start_day ?? "0", 10);
+            const now = new Date();
+            return now.getDay() === wsd && (now.getHours() + now.getMinutes() / 60) < graceHours;
+          })();
+          const wNum = Number(w);
+          const minOpen = inGrace ? Math.max(1, realWeek - 1) : realWeek;
+          const weekOpen = currentUser?.isAdmin || (wNum >= minOpen && wNum <= realWeek);
+          if (weekOpen) {
+            return `<button type="button" class="cycle-week-chip is-pending is-capturable"
+              data-action="new-report-for-cell" data-cell="${escapeHtml(cell)}" data-week="${w}"
+              title="Sem ${w} · ${verb} — sin reporte, clic para capturar">
+              <span class="cycle-chip-num">${w}</span>
+              <span class="cycle-chip-verb">${escapeHtml(verb)}</span>
+              ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
+            </button>`;
+          }
+          return `<button type="button" class="cycle-week-chip is-pending" disabled
+            title="Sem ${w} · ${verb} — cerrada">
             <span class="cycle-chip-num">${w}</span>
             <span class="cycle-chip-verb">${escapeHtml(verb)}</span>
             ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
           </button>`;
         }).join("");
-
-        const progressPct = Math.round((totalDone / 16) * 100);
         const baptismCount = reps.reduce((s, r) => s + (Array.isArray(r.formData?.baptisms) ? r.formData.baptisms.length : 0), 0);
         const baptismChip  = baptismCount > 0
           ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
@@ -4827,6 +4848,30 @@ async function handleMemberSubmit(event) {
   }
 }
 
+// Returns true if the report can still be edited.
+// Rules:
+//   - The report's week must equal the real current week, OR
+//   - Grace is active AND the report's week equals realCurrentWeek - 1 (previous week is still open)
+//   - Coordinators (isAdmin) can always edit any report
+function isReportEditable(report) {
+  if (currentUser?.isAdmin) return true;
+  const reportWeek = Number(getReportWeek(report));
+  if (!reportWeek) return false;
+  const realWeek = getQuarterWeekNumber();
+  if (reportWeek === realWeek) return true;
+  // Grace check: allow previous week during grace period
+  const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+  if (graceHours > 0 && reportWeek === realWeek - 1) {
+    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
+    const now = new Date();
+    if (now.getDay() === weekStartDay) {
+      const hoursElapsed = now.getHours() + now.getMinutes() / 60;
+      if (hoursElapsed < graceHours) return true;
+    }
+  }
+  return false;
+}
+
 function getReportByRowId(reportId) {
   const row = Array.from(reportTableBody.querySelectorAll("button[data-action='edit-report']")).find((button) => button.dataset.id === String(reportId));
   return row ? true : false;
@@ -4842,6 +4887,11 @@ async function handleReportTableClick(event) {
   try {
     if (button.dataset.action === "edit-report") {
       const payload = await request(`/api/reports/${reportId}`);
+      const report  = payload.report;
+      if (!isReportEditable(report)) {
+        setFeedback("Este reporte ya no puede editarse — la semana ha cerrado.", true);
+        return;
+      }
       editingReportId = Number(reportId);
       reportForm.reset();
       const formData = payload.report.formData || payload.report;
@@ -5544,6 +5594,8 @@ async function autoLoadExistingReportIfAny(cell, week) {
     return rCell === String(cell) && rWeek === Number(week) && rDate >= cycleStartStr;
   });
   if (!existing) return;
+  // If the report is no longer editable (closed week), don't load it into edit mode
+  if (!isReportEditable(existing)) return;
 
   try {
     const payload = await request(`/api/reports/${existing.id}`);
@@ -5833,7 +5885,8 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
       if (cancelBtn)  cancelBtn.hidden  = true;
       if (confirmBtn) confirmBtn.hidden = true;
       if (editFromSegBtn) {
-        editFromSegBtn.hidden = false;
+        // Only show edit button if the report is still editable
+        editFromSegBtn.hidden = !isReportEditable(report);
         // Wire once so no stale listeners
         const handler = async () => {
           reportPreviewDialog.close();
