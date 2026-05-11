@@ -3907,7 +3907,7 @@ function renderSeguimiento(reports) {
           })();
           const wNum = Number(w);
           const minOpen = inGrace ? Math.max(1, realWeek - 1) : realWeek;
-          const weekOpen = currentUser?.isAdmin || (wNum >= minOpen && wNum <= realWeek);
+          const weekOpen = wNum >= minOpen && wNum <= realWeek;
           if (weekOpen) {
             return `<button type="button" class="cycle-week-chip is-pending is-capturable"
               data-action="new-report-for-cell" data-cell="${escapeHtml(cell)}" data-week="${w}"
@@ -4913,7 +4913,6 @@ async function handleMemberSubmit(event) {
 //   - Grace is active AND the report's week equals realCurrentWeek - 1 (previous week is still open)
 //   - Coordinators (isAdmin) can always edit any report
 function isReportEditable(report) {
-  if (currentUser?.isAdmin) return true;
   const reportWeek = Number(getReportWeek(report));
   if (!reportWeek) return false;
   const realWeek = getQuarterWeekNumber();
@@ -5531,12 +5530,10 @@ weekField.addEventListener("change", async () => {
       enterReadOnlyMode(payload.report);
     } catch { /* silently ignore */ }
   } else {
-    // No report yet for this past week — if coordinador, allow creating; otherwise block
-    if (!currentUser?.isAdmin) {
-      setFeedback(`La semana ${selectedWeek} ya cerró y no tiene reporte registrado.`, true);
-      weekField.value = String(realWeek);
-      syncPhaseIndicator();
-    }
+    // No report for this past week — closed for everyone
+    setFeedback(`La semana ${selectedWeek} ya cerró y no tiene reporte registrado.`, true);
+    weekField.value = String(realWeek);
+    syncPhaseIndicator();
   }
 });
 showReportViewButton.addEventListener("click", () => showView("report"));
@@ -5940,6 +5937,11 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
   if (btn.dataset.action === "new-report-for-cell") {
     const cell = btn.dataset.cell;
     const week = btn.dataset.week;
+    const realWeek = getQuarterWeekNumber();
+    if (Number(week) < realWeek) {
+      setFeedback(`La semana ${week} ya cerró y no puede capturarse.`, true);
+      return;
+    }
     resetReportForm();
     if (cell) { cellField.value = cell; syncReportWithCell(true); }
     if (week) { weekField.value = week; syncPhaseIndicator(); }
@@ -5968,6 +5970,12 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
   if (btn.dataset.action === "new-report-for-cell") {
     const cell = btn.dataset.cell;
     const week = btn.dataset.week;
+    const realWeek = getQuarterWeekNumber();
+    // Block past weeks — should not be reachable (chip is disabled), but defensive
+    if (Number(week) < realWeek) {
+      setFeedback(`La semana ${week} ya cerró y no puede capturarse.`, true);
+      return;
+    }
     resetReportForm();
     if (cell) { cellField.value = cell; syncReportWithCell(true); }
     if (week) { weekField.value = week; syncPhaseIndicator(); }
