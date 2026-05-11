@@ -1292,8 +1292,9 @@ function renderMetricSections() {
 }
 
 function populateWeekOptions() {
-  const currentWeek = getCurrentWeekNumber();
-  const graceHours  = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+  // realWeek: the actual current week ignoring grace (used as max allowed and default selection)
+  const realWeek  = getQuarterWeekNumber();
+  const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
 
   // During grace period the previous week is also selectable
   const inGrace = graceHours > 0 && (() => {
@@ -1304,8 +1305,8 @@ function populateWeekOptions() {
     return hoursElapsed < graceHours;
   })();
 
-  // minAllowed: during grace, allow previous week; otherwise only current and future are blocked by > maxAllowed
-  const minAllowed = inGrace ? currentWeek - 1 : currentWeek;
+  // minAllowed: during grace allow previous week; otherwise only current week
+  const minAllowed = inGrace ? Math.max(1, realWeek - 1) : realWeek;
 
   weekField.innerHTML = Array.from({ length: 16 }, (_, index) => {
     const value = String(index + 1);
@@ -1314,14 +1315,14 @@ function populateWeekOptions() {
     const phaseLabel = info ? info.phaseLabel : "";
     const verbPart   = info && info.verb ? ` · ${info.verb}` : "";
     const eventMark  = info && info.isEventWeek ? " ★" : "";
-    const disabled   = (num > currentWeek || num < minAllowed) ? " disabled" : "";
-    const future     = num > currentWeek ? " (no disponible)" : "";
+    const disabled   = (num > realWeek || num < minAllowed) ? " disabled" : "";
+    const future     = num > realWeek ? " (no disponible)" : "";
     const pastNote   = num < minAllowed ? " (cerrada)" : "";
     return `<option value="${value}"${disabled}>${value} — ${phaseLabel}${verbPart}${eventMark}${future}${pastNote}</option>`;
   }).join("");
 
-  // Always force-select the current week
-  weekField.value = String(currentWeek);
+  // Always force-select the real current week (not grace-adjusted)
+  weekField.value = String(realWeek);
 }
 
 function syncPhaseIndicator() {
@@ -5411,7 +5412,7 @@ const STAGES = ["encabezado", "planificacion", "alcance", "culto", "cierre"];
 function showStage(stage, { skipWeekCheck = false } = {}) {
   // Bloquear avance si la semana seleccionada es mayor a la semana actual
   if (stage !== "encabezado" && !skipWeekCheck) {
-    const maxWeek = getCurrentWeekNumber();
+    const maxWeek = getQuarterWeekNumber();
     const selectedWeek = parseInt(weekField?.value || "1", 10);
     if (selectedWeek > maxWeek) {
       setFeedback(`No puedes avanzar — la semana ${selectedWeek} aún no ha iniciado. Actualmente estamos en la semana ${maxWeek}.`, true);
@@ -5473,7 +5474,9 @@ function autoAdvanceWeekForCell(cellNumber) {
   const cell = String(cellNumber || "").trim();
   if (!cell) return;
 
-  const maxWeek = getCurrentWeekNumber();
+  // maxWeek = real current week (ignoring grace); grace only widens minWeek backward
+  const realCurrentWeek = getQuarterWeekNumber();
+  const maxWeek = realCurrentWeek;
   const cycleStartStr = appSettings.cycle_start_date;
 
   const currentYear = String(new Date().getFullYear());
