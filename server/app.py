@@ -1264,7 +1264,7 @@ def serialize_person(row: sqlite3.Row, assignments: list[dict] | None = None) ->
         "guardianName": row["guardian_person_name"] or row["guardian_name"] or "",
         "rcmProgress": parse_json_field(row["rcm_progress"]),
         "supervisorSector": row["supervisor_sector"] or "",
-        "isCoordinator": bool(row["is_coordinator"]),
+        "isCoordinator": bool(int(row["is_coordinator"] or 0)),
         "assignedCellId": primary_assignment["cellId"] if primary_assignment else None,
         "assignedCellNumber": primary_assignment["cellNumber"] if primary_assignment else "",
         "assignedCellCount": len(assignments),
