@@ -1150,7 +1150,12 @@ function getCurrentWeekNumber() {
 }
 
 function syncWeekFieldWithReportDate(force = false) {
-  const suggestedWeek = String(getQuarterWeekNumber(getReportDateValue()));
+  const reportDateVal = getReportDateValue();
+  // If there's a specific report date typed, use it directly.
+  // Otherwise use getCurrentWeekNumber() which respects grace hours.
+  const suggestedWeek = reportDateVal
+    ? String(getQuarterWeekNumber(reportDateVal))
+    : String(getCurrentWeekNumber());
   if (force || !String(weekField.value || "").trim()) {
     weekField.value = suggestedWeek;
   }
