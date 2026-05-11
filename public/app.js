@@ -1298,7 +1298,7 @@ function populateWeekOptions() {
   const realWeek  = getQuarterWeekNumber();
   const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
 
-  // During grace period the previous week is also selectable
+  // During grace period the previous week is also selectable (only if no report yet)
   const inGrace = graceHours > 0 && (() => {
     const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
     const now = new Date();
@@ -1307,8 +1307,23 @@ function populateWeekOptions() {
     return hoursElapsed < graceHours;
   })();
 
-  // minAllowed: during grace allow previous week; otherwise only current week
-  const minAllowed = inGrace ? Math.max(1, realWeek - 1) : realWeek;
+  // Set of past weeks for the current cell+cycle that ALREADY have a report
+  const cell = String(cellField?.value || "").trim();
+  const cycleStartStr = appSettings?.cycle_start_date;
+  const reportedPastWeeks = new Set();
+  if (cell) {
+    (reportsData || []).forEach(r => {
+      const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
+      if (rCell !== cell) return;
+      const rWeek = Number(getReportWeek(r));
+      if (!rWeek || rWeek >= realWeek) return;
+      if (cycleStartStr) {
+        const rDate = String(r.reportDate || r.formData?.reportDate || "");
+        if (rDate < cycleStartStr) return;
+      }
+      reportedPastWeeks.add(rWeek);
+    });
+  }
 
   weekField.innerHTML = Array.from({ length: 16 }, (_, index) => {
     const value = String(index + 1);
@@ -1317,11 +1332,22 @@ function populateWeekOptions() {
     const phaseLabel = info ? info.phaseLabel : "";
     const verbPart   = info && info.verb ? ` · ${info.verb}` : "";
     const eventMark  = info && info.isEventWeek ? " ★" : "";
-    // Only disable future weeks; past weeks are selectable (load in read-only via change handler)
-    const disabled   = num > realWeek ? " disabled" : "";
-    const future     = num > realWeek ? " (no disponible)" : "";
-    const pastNote   = num < minAllowed ? " 🔒" : "";
-    return `<option value="${value}"${disabled}>${value} — ${phaseLabel}${verbPart}${eventMark}${future}${pastNote}</option>`;
+
+    let disabled = false;
+    let note = "";
+    if (num > realWeek) {
+      disabled = true; note = " (no disponible)";
+    } else if (num < realWeek) {
+      // Past week
+      if (reportedPastWeeks.has(num)) {
+        disabled = true; note = " ✓ entregado";
+      } else if (inGrace && num === realWeek - 1) {
+        disabled = false; note = " · gracia";
+      } else {
+        disabled = true; note = " 🔒 cerrada";
+      }
+    }
+    return `<option value="${value}"${disabled ? " disabled" : ""}>${value} — ${phaseLabel}${verbPart}${eventMark}${note}</option>`;
   }).join("");
 
   // Always force-select the real current week (not grace-adjusted)
@@ -4585,6 +4611,12 @@ async function loadReports() {
     renderReports(reportsData);
     renderSeguimiento(reportsData);
     renderDashboard(reportsData);
+    // Refresh week-options to reflect newly submitted reports
+    if (weekField && !editingReportId) {
+      const prev = weekField.value;
+      populateWeekOptions();
+      if (prev) weekField.value = prev;
+    }
   } catch (error) {
     setFeedback(error.message, true);
   }
@@ -5507,46 +5539,8 @@ cellMemberRoleTable?.addEventListener("click", async (e) => {
   }
 });
 weekField.addEventListener("change", syncPhaseIndicator);
-weekField.addEventListener("change", async () => {
-  if (suppressWeekChangeHandler) { console.log("[week-change] suppressed"); return; }
-  if (editingReportId) { console.log("[week-change] editing"); return; }
-  const selectedWeek = parseInt(weekField.value, 10);
-  if (!selectedWeek) { console.log("[week-change] no week"); return; }
-  const cell = cellField.value;
-  if (!cell) { console.log("[week-change] no cell"); return; }
-  const realWeek = getQuarterWeekNumber();
-  console.log("[week-change] selectedWeek=", selectedWeek, "realWeek=", realWeek, "cell=", cell);
-  if (selectedWeek >= realWeek) {
-    if (reportReadOnlyMode) exitReadOnlyMode();
-    return;
-  }
-  // Past week — check if there's an existing report
-  const cycleStartStr = appSettings.cycle_start_date;
-  console.log("[week-change] searching past report, cycleStartStr=", cycleStartStr, "reportsData.length=", reportsData.length);
-  const matches = reportsData.filter(r => {
-    const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
-    const rWeek = Number(getReportWeek(r));
-    return rCell === String(cell) && rWeek === selectedWeek;
-  });
-  console.log("[week-change] matches by cell+week:", matches.map(r => ({ id: r.id, date: r.reportDate })));
-  const existing = matches.find(r => {
-    if (!cycleStartStr) return true;
-    const rDate = String(r.reportDate || r.formData?.reportDate || "");
-    return rDate >= cycleStartStr;
-  });
-  console.log("[week-change] existing chosen:", existing?.id);
-  if (existing) {
-    try {
-      const payload = await request(`/api/reports/${existing.id}`);
-      console.log("[week-change] loaded payload, entering readonly");
-      enterReadOnlyMode(payload.report);
-    } catch (err) { console.error("[week-change] fetch error:", err); }
-  } else {
-    setFeedback(`La semana ${selectedWeek} ya cerró y no tiene reporte registrado.`, true);
-    weekField.value = String(realWeek);
-    syncPhaseIndicator();
-  }
-});
+// Past weeks that are still selectable (grace period) — no special load needed.
+// Past weeks with existing reports are now `disabled` in the dropdown.
 showReportViewButton.addEventListener("click", () => showView("report"));
 showDashboardViewButton?.addEventListener("click", () => showView("dashboard"));
 showAdminViewButton.addEventListener("click", () => showView("admin"));
@@ -5939,6 +5933,7 @@ cellsTableBody?.addEventListener("click", async (e) => {
 });
 cellField.addEventListener("change", () => {
   syncReportWithCell(true);
+  populateWeekOptions(); // re-evaluate disabled past weeks for the new cell
   autoAdvanceWeekForCell(cellField.value);
 });
 reportForm.elements.namedItem("reportDate")?.addEventListener?.("change", () => {
@@ -5966,14 +5961,49 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
     showStage("encabezado", { skipWeekCheck: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
   } else if (btn.dataset.action === "view-report") {
-    // Closed-week chip: load in read-only mode in the report form
+    // Open preview modal (read-only) instead of loading in form
     const reportId = btn.dataset.id;
     try {
       const payload = await request(`/api/reports/${reportId}`);
-      showView("report");
-      showStage("encabezado", { skipWeekCheck: true });
-      enterReadOnlyMode(payload.report);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const report  = payload.report;
+      if (!reportPreviewDialog) return;
+      const cell = String(report.cellNumber || report.formData?.cellNumber || "—");
+      const week = String(report.formData?.week || report.week || "—");
+      if (previewDialogTitle) previewDialogTitle.textContent = `Célula ${cell} · Semana ${week}`;
+      if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
+      if (previewDialogFooter) previewDialogFooter.hidden = false;
+      const cancelBtn  = document.getElementById("preview-cancel-btn");
+      const confirmBtn = document.getElementById("preview-confirm-btn");
+      const editFromSegBtn = document.getElementById("preview-edit-from-seg-btn");
+      if (cancelBtn)  cancelBtn.hidden  = true;
+      if (confirmBtn) confirmBtn.hidden = true;
+      if (editFromSegBtn) {
+        editFromSegBtn.hidden = !isReportEditable(report);
+        editFromSegBtn.onclick = async () => {
+          reportPreviewDialog.close();
+          const fullPayload = await request(`/api/reports/${reportId}`);
+          editingReportId = Number(reportId);
+          reportForm.reset();
+          const formData = fullPayload.report.formData || fullPayload.report;
+          Object.entries(formData).forEach(([name, value]) => {
+            const field = reportForm.elements.namedItem(name);
+            if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+              field.value = value == null ? "" : String(value);
+            }
+          });
+          renderReportPersonSelects();
+          renderCellOptions();
+          if (formData.cellNumber) cellField.value = String(formData.cellNumber);
+          leaderField.value    = formData.leaderName    || "";
+          assistantField.value = formData.assistantName || "";
+          hostField.value      = formData.hostName      || "";
+          syncReportWithCell(false, formData);
+          showView("report");
+          showStage("encabezado", { skipWeekCheck: true });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+      }
+      reportPreviewDialog.showModal();
     } catch (err) { setFeedback(err.message, true); }
   } else {
     handleReportTableClick(e);
