@@ -4175,7 +4175,8 @@ function resetReportForm() {
   // Clear all stage badges and draft indicators
   document.querySelectorAll(".stage-tab-badge").forEach(b => b.hidden = true);
   document.querySelectorAll(".stage-tab").forEach(t => t.classList.remove("has-draft"));
-  weekField.value = "";
+  // Repopulate week options AFTER reset() (reset() clears the select value)
+  populateWeekOptions();
   renderReportPersonSelects();
   renderCellOptions();
   if (catalogs.cells.length) {
@@ -4189,9 +4190,6 @@ function resetReportForm() {
   if (dateField instanceof HTMLInputElement) {
     dateField.value = new Date().toISOString().slice(0, 10);
   }
-  // Set current week — populateWeekOptions already locked disabled options,
-  // just ensure the value matches the current week (respects grace hours)
-  weekField.value = String(getCurrentWeekNumber());
   syncPhaseIndicator();
   renderBaptismTable();
 }
