@@ -1164,9 +1164,11 @@ function getCurrentWeekNumber() {
       const hoursElapsed = now.getHours() + now.getMinutes() / 60;
       if (hoursElapsed < graceHours) {
         // Still in grace period: return previous week number
+        // NOTE: must pass ISO string (YYYY-MM-DD) — Date objects cause NaN inside getQuarterWeekNumber
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
-        return Math.max(1, getQuarterWeekNumber(yesterday));
+        const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
+        return Math.max(1, getQuarterWeekNumber(yStr));
       }
     }
   }
