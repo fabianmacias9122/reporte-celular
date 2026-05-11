@@ -844,7 +844,9 @@ function getDashboardPeriods(reports) {
   });
 
   // Always include the current RCM week/quarter so it appears even without reports
-  const currentWeek = String(getCurrentWeekNumber()).padStart(2, "0");
+  // Usar semana real (sin gracia) para que el dashboard refleje la semana actual,
+  // no la anterior cuando estamos dentro del periodo de gracia.
+  const currentWeek = String(getQuarterWeekNumber()).padStart(2, "0");
   const currentYear = String(new Date().getFullYear());
   const currentQuarter = getCurrentQuarter();
   const currentKey = `${currentYear}-Q${currentQuarter}-W${currentWeek}`;
@@ -897,7 +899,7 @@ function renderDashboardPeriodOptions(reports) {
 
   // Default: weekly
   const periods = getDashboardPeriods(reports);
-  const currentWeek    = String(getCurrentWeekNumber()).padStart(2, "0");
+  const currentWeek    = String(getQuarterWeekNumber()).padStart(2, "0");
   const currentYear    = String(new Date().getFullYear());
   const currentQuarter = getCurrentQuarter();
   const currentKey     = `${currentYear}-Q${currentQuarter}-W${currentWeek}`;
@@ -2008,7 +2010,7 @@ function renderDashboardForLeader(reports) {
   renderDashboardPeriodOptions(scopedReports);
 
   const { year: parsedYear, quarter: parsedQuarter, week: parsedWeek } = parsePeriodKey(activeDashboardPeriod);
-  const selectedWeek    = String(parsedWeek    || getCurrentWeekNumber());
+  const selectedWeek    = String(parsedWeek    || getQuarterWeekNumber());
   const selectedYear    = String(parsedYear    || new Date().getFullYear());
   const selectedQuarter = String(parsedQuarter || getCurrentQuarter());
 
@@ -2409,7 +2411,7 @@ function renderDashboard(reports) {
   const scopeLabel    = getDashboardScopeLabel();
   renderDashboardPeriodOptions(scopedReports);
   const { year: parsedYear, quarter: parsedQuarter, week: parsedWeek } = parsePeriodKey(activeDashboardPeriod);
-  const selectedWeek    = String(parsedWeek    || getCurrentWeekNumber());
+  const selectedWeek    = String(parsedWeek    || getQuarterWeekNumber());
   const selectedYear    = String(parsedYear    || new Date().getFullYear());
   const selectedQuarter = String(parsedQuarter || getCurrentQuarter());
 
@@ -4003,7 +4005,7 @@ function renderSeguimiento(reports) {
 
   // ── Células pendientes y actividad de la semana actual ────────────────────
   if (dashboardPendingCells || dashboardRecentActivity) {
-    const curWeek    = String(getCurrentWeekNumber());
+    const curWeek    = String(getQuarterWeekNumber());
     const curYear    = String(new Date().getFullYear());
     const curQuarter = String(getCurrentQuarter());
     const allScoped  = getScopedReports(reports);
