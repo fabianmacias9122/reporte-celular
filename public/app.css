@@ -805,6 +805,9 @@ tr.people-group-header + tr td { border-top: none; }
 .cycle-week-chip.phase-chip-cierre     { background: var(--warning-soft); border-color: rgba(154,86,0,0.2); color: var(--warning); }
 .cycle-week-chip.is-capturable { cursor: pointer; opacity: 0.65; border-style: dashed; }
 .cycle-week-chip.is-capturable:hover { opacity: 1; transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.cycle-week-chip.is-draft { cursor: pointer; background: #fff8e1; border-color: #f5c249; border-style: dashed; color: #8a6100; }
+.cycle-week-chip.is-draft:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.cycle-week-chip.is-draft::after { content: "✎"; position: absolute; top: 2px; right: 4px; font-size: 11px; color: #b8860b; }
 .cycle-week-chip.is-locked { opacity: 0.72; cursor: default; }
 .cycle-week-chip.is-locked:hover { transform: none; box-shadow: none; }
 .cycle-chip-lock { position: absolute; top: 3px; right: 4px; font-size: 0.6rem; opacity: 0.6; }

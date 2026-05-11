@@ -1335,6 +1335,8 @@ function populateWeekOptions() {
       if (rCell !== cell) return;
       const rWeek = Number(getReportWeek(r));
       if (!rWeek || rWeek >= realWeek) return;
+      const rDraft = r.formData?._draft === true || r.formData?._draft === "true";
+      if (rDraft) return; // un borrador no cuenta como entregado
       const rDate = String(r.reportDate || r.formData?.reportDate || "");
       if (!rDate || rDate < cycleStartStr) return; // skip reports from previous cycles
       reportedPastWeeks.add(rWeek);
@@ -3772,7 +3774,7 @@ function renderReports(reports) {
         const reps = groups[cell][year][quarter];
         const byWeek = {};
         reps.forEach(r => { byWeek[String(r.week)] = r; });
-        const totalDone = Object.keys(byWeek).length;
+        const totalDone = Object.values(byWeek).filter(r => !(r.formData?._draft === true || r.formData?._draft === "true")).length;
 
         const chips = Array.from({ length: 16 }, (_, i) => {
           const w = String(i + 1);
@@ -3782,10 +3784,13 @@ function renderReports(reports) {
           const verb = info?.verb || (w === "16" ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
+            const isDraft = rep.formData?._draft === true || rep.formData?._draft === "true";
+            const stateClass = isDraft ? "is-draft" : "is-done";
+            const stateTitle = isDraft ? "borrador en progreso" : escapeHtml(formatShortDate(rep.reportDate));
             // Siempre abrir modal preview; el botón "Editar" dentro del modal
             // decide si puede editarse (semana actual o gracia).
-            return `<button type="button" class="cycle-week-chip is-done phase-chip-${phaseKey}"
-              data-action="view-report" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${escapeHtml(formatShortDate(rep.reportDate))}">
+            return `<button type="button" class="cycle-week-chip ${stateClass} phase-chip-${phaseKey}"
+              data-action="view-report" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${stateTitle}">
               <span class="cycle-chip-num">${w}</span>
               <span class="cycle-chip-verb">${escapeHtml(verb)}</span>
               ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
@@ -3922,7 +3927,7 @@ function renderSeguimiento(reports) {
         const reps = groups[cell][year][quarter];
         const byWeek = {};
         reps.forEach(r => { byWeek[String(r.week)] = r; });
-        const totalDone = Object.keys(byWeek).length;
+        const totalDone = Object.values(byWeek).filter(r => !(r.formData?._draft === true || r.formData?._draft === "true")).length;
 
         const chips = Array.from({ length: 16 }, (_, i) => {
           const w = String(i + 1);
@@ -3932,8 +3937,11 @@ function renderSeguimiento(reports) {
           const verb = info?.verb || (w === "16" ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            return `<button type="button" class="cycle-week-chip is-done phase-chip-${phaseKey}"
-              data-action="view-report" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${escapeHtml(formatShortDate(rep.reportDate))}">
+            const isDraft = rep.formData?._draft === true || rep.formData?._draft === "true";
+            const stateClass = isDraft ? "is-draft" : "is-done";
+            const stateTitle = isDraft ? "borrador en progreso" : escapeHtml(formatShortDate(rep.reportDate));
+            return `<button type="button" class="cycle-week-chip ${stateClass} phase-chip-${phaseKey}"
+              data-action="view-report" data-id="${rep.id}" title="Sem ${w} · ${verb} — ${stateTitle}">
               <span class="cycle-chip-num">${w}</span>
               <span class="cycle-chip-verb">${escapeHtml(verb)}</span>
               ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
@@ -5668,6 +5676,9 @@ function autoAdvanceWeekForCell(cellNumber) {
         const rYear = getReportYear(r);
         const rWeek = Number(getReportWeek(r));
         if (rCell !== cell || rYear !== currentYear || !rWeek) return false;
+        // Borradores no cuentan como reportados, para que el flujo siga reanudable
+        const rDraft = r.formData?._draft === true || r.formData?._draft === "true";
+        if (rDraft) return false;
         // If cycle_start_date configured, filter by cycle; otherwise by quarter
         const rDate = String(r.reportDate || r.formData?.reportDate || "");
         if (cycleStartStr) {
@@ -5778,8 +5789,19 @@ async function saveDraft(stage) {
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
   payload.attendanceSummary = computeWeeklySummary();
-  payload._draft = true;
-  payload.lastStage = stage;
+  // Si estamos editando un reporte ya finalizado, no degradarlo a borrador.
+  const editingExisting = editingReportId
+    ? (reportsData || []).find(r => Number(r.id) === Number(editingReportId))
+    : null;
+  const wasFinalized = editingExisting
+    && !(editingExisting.formData?._draft === true || editingExisting.formData?._draft === "true");
+  if (!wasFinalized) {
+    payload._draft = true;
+    payload.lastStage = stage;
+  } else {
+    delete payload._draft;
+    delete payload.lastStage;
+  }
   payload.cycleReportId = computeCycleReportId(payload.cellNumber, getReportYearValue());
 
   if (!payload.week || !payload.cellNumber) {
