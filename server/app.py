@@ -7,12 +7,131 @@ import sqlite3
 from datetime import datetime, date, timezone
 from pathlib import Path
 
+import requests as _requests
+import certifi as _certifi
+import os as _os
+_os.environ.setdefault("REQUESTS_CA_BUNDLE", _certifi.where())
+_http = _requests.Session()
+_http.verify = _certifi.where()
 from flask import Flask, Response, jsonify, request, send_from_directory
+
+
+# ── Turso HTTP adapter (sqlite3-compatible interface) ──────────────────────────
+
+class _TursoRow:
+    """Emulates sqlite3.Row: supports dict-style and index access."""
+    __slots__ = ("_data", "_keys")
+    def __init__(self, keys, values):
+        self._keys = [k.lower() for k in keys]
+        self._data = dict(zip(self._keys, values))
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self._data.values())[key]
+        return self._data[key.lower()]
+    def __iter__(self):
+        return iter(self._data.values())
+    def keys(self):
+        return self._keys
+
+
+class _TursoCursor:
+    def __init__(self, conn):
+        self._conn = conn
+        self.lastrowid = None
+        self.rowcount = 0
+        self._rows = []
+        self._columns = []
+
+    def _exec(self, sql: str, params=()):
+        args = []
+        for p in params:
+            if p is None:
+                args.append({"type": "null"})
+            elif isinstance(p, bool):
+                args.append({"type": "integer", "value": str(int(p))})
+            elif isinstance(p, int):
+                args.append({"type": "integer", "value": str(p)})
+            elif isinstance(p, float):
+                args.append({"type": "float", "value": str(p)})
+            else:
+                args.append({"type": "text", "value": str(p)})
+
+        body = {
+            "requests": [
+                {"type": "execute", "stmt": {"sql": sql, "args": args}},
+                {"type": "close"},
+            ]
+        }
+        resp = _http.post(
+            f"{self._conn._url}/v2/pipeline",
+            json=body,
+            headers={"Authorization": f"Bearer {self._conn._token}"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        result = resp.json()["results"][0]
+        if result.get("type") == "error":
+            msg = result.get("error", {}).get("message", "Turso error")
+            if "UNIQUE constraint" in msg or "SQLITE_CONSTRAINT_UNIQUE" in msg:
+                raise sqlite3.IntegrityError(msg)
+            raise Exception(msg)
+
+        cols = [c["name"] for c in result.get("response", {}).get("result", {}).get("cols", [])]
+        rows_raw = result.get("response", {}).get("result", {}).get("rows", [])
+        self._columns = cols
+        self._rows = [_TursoRow(cols, [v.get("value") if v.get("type") != "null" else None for v in row]) for row in rows_raw]
+
+        # last insert rowid
+        af = result.get("response", {}).get("result", {}).get("affected_row_count", 0)
+        self.rowcount = af
+        lr = result.get("response", {}).get("result", {}).get("last_insert_rowid")
+        if lr is not None:
+            self.lastrowid = int(lr)
+        return self
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return self._rows
+
+
+class _TursoConnection:
+    def __init__(self, url: str, token: str):
+        self._url = url.rstrip("/")
+        self._token = token
+        self.row_factory = None
+        self._pending: list[tuple] = []
+
+    def execute(self, sql: str, params=()):
+        cur = _TursoCursor(self)
+        self._pending.append((sql, params))
+        cur._exec(sql, params)
+        return cur
+
+    def executemany(self, sql: str, seq):
+        for params in seq:
+            self.execute(sql, params)
+        return self
+
+    def commit(self):
+        self._pending.clear()
+
+    def sync(self):
+        pass  # no-op for HTTP API
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.commit()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = PROJECT_ROOT / "public"
 DATA_DIR = PROJECT_ROOT / "data"
 DB_PATH = DATA_DIR / "reporte-celular.db"
+TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "")
+TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 DEFAULT_PORT = int(os.environ.get("PORT", "8090"))
 REQUIRED_FIELDS = ("week", "cellNumber", "sector", "leaderName", "reportDate")
 VALID_PERSON_ROLES = ("leader", "assistant", "host", "member", "kid", "all")
@@ -28,7 +147,8 @@ def create_app() -> Flask:
 
     @app.get("/api/health")
     def health() -> Response:
-        return jsonify({"ok": True, "title": "Reporte Celular", "database": str(DB_PATH)})
+        db_label = TURSO_URL.split("@")[-1] if TURSO_URL else str(DB_PATH)
+        return jsonify({"ok": True, "title": "Reporte Celular", "database": db_label})
 
     @app.get("/api/catalogs")
     def get_catalogs() -> Response:
@@ -620,7 +740,7 @@ def initialize_database() -> None:
         connection.commit()
 
 
-def ensure_schema(connection: sqlite3.Connection) -> None:
+def ensure_schema(connection) -> None:
     report_columns = get_table_columns(connection, "reports")
     if "payload_json" not in report_columns:
         connection.execute("ALTER TABLE reports ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}' ")
@@ -663,7 +783,7 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
     ensure_single_cell_membership(connection)
 
 
-def ensure_single_cell_membership(connection: sqlite3.Connection) -> None:
+def ensure_single_cell_membership(connection) -> None:
     membership_rows = connection.execute(
         "SELECT rowid, person_id FROM cell_membership ORDER BY person_id ASC, created_at DESC, rowid DESC"
     ).fetchall()
@@ -684,11 +804,11 @@ def ensure_single_cell_membership(connection: sqlite3.Connection) -> None:
     )
 
 
-def get_table_columns(connection: sqlite3.Connection, table_name: str) -> set[str]:
+def get_table_columns(connection, table_name: str) -> set[str]:
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()}
 
 
-def seed_catalogs(connection: sqlite3.Connection) -> None:
+def seed_catalogs(connection) -> None:
     people_count = connection.execute("SELECT COUNT(*) FROM people_catalog").fetchone()[0]
     if people_count == 0:
         now = utc_now_iso()
@@ -754,10 +874,12 @@ def seed_catalogs(connection: sqlite3.Connection) -> None:
         )
 
 
-def get_connection() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
+def get_connection():
+    if TURSO_URL and TURSO_TOKEN:
+        return _TursoConnection(TURSO_URL, TURSO_TOKEN)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def read_payload() -> dict:
@@ -885,7 +1007,7 @@ def normalize_baptism_entries(payload: dict) -> list[dict]:
     return normalized_entries
 
 
-def find_cell_id_by_number(connection: sqlite3.Connection, cell_number: str) -> int | None:
+def find_cell_id_by_number(connection, cell_number: str) -> int | None:
     row = connection.execute(
         "SELECT id FROM cell_catalog WHERE cell_number = ?",
         (str(cell_number or "").strip(),),
@@ -893,14 +1015,14 @@ def find_cell_id_by_number(connection: sqlite3.Connection, cell_number: str) -> 
     return int(row["id"]) if row else None
 
 
-def find_person_by_name(connection: sqlite3.Connection, name: str) -> sqlite3.Row | None:
+def find_person_by_name(connection, name: str):
     return connection.execute(
         "SELECT id, role FROM people_catalog WHERE lower(name) = lower(?)",
         (str(name or "").strip(),),
     ).fetchone()
 
 
-def promote_baptized_people(connection: sqlite3.Connection, payload: dict) -> None:
+def promote_baptized_people(connection, payload: dict) -> None:
     cell_id = find_cell_id_by_number(connection, str(payload.get("cellNumber", "")).strip())
     if cell_id is None:
         return
@@ -976,7 +1098,7 @@ def extract_report_quarter(payload: dict) -> str:
     return ""
 
 
-def find_existing_weekly_report(connection: sqlite3.Connection, summary: dict) -> sqlite3.Row | None:
+def find_existing_weekly_report(connection, summary: dict):
     report_year = summary.get("reportYear", "")
     report_quarter = summary.get("reportQuarter", "")
     if report_year and report_quarter:
@@ -1046,7 +1168,7 @@ def parse_json_field(value: str | None) -> dict:
         return {}
 
 
-def load_catalogs_payload(connection: sqlite3.Connection) -> dict:
+def load_catalogs_payload(connection) -> dict:
     people_rows = connection.execute(
         """
         SELECT
