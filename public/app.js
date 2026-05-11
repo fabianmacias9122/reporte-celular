@@ -249,6 +249,7 @@ let catalogs = { people: [], cells: [] };
 let appSettings = {};   // loaded from /api/settings
 let historyScope = "current"; // "current" = solo cuatrimestre activo, "all" = todo
 let editingReportId = null;
+let reportReadOnlyMode = false;  // true when viewing a closed-week report in the form
 let activePeopleFilter = "all";
 let activePeopleSearch = "";
 let activeCellSearch = "";
@@ -4237,7 +4238,65 @@ function populateCellsForm(cell = null) {
   renderAdminCellMembers(cell);
 }
 
+// ── Read-only view mode for closed-week reports ──────────────────────────────
+function enterReadOnlyMode(report) {
+  reportReadOnlyMode = true;
+  editingReportId = null;
+
+  // Load form data
+  const formData = report.formData || report;
+  reportForm.reset();
+  Object.entries(formData).forEach(([name, value]) => {
+    const field = reportForm.elements.namedItem(name);
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+      field.value = value == null ? "" : String(value);
+    }
+  });
+  renderReportPersonSelects();
+  renderCellOptions();
+  if (formData.cellNumber) cellField.value = String(formData.cellNumber);
+  leaderField.value    = formData.leaderName    || "";
+  assistantField.value = formData.assistantName || "";
+  hostField.value      = formData.hostName      || "";
+  syncReportWithCell(false, formData);
+  syncPhaseIndicator();
+
+  // Disable all editable form controls
+  reportForm.querySelectorAll("input, select, textarea, button[type='button']").forEach(el => {
+    if (!el.closest(".stage-nav") && !el.closest(".stage-tab") && !el.id?.startsWith("reset")) {
+      el.disabled = true;
+    }
+  });
+
+  // Show closed banner, hide save/draft buttons
+  let banner = document.getElementById("form-readonly-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "form-readonly-banner";
+    banner.className = "form-readonly-banner";
+    reportForm.closest(".panel, [class*='panel']")?.prepend(banner) || reportForm.before(banner);
+  }
+  const week = formData.week || report.week || "?";
+  banner.innerHTML = `🔒 <strong>Semana ${week} — cerrada.</strong> Solo lectura. <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">Nuevo reporte</button>`;
+  banner.hidden = false;
+  document.getElementById("form-readonly-exit-btn")?.addEventListener("click", () => {
+    resetReportForm();
+  });
+}
+
+function exitReadOnlyMode() {
+  if (!reportReadOnlyMode) return;
+  reportReadOnlyMode = false;
+  // Re-enable all form controls
+  reportForm.querySelectorAll("input, select, textarea, button[type='button']").forEach(el => {
+    el.disabled = false;
+  });
+  const banner = document.getElementById("form-readonly-banner");
+  if (banner) banner.hidden = true;
+}
+
 function resetReportForm() {
+  exitReadOnlyMode();
   editingReportId = null;
   reportForm.reset();
   currentVisitors = [];
@@ -5442,6 +5501,44 @@ cellMemberRoleTable?.addEventListener("click", async (e) => {
   }
 });
 weekField.addEventListener("change", syncPhaseIndicator);
+weekField.addEventListener("change", async () => {
+  if (editingReportId) return; // don't interfere when editing a specific report
+  const selectedWeek = parseInt(weekField.value, 10);
+  if (!selectedWeek) return;
+  const cell = cellField.value;
+  if (!cell) return;
+  const realWeek = getQuarterWeekNumber();
+  if (selectedWeek >= realWeek) {
+    // Current or future week — exit read-only if we were in it
+    if (reportReadOnlyMode) exitReadOnlyMode();
+    return;
+  }
+  // Past week — check if there's an existing report
+  const cycleStartStr = appSettings.cycle_start_date;
+  const existing = reportsData.find(r => {
+    const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
+    const rWeek = Number(getReportWeek(r));
+    if (rCell !== String(cell) || rWeek !== selectedWeek) return false;
+    if (cycleStartStr) {
+      const rDate = String(r.reportDate || r.formData?.reportDate || "");
+      return rDate >= cycleStartStr;
+    }
+    return true;
+  });
+  if (existing) {
+    try {
+      const payload = await request(`/api/reports/${existing.id}`);
+      enterReadOnlyMode(payload.report);
+    } catch { /* silently ignore */ }
+  } else {
+    // No report yet for this past week — if coordinador, allow creating; otherwise block
+    if (!currentUser?.isAdmin) {
+      setFeedback(`La semana ${selectedWeek} ya cerró y no tiene reporte registrado.`, true);
+      weekField.value = String(realWeek);
+      syncPhaseIndicator();
+    }
+  }
+});
 showReportViewButton.addEventListener("click", () => showView("report"));
 showDashboardViewButton?.addEventListener("click", () => showView("dashboard"));
 showAdminViewButton.addEventListener("click", () => showView("admin"));
@@ -5837,7 +5934,7 @@ reportForm.elements.namedItem("reportDate")?.addEventListener?.("change", () => 
 // people-is-kid lives inside the modal, attach after DOM is ready
 document.getElementById("people-is-kid")?.addEventListener("change", syncPeopleGuardianFields);
 reportTableBody.addEventListener("click", handleReportTableClick);
-document.getElementById("report-cycles-list")?.addEventListener("click", (e) => {
+document.getElementById("report-cycles-list")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
   if (btn.dataset.action === "new-report-for-cell") {
@@ -5849,6 +5946,16 @@ document.getElementById("report-cycles-list")?.addEventListener("click", (e) => 
     showView("report");
     showStage("encabezado", { skipWeekCheck: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  } else if (btn.dataset.action === "view-report") {
+    // Closed-week chip: load in read-only mode in the report form
+    const reportId = btn.dataset.id;
+    try {
+      const payload = await request(`/api/reports/${reportId}`);
+      showView("report");
+      showStage("encabezado", { skipWeekCheck: true });
+      enterReadOnlyMode(payload.report);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) { setFeedback(err.message, true); }
   } else {
     handleReportTableClick(e);
   }
