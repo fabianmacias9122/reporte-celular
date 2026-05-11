@@ -2,42 +2,60 @@ import { t, setLang, currentLang, applyStaticTranslations } from './i18n.js';
 
 const API_BASE_URL = window.location.origin;
 
-// ── RCM oficial IAFCJ – 3 fases, 15 semanas, 4 eventos ──────────────
+// ── RCM oficial IAFCJ – 3 etapas, 16 semanas, 3 eventos catalizadores ──
 const RCM_WEEKS = [
-  // FASE 1 – GANAR (semanas 1–6)
-  { week: 1,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "ORAR",       verbDesc: "Orar para que Dios ponga una persona específica en el corazón.",              event: null,              eventType: null,                              purpose: null },
-  { week: 2,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "ANOTAR",     verbDesc: "Anotar al amigo o familiar y asumir responsabilidad espiritual.",             event: null,              eventType: null,                              purpose: null },
-  { week: 3,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "CONTACTAR",  verbDesc: "Contactar personalmente e invitar al proceso.",                               event: null,              eventType: null,                              purpose: null },
-  { week: 4,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "CONFIRMAR",  verbDesc: "Confirmar interés y asistencia al evento.",                                   event: null,              eventType: null,                              purpose: null },
-  { week: 5,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "DESATAR",    verbDesc: "Oración intensa para romper obstáculos espirituales.",                        event: null,              eventType: null,                              purpose: null },
-  { week: 6,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "LLEVAR",     verbDesc: "Llevar al invitado al evento Levántate.",                                     event: "Levántate",       eventType: "Evangelístico",                   purpose: "Primer llamado y atención a necesidades personales, familiares y espirituales.", rcmKey: "levantate" },
-  // FASE 2 – CONSOLIDAR (semanas 7–12)
-  { week: 7,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "MOTIVAR",    verbDesc: "Llamada o visita después del evento Levántate.",                              event: null,              eventType: null,                              purpose: null },
-  { week: 8,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "INTEGRAR",   verbDesc: "Integrar a célula, cultos y fraternidades.",                                  event: null,              eventType: null,                              purpose: null },
-  { week: 9,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "AFIRMAR",    verbDesc: "Seguimiento y acompañamiento espiritual constante.",                          event: null,              eventType: null,                              purpose: null },
-  { week: 10, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "RESTAURAR",  verbDesc: "Llevar al evento Restauración.",                                              event: "Restauración",    eventType: "Sanidad interior y liberación espiritual.", purpose: "Sanar áreas internas y fortalecer la fe.", rcmKey: "restauracion" },
-  { week: 11, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "SANTIFICAR", verbDesc: "Enseñar hábitos cristianos y obediencia.",                                   event: null,              eventType: null,                              purpose: null },
-  { week: 12, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "REAFIRMAR",  verbDesc: "Llevar al evento Reencuentro.",                                               event: "Reencuentro",     eventType: "Renovación espiritual",           purpose: "Reafirmar el compromiso e identidad en Cristo.", rcmKey: "reencuentro" },
-  // FASE 3 – DISCIPULAR (semanas 13–15)
-  { week: 13, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "DISCIPULAR", verbDesc: "Enseñanza básica del discipulado cristiano.",                                 event: null,              eventType: null,                              purpose: null },
-  { week: 14, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "FORMAR",     verbDesc: "Preparación para decisión firme y obediencia.",                               event: null,              eventType: null,                              purpose: null },
-  { week: 15, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "ENVIAR",     verbDesc: "Llevar al evento Cielos Abiertos.",                                           event: "Cielos Abiertos", eventType: "Decisión y envío",                purpose: "Bautismos, llenura espiritual y envío al discipulado.", rcmKey: "cielosAbiertos" },
+  // ETAPA 1 – GANAR (semanas 1–6) · Evento catalizador: Levántate / Fiesta del Amigo
+  { week: 1,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "ORAR",       verbDesc: "Intercesión por las almas — pedir a Dios un amigo específico.",          event: null,              eventType: null,                                 purpose: null },
+  { week: 2,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "ANOTAR",     verbDesc: "Registrar al amigo/familiar y asumir responsabilidad espiritual.",        event: null,              eventType: null,                                 purpose: null },
+  { week: 3,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "CONTACTAR",  verbDesc: "Visitar o llamar al contacto e invitar al proceso.",                      event: null,              eventType: null,                                 purpose: null },
+  { week: 4,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "CONFIRMAR",  verbDesc: "Asegurar la asistencia al evento Levántate.",                             event: null,              eventType: null,                                 purpose: null },
+  { week: 5,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "DESATAR",    verbDesc: "Oración de guerra espiritual para romper cadenas.",                       event: null,              eventType: null,                                 purpose: null },
+  { week: 6,  phase: "GANAR",      phaseLabel: "Ganar",      verb: "LLEVAR",     verbDesc: "Llevar al invitado a la Fiesta del Amigo / evento Levántate.",            event: "Levántate",       eventType: "Evangelístico",                      purpose: "Primer llamado y atención a necesidades personales, familiares y espirituales.", rcmKey: "levantate" },
+  // ETAPA 2 – CONSOLIDAR (semanas 7–11) · Evento catalizador: Restauración (Encuentro)
+  { week: 7,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "MOTIVAR",    verbDesc: "Animación para asistir al Encuentro / Restauración.",                     event: null,              eventType: null,                                 purpose: null },
+  { week: 8,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "INTEGRAR",   verbDesc: "Incorporar al amigo a la célula, cultos y fraternidades.",                 event: null,              eventType: null,                                 purpose: null },
+  { week: 9,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "CONSOLIDAR", verbDesc: "Afirmar la fe del nuevo creyente.",                                        event: null,              eventType: null,                                 purpose: null },
+  { week: 10, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "PREPARAR",   verbDesc: "Preparación para el encuentro con Dios.",                                  event: null,              eventType: null,                                 purpose: null },
+  { week: 11, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "SANTIFICAR", verbDesc: "Consagración para el Evento de Restauración (Encuentro).",                 event: "Restauración",    eventType: "Sanidad interior y liberación espiritual", purpose: "Sanar áreas internas y fortalecer la fe.", rcmKey: "restauracion" },
+  // ETAPA 3 – DISCIPULAR (semanas 12–16) · Evento catalizador: Cielos Abiertos / Pesca Milagrosa
+  { week: 12, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "MATRICULAR", verbDesc: "Inscripción al discipulado.",                                              event: null,              eventType: null,                                 purpose: null },
+  { week: 13, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "CONSERVAR",  verbDesc: "Cuidado del nuevo convertido.",                                            event: null,              eventType: null,                                 purpose: null },
+  { week: 14, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "DOCTRINAR",  verbDesc: "Enseñanza de los fundamentos de la fe.",                                   event: null,              eventType: null,                                 purpose: null },
+  { week: 15, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "DISCIPULAR", verbDesc: "Formación como nuevo líder/discípulo.",                                    event: null,              eventType: null,                                 purpose: null },
+  { week: 16, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "BAUTIZAR",   verbDesc: "La Pesca Milagrosa — Evento de Bautismos en agua.",                        event: "Cielos Abiertos", eventType: "Bautismos en agua",                  purpose: "Bautismos, llenura espiritual y envío al discipulado.", rcmKey: "cielosAbiertos" },
 ];
 
 const PHASE_WEEK_RANGES = {
   GANAR:      { weekStart: 1,  weekEnd: 6  },
-  CONSOLIDAR: { weekStart: 7,  weekEnd: 12 },
-  DISCIPULAR: { weekStart: 13, weekEnd: 15 },
+  CONSOLIDAR: { weekStart: 7,  weekEnd: 11 },
+  DISCIPULAR: { weekStart: 12, weekEnd: 16 },
 };
 
 function getRcmWeekInfo(weekNumber) {
   const w = parseInt(weekNumber, 10);
   if (!w || w < 1 || w > 16) return null;
-  if (w === 16) return { week: 16, phase: "CIERRE", phaseLabel: "Cierre", verb: null, verbDesc: null, event: null, eventType: null, purpose: "Cierre del cuatrimestre.", isEventWeek: false };
   const info = RCM_WEEKS.find((r) => r.week === w);
   if (!info) return null;
   const range = PHASE_WEEK_RANGES[info.phase];
   return { ...info, ...range, isEventWeek: !!info.event };
+}
+
+// Apply coordinator overrides stored in app_settings.rcm_weeks_config (JSON array)
+// Each entry: { week, verb?, verbDesc?, event?, eventType? }
+function applyRcmWeeksConfig() {
+  const raw = appSettings?.rcm_weeks_config;
+  if (!raw) return;
+  let overrides;
+  try { overrides = JSON.parse(raw); } catch { return; }
+  if (!Array.isArray(overrides)) return;
+  overrides.forEach(ov => {
+    const entry = RCM_WEEKS.find(w => w.week === ov.week);
+    if (!entry) return;
+    if (ov.verb      !== undefined) entry.verb      = ov.verb      || entry.verb;
+    if (ov.verbDesc  !== undefined) entry.verbDesc  = ov.verbDesc;
+    if (ov.event     !== undefined) entry.event     = ov.event     || null;
+    if (ov.eventType !== undefined) entry.eventType = ov.eventType || null;
+  });
 }
 
 const reportForm = document.querySelector("#report-form");
@@ -362,6 +380,12 @@ function applyUserSession(user) {
   // Tarjeta de ciclo RCM solo para coordinador
   const cycleCard = document.getElementById("settings-cycle-card");
   if (cycleCard) cycleCard.hidden = !user.isAdmin;
+  // Tarjeta de verbos RCM solo para coordinador
+  const verbsCard = document.getElementById("settings-rcm-verbs-card");
+  if (verbsCard) {
+    verbsCard.hidden = !user.isAdmin;
+    if (user.isAdmin) renderRcmVerbsTable();
+  }
 }
 
 function restrictCellFieldToUser(user) {
@@ -4348,6 +4372,75 @@ document.getElementById("settings-save-btn")?.addEventListener("click", async ()
   }
 });
 
+// ── Verbos RCM configurables ──────────────────────────────────────────
+const RCM_WEEKS_DEFAULT = RCM_WEEKS.map(w => ({ ...w })); // snapshot de defaults
+
+function renderRcmVerbsTable() {
+  const tbody = document.getElementById("rcm-verbs-tbody");
+  if (!tbody) return;
+  const phaseClass = { GANAR: "ganar", CONSOLIDAR: "consolidar", DISCIPULAR: "discipular" };
+  tbody.innerHTML = RCM_WEEKS.map(w => `
+    <tr data-week="${w.week}">
+      <td><span class="rcm-verbs-week-badge">${w.week}</span></td>
+      <td><span class="rcm-verbs-phase-${phaseClass[w.phase] || ""}">${w.phaseLabel}</span></td>
+      <td><input type="text" class="rvt-verb" data-week="${w.week}" value="${w.verb || ""}" maxlength="20" style="text-transform:uppercase" /></td>
+      <td><input type="text" class="rvt-desc" data-week="${w.week}" value="${(w.verbDesc || "").replace(/"/g, "&quot;")}" maxlength="120" /></td>
+      <td>${w.event ? `<input type="text" class="rvt-event" data-week="${w.week}" value="${w.event.replace(/"/g, "&quot;")}" maxlength="40" />` : `<span style="color:var(--muted);font-size:0.75rem">—</span>`}</td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("settings-rcm-verbs-save-btn")?.addEventListener("click", async () => {
+  const status = document.getElementById("settings-rcm-verbs-status");
+  try {
+    // Collect overrides: only weeks where values differ from current RCM_WEEKS entries
+    const overrides = [];
+    document.querySelectorAll("#rcm-verbs-tbody tr[data-week]").forEach(row => {
+      const week = parseInt(row.dataset.week, 10);
+      const entry = RCM_WEEKS.find(w => w.week === week);
+      if (!entry) return;
+      const verbIn  = row.querySelector(".rvt-verb")?.value.trim().toUpperCase() || "";
+      const descIn  = row.querySelector(".rvt-desc")?.value.trim() || "";
+      const eventIn = row.querySelector(".rvt-event")?.value.trim() || "";
+      const ov = { week };
+      if (verbIn  !== (entry.verb  || "")) ov.verb  = verbIn;
+      if (descIn  !== (entry.verbDesc  || "")) ov.verbDesc  = descIn;
+      if (eventIn !== (entry.event || "")) ov.event = eventIn;
+      if (Object.keys(ov).length > 1) overrides.push(ov);
+    });
+    const cfg = JSON.stringify(overrides);
+    await request("/api/settings", { method: "POST", body: JSON.stringify({ rcm_weeks_config: cfg }) });
+    appSettings.rcm_weeks_config = cfg;
+    // Apply immediately
+    applyRcmWeeksConfig();
+    populateWeekOptions();
+    if (status) { status.textContent = "✓ Guardado"; status.className = "settings-save-status is-ok"; }
+    setTimeout(() => { if (status) status.textContent = ""; }, 3000);
+  } catch {
+    if (status) { status.textContent = "Error al guardar."; status.className = "settings-save-status is-error"; }
+  }
+});
+
+document.getElementById("settings-rcm-verbs-reset-btn")?.addEventListener("click", async () => {
+  const status = document.getElementById("settings-rcm-verbs-status");
+  if (!confirm("¿Restablecer todos los verbos a los valores predeterminados de la IAFCJ?")) return;
+  try {
+    // Restore defaults in memory
+    RCM_WEEKS_DEFAULT.forEach(def => {
+      const entry = RCM_WEEKS.find(w => w.week === def.week);
+      if (entry) { entry.verb = def.verb; entry.verbDesc = def.verbDesc; entry.event = def.event; entry.eventType = def.eventType; }
+    });
+    await request("/api/settings", { method: "POST", body: JSON.stringify({ rcm_weeks_config: "[]" }) });
+    appSettings.rcm_weeks_config = "[]";
+    renderRcmVerbsTable();
+    populateWeekOptions();
+    if (status) { status.textContent = "✓ Restablecido"; status.className = "settings-save-status is-ok"; }
+    setTimeout(() => { if (status) status.textContent = ""; }, 3000);
+  } catch {
+    if (status) { status.textContent = "Error al restablecer."; status.className = "settings-save-status is-error"; }
+  }
+});
+
 async function loadHealth() {
   try {
     const payload = await request("/api/health");
@@ -6391,6 +6484,7 @@ if (_savedSession) {
 
 await loadCatalogs();
 await loadSettings();
+applyRcmWeeksConfig();
 populateWeekOptions();
 resetReportForm();
 await loadHealth();
