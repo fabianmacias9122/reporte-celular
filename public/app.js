@@ -1129,6 +1129,23 @@ function getQuarterWeekNumber(dateValue = "") {
 }
 
 function getCurrentWeekNumber() {
+  const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+  if (graceHours > 0) {
+    // Check if we're within the grace period after week rollover
+    const now = new Date();
+    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
+    const todayDow = now.getDay();
+    if (todayDow === weekStartDay) {
+      // It's the first day of the new week — check if still within grace hours
+      const hoursElapsed = now.getHours() + now.getMinutes() / 60;
+      if (hoursElapsed < graceHours) {
+        // Still in grace period: return previous week number
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return Math.max(1, getQuarterWeekNumber(yesterday));
+      }
+    }
+  }
   return getQuarterWeekNumber();
 }
 
@@ -4151,6 +4168,10 @@ function renderSettingsForm() {
   if (daySelect && appSettings.week_start_day !== undefined && appSettings.week_start_day !== "") {
     daySelect.value = appSettings.week_start_day;
   }
+  const graceInput = document.getElementById("setting-grace-hours");
+  if (graceInput && appSettings.report_grace_hours !== undefined && appSettings.report_grace_hours !== "") {
+    graceInput.value = appSettings.report_grace_hours;
+  }
   // Sync history scope radio
   const radio = document.querySelector(`input[name='history_scope'][value='${historyScope}']`);
   if (radio) radio.checked = true;
@@ -4233,9 +4254,12 @@ document.getElementById("settings-save-btn")?.addEventListener("click", async ()
   if (!val) { if (status) { status.textContent = "Ingresa una fecha."; status.className = "settings-save-status is-error"; } return; }
   try {
     const weekDay = daySelect?.value ?? "0";
-    await request("/api/settings", { method: "POST", body: JSON.stringify({ cycle_start_date: val, week_start_day: weekDay }) });
+    const graceInput = document.getElementById("setting-grace-hours");
+    const graceHours = parseInt(graceInput?.value ?? "0", 10) || 0;
+    await request("/api/settings", { method: "POST", body: JSON.stringify({ cycle_start_date: val, week_start_day: weekDay, report_grace_hours: String(graceHours) }) });
     appSettings.cycle_start_date = val;
     appSettings.week_start_day = weekDay;
+    appSettings.report_grace_hours = String(graceHours);
     if (status) { status.textContent = "✓ Guardado"; status.className = "settings-save-status is-ok"; }
     setTimeout(() => { if (status) status.textContent = ""; }, 3000);
     syncWeekFieldWithReportDate(true);

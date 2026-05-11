@@ -864,6 +864,11 @@
                   <option value="5" data-i18n="set.friday">Viernes</option>
                   <option value="6" data-i18n="set.saturday">Sábado</option>
                 </select>
+                <label class="settings-label" for="setting-grace-hours" style="margin-top:12px">Horas de gracia al inicio de semana</label>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <input id="setting-grace-hours" type="number" min="0" max="48" step="1" class="settings-input" style="width:80px" placeholder="0" />
+                  <span style="font-size:0.8rem;color:var(--muted)">horas — el sistema sugiere la semana anterior durante este tiempo</span>
+                </div>
                 <div id="settings-week-preview" class="settings-week-preview" style="margin-top:10px"></div>
               </div>
               <div class="settings-card-footer">
