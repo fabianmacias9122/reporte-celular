@@ -4642,7 +4642,11 @@ async function handleReportSubmit(event) {
 
   // Validate week is not in the future
   const selectedWeek = parseInt(weekField.value, 10);
-  const maxWeek = getCurrentWeekNumber();
+  // Use the real current quarter week (ignoring grace) so finalizar
+  // funciona en el día de rollover dentro del periodo de gracia: la semana
+  // real (ej. 2) sigue siendo válida aunque getCurrentWeekNumber devuelva la
+  // semana anterior por estar dentro de las horas de gracia.
+  const maxWeek = getQuarterWeekNumber();
   if (selectedWeek > maxWeek) {
     setFeedback(`No puedes reportar la semana ${selectedWeek} — actualmente estamos en la semana ${maxWeek}.`, true);
     weekField.focus();

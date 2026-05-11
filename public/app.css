@@ -365,7 +365,7 @@ body.app-fixed {
 .is-hidden { display: none !important; }
 details[data-stage].stage-visible { display: block !important; }
 .stage-save-bar { display: none !important; }
-.stage-save-bar.stage-visible { display: flex !important; align-items: center; justify-content: flex-end; gap: 10px; padding: 4px 0; }
+.stage-save-bar.stage-visible { display: flex !important; align-items: center; justify-content: flex-end; gap: 10px; padding: 4px 0; margin-top: 18px; }
 .btn-save-draft {
   background: var(--success-soft);
   color: var(--success);
