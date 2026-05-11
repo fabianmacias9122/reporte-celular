@@ -4654,6 +4654,8 @@ async function handleReportSubmit(event) {
   }
   const payload = Object.fromEntries(new FormData(reportForm).entries());
   // Campos bloqueados (disabled) no llegan por FormData; se leen directo del DOM.
+  payload.week = weekField.value || payload.week || "";
+  payload.cellNumber = cellField.value || payload.cellNumber || "";
   payload.leaderName = leaderField.value || payload.leaderName || "";
   payload.assistantName = assistantField.value || payload.assistantName || "";
   payload.hostName = hostField.value || payload.hostName || "";
