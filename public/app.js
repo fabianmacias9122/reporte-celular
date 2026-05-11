@@ -5386,8 +5386,18 @@ function autoAdvanceWeekForCell(cellNumber) {
   );
 
   // Find the first unreported week up to maxWeek
+  // minWeek: without grace, cannot go before current week (past weeks are locked)
+  const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+  const inGrace = graceHours > 0 && (() => {
+    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
+    const now = new Date();
+    if (now.getDay() !== weekStartDay) return false;
+    return (now.getHours() + now.getMinutes() / 60) < graceHours;
+  })();
+  const minWeek = inGrace ? Math.max(1, maxWeek - 1) : maxWeek;
+
   let nextWeek = maxWeek; // default: current week
-  for (let w = 1; w <= maxWeek; w++) {
+  for (let w = minWeek; w <= maxWeek; w++) {
     if (!reportedWeeks.has(w)) { nextWeek = w; break; }
   }
   // If all weeks up to maxWeek are already reported, stay on maxWeek (to edit it)
