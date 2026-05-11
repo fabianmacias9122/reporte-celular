@@ -1329,16 +1329,14 @@ function populateWeekOptions() {
   const cell = String(cellField?.value || "").trim();
   const cycleStartStr = appSettings?.cycle_start_date;
   const reportedPastWeeks = new Set();
-  if (cell) {
+  if (cell && cycleStartStr) {
     (reportsData || []).forEach(r => {
       const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
       if (rCell !== cell) return;
       const rWeek = Number(getReportWeek(r));
       if (!rWeek || rWeek >= realWeek) return;
-      if (cycleStartStr) {
-        const rDate = String(r.reportDate || r.formData?.reportDate || "");
-        if (rDate < cycleStartStr) return;
-      }
+      const rDate = String(r.reportDate || r.formData?.reportDate || "");
+      if (!rDate || rDate < cycleStartStr) return; // skip reports from previous cycles
       reportedPastWeeks.add(rWeek);
     });
   }
@@ -5638,6 +5636,13 @@ function autoAdvanceWeekForCell(cellNumber) {
   if (editingReportId) return;  // don't override when editing
   const cell = String(cellNumber || "").trim();
   if (!cell) return;
+
+  // Ensure cellField reflects the cell we're computing for (so populateWeekOptions
+  // sees the right cell when computing "reported past weeks").
+  if (cellField.value !== cell) cellField.value = cell;
+  // Repopulate the week dropdown so "✓ entregado" / "🔒 cerrada" / "· gracia"
+  // reflect the actual reports for THIS cell.
+  populateWeekOptions();
 
   // maxWeek = real current week (ignoring grace); grace only widens minWeek backward
   const realCurrentWeek = getQuarterWeekNumber();
