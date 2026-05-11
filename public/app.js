@@ -1316,9 +1316,10 @@ function populateWeekOptions() {
     const phaseLabel = info ? info.phaseLabel : "";
     const verbPart   = info && info.verb ? ` · ${info.verb}` : "";
     const eventMark  = info && info.isEventWeek ? " ★" : "";
-    const disabled   = (num > realWeek || num < minAllowed) ? " disabled" : "";
+    // Only disable future weeks; past weeks are selectable (load in read-only via change handler)
+    const disabled   = num > realWeek ? " disabled" : "";
     const future     = num > realWeek ? " (no disponible)" : "";
-    const pastNote   = num < minAllowed ? " (cerrada)" : "";
+    const pastNote   = num < minAllowed ? " 🔒" : "";
     return `<option value="${value}"${disabled}>${value} — ${phaseLabel}${verbPart}${eventMark}${future}${pastNote}</option>`;
   }).join("");
 
@@ -4252,6 +4253,10 @@ function enterReadOnlyMode(report) {
       field.value = value == null ? "" : String(value);
     }
   });
+  // Explicitly restore week (select reset may have cleared it)
+  const reportWeek = String(formData.week || report.week || "");
+  if (reportWeek) weekField.value = reportWeek;
+
   renderReportPersonSelects();
   renderCellOptions();
   if (formData.cellNumber) cellField.value = String(formData.cellNumber);
@@ -4268,20 +4273,16 @@ function enterReadOnlyMode(report) {
     }
   });
 
-  // Show closed banner, hide save/draft buttons
-  let banner = document.getElementById("form-readonly-banner");
-  if (!banner) {
-    banner = document.createElement("div");
-    banner.id = "form-readonly-banner";
-    banner.className = "form-readonly-banner";
-    reportForm.closest(".panel, [class*='panel']")?.prepend(banner) || reportForm.before(banner);
+  // Show closed banner (fixed element in HTML)
+  const banner = document.getElementById("form-readonly-banner");
+  if (banner) {
+    const week = formData.week || report.week || "?";
+    banner.innerHTML = `🔒 <strong>Semana ${week} — cerrada.</strong> Solo lectura. <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">Nuevo reporte</button>`;
+    banner.hidden = false;
+    document.getElementById("form-readonly-exit-btn")?.addEventListener("click", () => {
+      resetReportForm();
+    });
   }
-  const week = formData.week || report.week || "?";
-  banner.innerHTML = `🔒 <strong>Semana ${week} — cerrada.</strong> Solo lectura. <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">Nuevo reporte</button>`;
-  banner.hidden = false;
-  document.getElementById("form-readonly-exit-btn")?.addEventListener("click", () => {
-    resetReportForm();
-  });
 }
 
 function exitReadOnlyMode() {
@@ -5688,8 +5689,14 @@ async function autoLoadExistingReportIfAny(cell, week) {
     return rCell === String(cell) && rWeek === Number(week) && rDate >= cycleStartStr;
   });
   if (!existing) return;
-  // If the report is no longer editable (closed week), don't load it into edit mode
-  if (!isReportEditable(existing)) return;
+  // If the report is no longer editable (closed week), show in read-only mode
+  if (!isReportEditable(existing)) {
+    try {
+      const payload = await request(`/api/reports/${existing.id}`);
+      enterReadOnlyMode(payload.report);
+    } catch { /* ignore */ }
+    return;
+  }
 
   try {
     const payload = await request(`/api/reports/${existing.id}`);
