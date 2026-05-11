@@ -1156,6 +1156,62 @@ function syncWeekFieldWithReportDate(force = false) {
   }
 }
 
+function initGraceBanner() {
+  const banner     = document.getElementById("grace-banner");
+  const bannerText = document.getElementById("grace-banner-text");
+  const closeBtn   = document.getElementById("grace-banner-close");
+  if (!banner || !bannerText) return;
+
+  let _timer = null;
+
+  function getGraceInfo() {
+    const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+    if (graceHours <= 0) return null;
+    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
+    const now = new Date();
+    if (now.getDay() !== weekStartDay) return null;
+    const msElapsed = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) * 1000 + now.getMilliseconds();
+    const msGrace   = graceHours * 3600 * 1000;
+    const msLeft    = msGrace - msElapsed;
+    if (msLeft <= 0) return null;
+    return { msLeft };
+  }
+
+  function formatCountdown(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    if (h > 0) return `${h}h ${m}m ${s}s`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function tick() {
+    const info = getGraceInfo();
+    if (!info) {
+      banner.hidden = true;
+      if (_timer) { clearInterval(_timer); _timer = null; }
+      return;
+    }
+    const prevWeekNum = getCurrentWeekNumber(); // already returns prev week during grace
+    bannerText.innerHTML =
+      `<strong>¿Ya enviaste tu reporte de la semana ${prevWeekNum}?</strong> ` +
+      `Tienes <strong>${formatCountdown(info.msLeft)}</strong> de prórroga antes de que cierre el periodo.`;
+    banner.hidden = false;
+  }
+
+  closeBtn?.addEventListener("click", () => {
+    banner.hidden = true;
+    if (_timer) { clearInterval(_timer); _timer = null; }
+  });
+
+  tick();
+  if (!banner.hidden) {
+    _timer = setInterval(tick, 1000);
+  }
+}
+
 function renderMetricSections() {
   metricSections.innerHTML = METRIC_SECTION_DEFINITIONS.map((section) => {
     const isAllAuto = section.fields.every(([name]) => AUTO_FIELDS.has(name));
@@ -6305,6 +6361,7 @@ await loadSettings();
 resetReportForm();
 await loadHealth();
 await loadReports();
+initGraceBanner();
 
 if (currentUser) {
   // Restore session UI

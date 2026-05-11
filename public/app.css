@@ -1730,6 +1730,24 @@ th#member-event-col-header::before { content: "★ "; }
 .rcm-inline-label { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
 /* RCM dialog body */
 .rcm-dialog-body { max-height: 68vh; overflow-y: auto; padding: 16px 20px; gap: 0; touch-action: pan-y; }
+
+/* ── Grace period banner ─────────────────────────────────────── */
+.grace-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: #fffbea; border: 1.5px solid #f6c90e;
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  margin-bottom: 12px; font-size: 0.82rem; color: #7a5c00;
+  animation: grace-in .25s ease;
+}
+@keyframes grace-in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+.grace-banner svg { flex-shrink:0; color:#e6a817; }
+.grace-banner-text { flex:1; line-height:1.4; }
+.grace-banner-close {
+  background:none; border:none; cursor:pointer; color:#a07800;
+  font-size:0.85rem; padding:2px 6px; border-radius:4px; flex-shrink:0;
+  line-height:1;
+}
+.grace-banner-close:hover { background: rgba(0,0,0,.06); }
 .rcm-panel-section { display: flex; flex-direction: column; gap: 4px; }
 .rcm-panel-section-title { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; padding: 2px 7px; border-radius: 999px; display: inline-block; margin-bottom: 2px; }
 .phase-badge-ganar.rcm-panel-section-title { background: var(--warning-soft); color: #92600a; }
