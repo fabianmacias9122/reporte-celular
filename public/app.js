@@ -442,6 +442,7 @@ loginBtn?.addEventListener("click", () => {
   renderSeguimiento(reportsData);
   const targetCell = user.assignedCellNumber || cellField.value;
   autoAdvanceWeekForCell(targetCell);
+  initGraceBanner(); // re-evaluar banner ahora que currentUser es conocido
 });
 
 userChip?.addEventListener("click", () => {
@@ -1226,6 +1227,29 @@ function initGraceBanner() {
       return;
     }
     const prevWeekNum = getCurrentWeekNumber(); // already returns prev week during grace
+
+    // Hide banner if the current user already submitted a report for the grace week
+    if (currentUser) {
+      const cell = currentUser.assignedCellNumber ? String(currentUser.assignedCellNumber) : null;
+      const cycleStart = appSettings?.cycle_start_date;
+      const alreadySubmitted = reportsData.some(r => {
+        if (cell && String(r.cellNumber || r.formData?.cellNumber || "") !== cell) return false;
+        const rWeek = Number(getReportWeek(r));
+        if (rWeek !== prevWeekNum) return false;
+        // Only count reports within this cycle
+        if (cycleStart) {
+          const rDate = String(r.reportDate || r.formData?.reportDate || "");
+          return rDate >= cycleStart;
+        }
+        return true;
+      });
+      if (alreadySubmitted) {
+        banner.hidden = true;
+        if (_timer) { clearInterval(_timer); _timer = null; }
+        return;
+      }
+    }
+
     bannerText.innerHTML =
       `<strong>¿Ya enviaste tu reporte de la semana ${prevWeekNum}?</strong> ` +
       `Tienes <strong>${formatCountdown(info.msLeft)}</strong> de prórroga antes de que cierre el periodo.`;
