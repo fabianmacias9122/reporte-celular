@@ -1492,7 +1492,19 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
 /* ─────────────────────────────────────────────
    SETTINGS SECTION
 ───────────────────────────────────────────── */
-.settings-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.settings-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+  align-items: start;
+}
+/* El card "Ciclo RCM" es alto por sus campos; ocupa la columna izquierda y se
+   apila verticalmente con los cards pequeños que estan en la columna derecha. */
+#settings-cycle-card { grid-row: span 3; }
+@media (max-width: 860px) {
+  .settings-grid { grid-template-columns: 1fr; }
+  #settings-cycle-card { grid-row: auto; }
+}
 .settings-card {
   background: var(--panel-soft);
   border: 1px solid var(--line);
