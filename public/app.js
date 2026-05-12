@@ -1281,21 +1281,22 @@ function getQuarterWeekNumber(dateValue = "") {
 function getCurrentWeekNumber() {
   const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
   if (graceHours > 0) {
-    // Check if we're within the grace period after week rollover
+    // Horas absolutas desde el último rollover (00:00 del weekStartDay más reciente).
+    // Permite ventanas de gracia >24h (p.ej. 72h).
     const now = new Date();
     const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
-    const todayDow = now.getDay();
-    if (todayDow === weekStartDay) {
-      // It's the first day of the new week — check if still within grace hours
-      const hoursElapsed = now.getHours() + now.getMinutes() / 60;
-      if (hoursElapsed < graceHours) {
-        // Still in grace period: return previous week number
-        // NOTE: must pass ISO string (YYYY-MM-DD) — Date objects cause NaN inside getQuarterWeekNumber
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, "0")}-${String(yesterday.getDate()).padStart(2, "0")}`;
-        return Math.max(1, getQuarterWeekNumber(yStr));
-      }
+    const rollover = new Date(now);
+    rollover.setHours(0, 0, 0, 0);
+    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
+    rollover.setDate(rollover.getDate() - diff);
+    const hoursElapsed = (now.getTime() - rollover.getTime()) / 3600000;
+    if (hoursElapsed < graceHours) {
+      // Dentro de la ventana de gracia: devolver la semana anterior (la que se captura).
+      // NOTE: pasar ISO string (YYYY-MM-DD) — Date objects causan NaN dentro de getQuarterWeekNumber
+      const refDay = new Date(rollover);
+      refDay.setDate(refDay.getDate() - 1);
+      const yStr = `${refDay.getFullYear()}-${String(refDay.getMonth() + 1).padStart(2, "0")}-${String(refDay.getDate()).padStart(2, "0")}`;
+      return Math.max(1, getQuarterWeekNumber(yStr));
     }
   }
   return getQuarterWeekNumber();
@@ -1327,8 +1328,11 @@ function initGraceBanner() {
     if (graceHours <= 0) return null;
     const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
     const now = new Date();
-    if (now.getDay() !== weekStartDay) return null;
-    const msElapsed = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) * 1000 + now.getMilliseconds();
+    const rollover = new Date(now);
+    rollover.setHours(0, 0, 0, 0);
+    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
+    rollover.setDate(rollover.getDate() - diff);
+    const msElapsed = now.getTime() - rollover.getTime();
     const msGrace   = graceHours * 3600 * 1000;
     const msLeft    = msGrace - msElapsed;
     if (msLeft <= 0) return null;
@@ -1443,9 +1447,10 @@ function populateWeekOptions() {
   const inGrace = graceHours > 0 && (() => {
     const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
     const now = new Date();
-    if (now.getDay() !== weekStartDay) return false;
-    const hoursElapsed = now.getHours() + now.getMinutes() / 60;
-    return hoursElapsed < graceHours;
+    const rollover = new Date(now); rollover.setHours(0,0,0,0);
+    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
+    rollover.setDate(rollover.getDate() - diff);
+    return (now.getTime() - rollover.getTime()) / 3600000 < graceHours;
   })();
 
   // Set of past weeks for the current cell+cycle that ALREADY have a report
@@ -4174,7 +4179,10 @@ function renderSeguimiento(reports) {
           const inGrace = graceHours > 0 && (() => {
             const wsd = parseInt(appSettings?.week_start_day ?? "0", 10);
             const now = new Date();
-            return now.getDay() === wsd && (now.getHours() + now.getMinutes() / 60) < graceHours;
+            const rollover = new Date(now); rollover.setHours(0,0,0,0);
+            const diff = (rollover.getDay() - wsd + 7) % 7;
+            rollover.setDate(rollover.getDate() - diff);
+            return (now.getTime() - rollover.getTime()) / 3600000 < graceHours;
           })();
           const wNum = Number(w);
           const minOpen = inGrace ? Math.max(1, realWeek - 1) : realWeek;
@@ -4223,18 +4231,20 @@ function renderSeguimiento(reports) {
   }).join("");
 
   // ── Toggle de semana (esta / anterior) ────────────────────────────────────
-  const realWeekNum = getQuarterWeekNumber();
+  // Usa getCurrentWeekNumber() para respetar el periodo de gracia:
+  // durante la gracia, "Esta semana" sigue refiriéndose a la semana en captura.
+  const baseWeekNum = getCurrentWeekNumber();
   const offsetTabs  = document.getElementById("seg-week-offset-tabs");
   if (offsetTabs) {
     // Solo tiene sentido si hay una semana anterior dentro del mismo cuatrimestre.
-    offsetTabs.hidden = realWeekNum <= 1;
+    offsetTabs.hidden = baseWeekNum <= 1;
     if (offsetTabs.hidden) seguimientoWeekOffset = 0;
     offsetTabs.querySelectorAll("button[data-weekoff]").forEach(b => {
       b.classList.toggle("is-active", String(b.dataset.weekoff) === String(seguimientoWeekOffset));
     });
   }
-  const effectiveWeek = Math.max(1, realWeekNum + seguimientoWeekOffset);
-  const isPrevWeek    = seguimientoWeekOffset === -1 && realWeekNum > 1;
+  const effectiveWeek = Math.max(1, baseWeekNum + seguimientoWeekOffset);
+  const isPrevWeek    = seguimientoWeekOffset === -1 && baseWeekNum > 1;
   const weekLabel     = isPrevWeek ? "Semana anterior" : "Esta semana";
 
   // ── Células pendientes y actividad de la semana actual ────────────────────
@@ -5307,10 +5317,10 @@ function isReportEditable(report) {
   if (graceHours > 0 && reportWeek === realWeek - 1) {
     const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
     const now = new Date();
-    if (now.getDay() === weekStartDay) {
-      const hoursElapsed = now.getHours() + now.getMinutes() / 60;
-      if (hoursElapsed < graceHours) return true;
-    }
+    const rollover = new Date(now); rollover.setHours(0,0,0,0);
+    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
+    rollover.setDate(rollover.getDate() - diff);
+    if ((now.getTime() - rollover.getTime()) / 3600000 < graceHours) return true;
   }
   return false;
 }
@@ -6044,8 +6054,10 @@ async function autoAdvanceWeekForCell(cellNumber) {
   const inGrace = graceHours > 0 && (() => {
     const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
     const now = new Date();
-    if (now.getDay() !== weekStartDay) return false;
-    return (now.getHours() + now.getMinutes() / 60) < graceHours;
+    const rollover = new Date(now); rollover.setHours(0,0,0,0);
+    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
+    rollover.setDate(rollover.getDate() - diff);
+    return (now.getTime() - rollover.getTime()) / 3600000 < graceHours;
   })();
   const minWeek = inGrace ? Math.max(1, maxWeek - 1) : maxWeek;
 
