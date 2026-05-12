@@ -3144,13 +3144,21 @@ function buildDefaultMemberAttendance(cell, savedEntries = []) {
 
   return getCellMembers(cell).map((member) => {
     const savedEntry = savedByPersonId.get(String(member.id)) || savedByPersonId.get(String(member.name));
-    // Migración: reportes viejos sólo guardaban `status`. Si no hay
-    // sub-estados explícitos, copiamos `status` a los tres para no
-    // perder el dato.
-    const legacy = savedEntry?.status || "pending";
-    const planningStatus = savedEntry?.planningStatus || legacy;
-    const reachStatus    = savedEntry?.reachStatus    || legacy;
-    const sundayStatus   = savedEntry?.sundayStatus   || legacy;
+    // Cada sub-estado parte como "pending" por defecto. Solo se hereda
+    // un valor explícitamente guardado para esa etapa.
+    // Limpieza: si el sub-estado guardado es "present" pero el checkbox
+    // de asistencia de esa etapa está en false, es contaminación del
+    // bug anterior (migración legacy `status`→3 etapas). Se devuelve
+    // "pending" para no mostrar "Presente" falso. Los estados manuales
+    // (absent / justified / service) se respetan siempre.
+    const sanitize = (status, attended) => {
+      if (!status) return "pending";
+      if (status === "present" && !attended) return "pending";
+      return status;
+    };
+    const planningStatus = sanitize(savedEntry?.planningStatus, savedEntry?.planningAttended);
+    const reachStatus    = sanitize(savedEntry?.reachStatus,    savedEntry?.reachAttended);
+    const sundayStatus   = sanitize(savedEntry?.sundayStatus,   savedEntry?.sundayAttended);
     const entry = {
       personId: member.id,
       name: member.name,
