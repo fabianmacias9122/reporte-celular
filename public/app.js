@@ -5164,24 +5164,8 @@ async function handleReportTableClick(event) {
         setFeedback("Este reporte ya no puede editarse — la semana ha cerrado.", true);
         return;
       }
-      editingReportId = Number(reportId);
-      reportForm.reset();
-      const formData = payload.report.formData || payload.report;
-      Object.entries(formData).forEach(([name, value]) => {
-        const field = reportForm.elements.namedItem(name);
-        if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
-          field.value = value == null ? "" : String(value);
-        }
-      });
-      renderReportPersonSelects();
-      renderCellOptions();
-      if (formData.cellNumber) {
-        cellField.value = String(formData.cellNumber);
-      }
-      leaderField.value = formData.leaderName || "";
-      assistantField.value = formData.assistantName || "";
-      hostField.value = formData.hostName || "";
-      syncReportWithCell(false, formData);
+      loadReportIntoForm(report, Number(reportId));
+      const formData = report.formData || report;
       // Navegar al formulario de reporte y colocar al usuario en la primera etapa pendiente
       showView("report");
       const resumeStage = pickResumeStage(formData);
@@ -5933,22 +5917,8 @@ async function autoLoadExistingReportIfAny(cell, week) {
 
   try {
     const payload = await request(`/api/reports/${existing.id}`);
-    editingReportId = Number(existing.id);
-    reportForm.reset();
+    loadReportIntoForm(payload.report, Number(existing.id));
     const formData = payload.report.formData || payload.report;
-    Object.entries(formData).forEach(([name, value]) => {
-      const field = reportForm.elements.namedItem(name);
-      if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
-        field.value = value == null ? "" : String(value);
-      }
-    });
-    renderReportPersonSelects();
-    renderCellOptions();
-    if (formData.cellNumber) cellField.value = String(formData.cellNumber);
-    leaderField.value = formData.leaderName || "";
-    assistantField.value = formData.assistantName || "";
-    hostField.value = formData.hostName || "";
-    syncReportWithCell(false, formData);
     // Coloca al usuario en la primera etapa pendiente (usa lastStage si existe, si no infiere por datos)
     const resumeStage = pickResumeStage(formData);
     showStage(resumeStage, { skipWeekCheck: true });
@@ -5960,6 +5930,54 @@ async function autoLoadExistingReportIfAny(cell, week) {
   } catch {
     // silently ignore, leave form in new-report mode
   }
+}
+
+// Carga un reporte en el formulario en el orden correcto, asegurando que
+// currentMemberAttendance/visitors/kids/baptisms queden sincronizados con
+// la data guardada. Centraliza la lógica que antes estaba duplicada en
+// autoLoadExistingReportIfAny / handleReportTableClick / edit-from-preview.
+function loadReportIntoForm(report, reportId) {
+  if (!report) return;
+  const formData = report.formData || report;
+
+  editingReportId = Number(reportId || report.id);
+
+  // 1. Reset y reconstruir selects ANTES de asignar valores (para que las
+  //    opciones existan cuando hagamos .value = ...).
+  reportForm.reset();
+  renderReportPersonSelects();
+  renderCellOptions();
+
+  // 2. Llenar los campos simples del formulario.
+  Object.entries(formData).forEach(([name, value]) => {
+    const field = reportForm.elements.namedItem(name);
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+      field.value = value == null ? "" : String(value);
+    }
+  });
+
+  // 3. Reasignar selects de líder/asistente/anfitrión/célula (los renderSelect
+  //    de arriba podrían haber borrado el value seteado por Object.entries).
+  if (formData.cellNumber) cellField.value = String(formData.cellNumber);
+  leaderField.value    = formData.leaderName    || "";
+  assistantField.value = formData.assistantName || "";
+  hostField.value      = formData.hostName      || "";
+  if (formData.week)   weekField.value = String(formData.week);
+
+  // 4. Sincronizar listas (members/visitors/kids/baptisms) CON la data guardada.
+  syncReportWithCell(false, formData);
+
+  // 5. Red de seguridad: si por cualquier motivo currentMemberAttendance
+  //    quedó vacío pero la celda existe y la data trae miembros, forzar
+  //    una reaplicación + re-render. Evita el bug donde se mostraba la
+  //    tabla con checkboxes en blanco aunque el draft sí tuviera datos.
+  const cellObj = findCellByNumber(cellField.value);
+  const savedMembers = Array.isArray(formData.memberAttendance) ? formData.memberAttendance : [];
+  if (cellObj && savedMembers.length && currentMemberAttendance.every(m => !m.planningAttended && !m.reachAttended && !m.sundayAttended && m.status === "pending")) {
+    applyWeeklyCollectionsForCell(cellObj, formData);
+  }
+
+  syncPhaseIndicator();
 }
 
 // Guardar borrador — saves current form state without browser validation
@@ -6228,22 +6246,7 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
         editFromSegBtn.onclick = async () => {
           reportPreviewDialog.close();
           const fullPayload = await request(`/api/reports/${reportId}`);
-          editingReportId = Number(reportId);
-          reportForm.reset();
-          const formData = fullPayload.report.formData || fullPayload.report;
-          Object.entries(formData).forEach(([name, value]) => {
-            const field = reportForm.elements.namedItem(name);
-            if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
-              field.value = value == null ? "" : String(value);
-            }
-          });
-          renderReportPersonSelects();
-          renderCellOptions();
-          if (formData.cellNumber) cellField.value = String(formData.cellNumber);
-          leaderField.value    = formData.leaderName    || "";
-          assistantField.value = formData.assistantName || "";
-          hostField.value      = formData.hostName      || "";
-          syncReportWithCell(false, formData);
+          loadReportIntoForm(fullPayload.report, Number(reportId));
           showView("report");
           showStage("encabezado", { skipWeekCheck: true });
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -6299,22 +6302,7 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
         const handler = async () => {
           reportPreviewDialog.close();
           const fullPayload = await request(`/api/reports/${reportId}`);
-          editingReportId = Number(reportId);
-          reportForm.reset();
-          const formData = fullPayload.report.formData || fullPayload.report;
-          Object.entries(formData).forEach(([name, value]) => {
-            const field = reportForm.elements.namedItem(name);
-            if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
-              field.value = value == null ? "" : String(value);
-            }
-          });
-          renderReportPersonSelects();
-          renderCellOptions();
-          if (formData.cellNumber) cellField.value = String(formData.cellNumber);
-          leaderField.value    = formData.leaderName    || "";
-          assistantField.value = formData.assistantName || "";
-          hostField.value      = formData.hostName      || "";
-          syncReportWithCell(false, formData);
+          loadReportIntoForm(fullPayload.report, Number(reportId));
           showView("report");
           showStage("encabezado", { skipWeekCheck: true });
           window.scrollTo({ top: 0, behavior: "smooth" });
