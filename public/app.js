@@ -5939,7 +5939,20 @@ function pickResumeStage(formData) {
 async function autoLoadExistingReportIfAny(cell, week) {
   if (editingReportId) return;
   const cycleStartStr = appSettings.cycle_start_date;
-  if (!cycleStartStr) return;
+  if (!cycleStartStr) {
+    console.warn("[autoLoad] sin cycle_start_date en settings");
+    return;
+  }
+
+  // Si reportsData está vacío, intentar recargar (puede haber fallado durante init)
+  if (!Array.isArray(reportsData) || reportsData.length === 0) {
+    console.warn("[autoLoad] reportsData vacío, recargando…");
+    try {
+      await loadReports();
+    } catch (e) {
+      console.error("[autoLoad] no se pudo recargar reportsData", e);
+    }
+  }
 
   const existing = reportsData.find(r => {
     const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
@@ -5947,13 +5960,18 @@ async function autoLoadExistingReportIfAny(cell, week) {
     const rDate = String(r.reportDate || r.formData?.reportDate || "");
     return rCell === String(cell) && rWeek === Number(week) && rDate >= cycleStartStr;
   });
-  if (!existing) return;
+  if (!existing) {
+    console.info(`[autoLoad] sin reporte previo para cell=${cell} week=${week} (reportsData.length=${reportsData.length})`);
+    return;
+  }
   // If the report is no longer editable (closed week), show in read-only mode
   if (!isReportEditable(existing)) {
     try {
       const payload = await request(`/api/reports/${existing.id}`);
       enterReadOnlyMode(payload.report);
-    } catch { /* ignore */ }
+    } catch (e) {
+      console.error("[autoLoad] error cargando reporte readonly", e);
+    }
     return;
   }
 
@@ -5969,8 +5987,8 @@ async function autoLoadExistingReportIfAny(cell, week) {
     } else {
       setFeedback(`Semana ${week} ya tiene reporte — continuando en “${resumeStage}”.`);
     }
-  } catch {
-    // silently ignore, leave form in new-report mode
+  } catch (e) {
+    console.error("[autoLoad] error cargando reporte editable", e);
   }
 }
 
