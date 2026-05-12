@@ -623,24 +623,51 @@ function showView(viewName) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
+  // Retry con backoff para sobrevivir al cold-start de Render: el primer fetch
+  // puede fallar con "TypeError: Failed to fetch" mientras el servicio despierta.
+  // Solo reintentamos errores de red (no errores HTTP ya recibidos) y solo
+  // métodos idempotentes GET/HEAD por defecto. Para mutaciones, un único intento.
+  const method = String(options.method || "GET").toUpperCase();
+  const isIdempotent = method === "GET" || method === "HEAD";
+  const maxAttempts = isIdempotent ? 5 : 1;
+  let attempt = 0;
+  let lastErr = null;
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({ message: "Error inesperado" }));
-    throw new Error(payload.message || "Error inesperado");
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ message: "Error inesperado" }));
+        throw new Error(payload.message || "Error inesperado");
+      }
+
+      if (response.status === 204) {
+        return null;
+      }
+
+      return response.json();
+    } catch (err) {
+      lastErr = err;
+      // Solo reintentar errores de red (TypeError: Failed to fetch). Si el
+      // servidor respondió con HTTP error, no reintentamos.
+      const isNetworkError = err instanceof TypeError;
+      if (!isNetworkError || attempt >= maxAttempts) {
+        throw err;
+      }
+      // Backoff: 1s, 2s, 4s, 6s (total ~13s, suficiente para el cold-start)
+      const delayMs = Math.min(6000, 1000 * Math.pow(2, attempt - 1));
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
   }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  return response.json();
+  throw lastErr || new Error("Error inesperado");
 }
 
 function setFeedback(message, isError = false) {
