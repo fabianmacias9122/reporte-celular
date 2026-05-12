@@ -178,8 +178,11 @@ const visitorEventToggleField = document.querySelector("#visitor-event-toggle-fi
 const visitorEventToggleLabel = document.querySelector("#visitor-event-toggle-label");
 const visitorEventColHeader = document.querySelector("#visitor-event-col-header");
 const fillPlanningMembersButton = document.querySelector("#fill-planning-members");
+const fillReachMembersButton = document.querySelector("#fill-reach-members");
+const fillReachPrivilegesButton = document.querySelector("#fill-reach-privileges");
 const copyPlanningToReachButton = document.querySelector("#copy-planning-to-reach");
 const copyReachToSundayButton = document.querySelector("#copy-reach-to-sunday");
+const markAllPrivilegesButton = document.querySelector("#mark-all-privileges");
 const syncStatusFromActivitiesButton = document.querySelector("#sync-status-from-activities");
 const clearMemberActivitiesButton = document.querySelector("#clear-member-activities");
 const copyVisitorReachToSundayButton = document.querySelector("#copy-visitor-reach-to-sunday");
@@ -3115,6 +3118,25 @@ function handleDashboardPeriodChange() {
   renderDashboard(reportsData);
 }
 
+// Las tres reuniones de la semana (Planeación, Alcance, Culto) son
+// eventos independientes; cada miembro tiene un estado por evento.
+// `status` queda como campo derivado para dashboards/alertas y se
+// recalcula con `deriveOverallStatus` cada vez que cambia un sub-estado.
+const STAGE_STATUS_FIELDS = {
+  planificacion: "planningStatus",
+  alcance:       "reachStatus",
+  culto:         "sundayStatus",
+};
+function deriveOverallStatus(entry) {
+  // Prioriza la etapa más reciente con valor explícito.
+  const order = ["sundayStatus", "reachStatus", "planningStatus"];
+  for (const f of order) {
+    const v = entry[f];
+    if (v && v !== "pending") return v;
+  }
+  return "pending";
+}
+
 function buildDefaultMemberAttendance(cell, savedEntries = []) {
   const savedByPersonId = new Map(
     (Array.isArray(savedEntries) ? savedEntries : []).map((entry) => [String(entry.personId || entry.name || ""), entry])
@@ -3122,18 +3144,30 @@ function buildDefaultMemberAttendance(cell, savedEntries = []) {
 
   return getCellMembers(cell).map((member) => {
     const savedEntry = savedByPersonId.get(String(member.id)) || savedByPersonId.get(String(member.name));
-    return {
+    // Migración: reportes viejos sólo guardaban `status`. Si no hay
+    // sub-estados explícitos, copiamos `status` a los tres para no
+    // perder el dato.
+    const legacy = savedEntry?.status || "pending";
+    const planningStatus = savedEntry?.planningStatus || legacy;
+    const reachStatus    = savedEntry?.reachStatus    || legacy;
+    const sundayStatus   = savedEntry?.sundayStatus   || legacy;
+    const entry = {
       personId: member.id,
       name: member.name,
       role: member.role,
       rcmProgress: member.rcmProgress || {},
-      status: savedEntry?.status || "pending",
+      planningStatus,
+      reachStatus,
+      sundayStatus,
+      status: "pending", // se sobreescribe abajo
       planningAttended: Boolean(savedEntry?.planningAttended),
       reachAttended: Boolean(savedEntry?.reachAttended),
       reachPrivileged: Boolean(savedEntry?.reachPrivileged),
       sundayAttended: Boolean(savedEntry?.sundayAttended),
       note: savedEntry?.note || "",
     };
+    entry.status = deriveOverallStatus(entry);
+    return entry;
   });
 }
 
@@ -3362,7 +3396,13 @@ function renderAttendanceTable() {
     if (isEventWeek) memberEventColHeader.textContent = eventName;
   }
 
+  // Etapa actual determina cuál de los tres sub-estados se muestra/edita
+  // en la columna "Estado semanal". Fuera de Planeación/Alcance/Culto
+  // se usa el campo derivado `status`.
+  const stageStatusField = STAGE_STATUS_FIELDS[currentStage] || null;
+
   attendanceTableBody.innerHTML = currentMemberAttendance.map((entry, index) => {
+    const stageStatus = stageStatusField ? (entry[stageStatusField] || "pending") : (entry.status || "pending");
     const attended = eventKey && entry.rcmProgress?.[eventKey];
     const eventCell = isEventWeek
       ? `<td data-label="${escapeHtml(eventName)}" class="checkbox-cell event-col">
@@ -3386,11 +3426,11 @@ function renderAttendanceTable() {
       </td>
       <td data-label="Estado">
         <select data-attendance-index="${index}" data-attendance-field="status">
-          <option value="pending"${entry.status === "pending" ? " selected" : ""}>Sin marcar</option>
-          <option value="present"${entry.status === "present" ? " selected" : ""}>Presente</option>
-          <option value="absent"${entry.status === "absent" ? " selected" : ""}>Faltó</option>
-          <option value="justified"${entry.status === "justified" ? " selected" : ""}>Justificado</option>
-          <option value="service"${entry.status === "service" ? " selected" : ""}>Sirviendo</option>
+          <option value="pending"${stageStatus === "pending" ? " selected" : ""}>Sin marcar</option>
+          <option value="present"${stageStatus === "present" ? " selected" : ""}>Presente</option>
+          <option value="absent"${stageStatus === "absent" ? " selected" : ""}>Faltó</option>
+          <option value="justified"${stageStatus === "justified" ? " selected" : ""}>Justificado</option>
+          <option value="service"${stageStatus === "service" ? " selected" : ""}>Sirviendo</option>
         </select>
       </td>
       <td data-label="Planeación" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="planningAttended" type="checkbox"${entry.planningAttended ? " checked" : ""}></td>
@@ -3674,8 +3714,11 @@ function resetVisitorQuickForm() {
 function toggleHelperButtons() {
   const memberButtons = [
     fillPlanningMembersButton,
+    fillReachMembersButton,
+    fillReachPrivilegesButton,
     copyPlanningToReachButton,
     copyReachToSundayButton,
+    markAllPrivilegesButton,
     syncStatusFromActivitiesButton,
     clearMemberActivitiesButton,
   ];
@@ -3709,11 +3752,20 @@ function toggleHelperButtons() {
 }
 
 function syncMemberWeeklyStatus(entry) {
-  const hasActivity = Boolean(entry.planningAttended || entry.reachAttended || entry.sundayAttended);
-  if (entry.status === "absent" || entry.status === "justified" || entry.status === "service") {
-    return;
-  }
-  entry.status = hasActivity ? "present" : "pending";
+  // Deriva cada sub-estado desde su checkbox correspondiente, sin pisar
+  // valores manuales "fuertes" (absent/justified/service) que el líder
+  // ya haya seleccionado a propósito en esa etapa.
+  const pairs = [
+    ["planningStatus", "planningAttended"],
+    ["reachStatus",    "reachAttended"],
+    ["sundayStatus",   "sundayAttended"],
+  ];
+  pairs.forEach(([statusField, attendedField]) => {
+    const cur = entry[statusField];
+    if (cur === "absent" || cur === "justified" || cur === "service") return;
+    entry[statusField] = entry[attendedField] ? "present" : "pending";
+  });
+  entry.status = deriveOverallStatus(entry);
 }
 
 function updateMemberActivities(mutator) {
@@ -3755,26 +3807,63 @@ function handleCopyPlanningToReach() {
   });
 }
 
+function handleFillReachMembers() {
+  // Marca a TODOS los miembros con asistencia a la reunión de Alcance.
+  updateMemberActivities((entry) => {
+    entry.reachAttended = true;
+  });
+}
+
+function handleFillReachPrivileges() {
+  // Marca a TODOS los miembros con asistencia + privilegios en Alcance.
+  updateMemberActivities((entry) => {
+    entry.reachAttended = true;
+    entry.reachPrivileged = true;
+  });
+}
+
 function handleCopyReachToSunday() {
   updateMemberActivities((entry) => {
     entry.sundayAttended = Boolean(entry.reachAttended);
   });
 }
 
+function handleMarkAllPrivileges() {
+  // Marca Privilegios=true a todos los miembros que asistieron al Alcance.
+  // Si alguien no fue al Alcance, no se le asignan privilegios (la columna
+  // está deshabilitada en ese caso).
+  updateMemberActivities((entry) => {
+    if (entry.reachAttended) entry.reachPrivileged = true;
+  });
+}
+
 function handleSyncStatusFromActivities() {
   updateMemberActivities((entry) => {
-    entry.status = entry.planningAttended || entry.reachAttended || entry.sundayAttended ? "present" : "pending";
+    entry.planningStatus = entry.planningAttended ? "present" : "pending";
+    entry.reachStatus    = entry.reachAttended    ? "present" : "pending";
+    entry.sundayStatus   = entry.sundayAttended   ? "present" : "pending";
+    entry.status = deriveOverallStatus(entry);
   });
 }
 
 function handleClearMemberActivities() {
+  // Limpia únicamente la etapa activa (Planeación / Alcance / Culto).
+  // Si estamos fuera de esas etapas, no hacemos nada.
+  const stageField = STAGE_STATUS_FIELDS[currentStage];
+  if (!stageField) return;
+  const attendedField = {
+    planningStatus: "planningAttended",
+    reachStatus:    "reachAttended",
+    sundayStatus:   "sundayAttended",
+  }[stageField];
   updateMemberActivities((entry) => {
-    entry.planningAttended = false;
-    entry.reachAttended = false;
-    entry.sundayAttended = false;
-    if (entry.status === "present") {
-      entry.status = "pending";
+    entry[attendedField] = false;
+    // En Alcance, limpiar también los privilegios (dependen de reachAttended).
+    if (attendedField === "reachAttended") {
+      entry.reachPrivileged = false;
     }
+    if (entry[stageField] === "present") entry[stageField] = "pending";
+    entry.status = deriveOverallStatus(entry);
   });
 }
 
@@ -5471,7 +5560,14 @@ function handleAttendanceTableInput(event) {
   }
 
   if (target.dataset.attendanceField === "status" && target instanceof HTMLSelectElement) {
-    entry.status = target.value;
+    const stageField = STAGE_STATUS_FIELDS[currentStage];
+    if (stageField) {
+      entry[stageField] = target.value;
+    } else {
+      // Fallback raro (etapa sin sub-estado): editar el campo derivado.
+      entry.status = target.value;
+    }
+    entry.status = deriveOverallStatus(entry);
   }
   if (["planningAttended", "reachAttended", "reachPrivileged", "sundayAttended"].includes(target.dataset.attendanceField) && target instanceof HTMLInputElement) {
     entry[target.dataset.attendanceField] = target.checked;
@@ -5483,7 +5579,12 @@ function handleAttendanceTableInput(event) {
       const privChk = attendanceTableBody.querySelector(`[data-attendance-index="${target.dataset.attendanceIndex}"][data-attendance-field="reachPrivileged"]`);
       if (privChk) { privChk.disabled = false; }
     }
-    syncMemberWeeklyStatus(entry);
+    // No auto-promovemos `status` aquí. La columna "Estado semanal" es
+    // compartida entre Planeación/Alcance/Culto y auto-marcar "Presente"
+    // al togglear un check de Planeación hacía que al entrar a Alcance
+    // todos aparecieran como "Presente" sin que el líder lo hubiera
+    // decidido. Si el usuario quiere derivar estado desde actividades,
+    // existe el botón "Estado según actividades" (#sync-status-from-activities).
   }
   if (target.dataset.attendanceField === "rcmEventAttended" && target instanceof HTMLInputElement) {
     const rcmKey = target.dataset.rcmKey;
@@ -5799,6 +5900,11 @@ function showStage(stage, { skipWeekCheck = false } = {}) {
   const stageLabels = { encabezado: "Reporte · Inicio", planificacion: "Reporte · Planeación", alcance: "Reporte · Alcance", culto: "Reporte · Culto", cierre: "Reporte · Cierre" };
   if (topbarRouteLabel) topbarRouteLabel.textContent = stageLabels[stage] ?? "Reporte";
   document.body.dataset.activeStage = stage;
+  // La columna "Estado semanal" muestra el sub-estado de la etapa activa;
+  // hay que re-pintar la tabla para que el <select> refleje el valor correcto.
+  if (typeof renderAttendanceTable === "function" && attendanceTableBody && currentMemberAttendance.length) {
+    renderAttendanceTable();
+  }
 }
 
 // Wire stage tab clicks
@@ -5959,20 +6065,18 @@ function inferNextIncompleteStage(formData) {
   return "cierre"; // todo lleno → quedarse en el cierre para finalizar
 }
 
-// Decide la etapa al reabrir: prioriza lastStage del borrador (siguiente etapa);
-// si no hay lastStage, infiere por contenido.
 // Decide la etapa al reabrir un borrador / reporte.
-// Comportamiento: aterrizamos exactamente en la etapa donde el usuario
-// guardó por última vez (`lastStage`), para que vea sus datos sin tener
-// que navegar manualmente. Si no hay `lastStage`, inferimos la primera
-// etapa con datos para mostrar contenido relevante.
-// Antes avanzábamos a `lastStage + 1` lo que mostraba un formulario VACÍO
-// en la siguiente etapa y confundía a los usuarios que esperaban ver lo
-// que ya habían capturado.
+// `lastStage` es la última etapa que el usuario GUARDÓ explícitamente
+// (clic en "Guardar y continuar"). Como ya está guardada, lo lógico es
+// llevarlo a la siguiente etapa pendiente. Si la última guardada es la
+// final (`cierre`), nos quedamos ahí. Si no hay `lastStage`, inferimos
+// la primera etapa con datos como fallback.
 function pickResumeStage(formData) {
   const fd = formData || {};
   if (fd.lastStage && STAGES.includes(fd.lastStage)) {
-    return fd.lastStage;
+    const idx = STAGES.indexOf(fd.lastStage);
+    // Avanza a la siguiente etapa; si ya estaba en la última, quédate ahí.
+    return idx >= 0 && idx < STAGES.length - 1 ? STAGES[idx + 1] : fd.lastStage;
   }
   // Si no hay lastStage, ir a la primera etapa con datos (review-first)
   const members  = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
@@ -6564,8 +6668,11 @@ if (visitorQuickHistory instanceof HTMLSelectElement) {
   });
 }
 fillPlanningMembersButton.addEventListener("click", handleFillPlanningMembers);
-copyPlanningToReachButton.addEventListener("click", handleCopyPlanningToReach);
+fillReachMembersButton?.addEventListener("click", handleFillReachMembers);
+fillReachPrivilegesButton?.addEventListener("click", handleFillReachPrivileges);
+copyPlanningToReachButton?.addEventListener("click", handleCopyPlanningToReach);
 copyReachToSundayButton.addEventListener("click", handleCopyReachToSunday);
+markAllPrivilegesButton?.addEventListener("click", handleMarkAllPrivileges);
 syncStatusFromActivitiesButton.addEventListener("click", handleSyncStatusFromActivities);
 clearMemberActivitiesButton.addEventListener("click", handleClearMemberActivities);
 copyVisitorReachToSundayButton.addEventListener("click", handleCopyVisitorReachToSunday);
