@@ -4046,6 +4046,8 @@ function renderReports(reports) {
 
 // ── Seguimiento: vista de células para supervisor / coordinador ────────────
 let seguimientoScope = "current";
+// Offset de semana para Seguimiento: 0 = esta semana, -1 = semana anterior.
+let seguimientoWeekOffset = 0;
 
 function renderSeguimiento(reports) {
   const cyclesList = document.querySelector("#seguimiento-cycles-list");
@@ -4220,9 +4222,24 @@ function renderSeguimiento(reports) {
     }).join("");
   }).join("");
 
+  // ── Toggle de semana (esta / anterior) ────────────────────────────────────
+  const realWeekNum = getQuarterWeekNumber();
+  const offsetTabs  = document.getElementById("seg-week-offset-tabs");
+  if (offsetTabs) {
+    // Solo tiene sentido si hay una semana anterior dentro del mismo cuatrimestre.
+    offsetTabs.hidden = realWeekNum <= 1;
+    if (offsetTabs.hidden) seguimientoWeekOffset = 0;
+    offsetTabs.querySelectorAll("button[data-weekoff]").forEach(b => {
+      b.classList.toggle("is-active", String(b.dataset.weekoff) === String(seguimientoWeekOffset));
+    });
+  }
+  const effectiveWeek = Math.max(1, realWeekNum + seguimientoWeekOffset);
+  const isPrevWeek    = seguimientoWeekOffset === -1 && realWeekNum > 1;
+  const weekLabel     = isPrevWeek ? "Semana anterior" : "Esta semana";
+
   // ── Células pendientes y actividad de la semana actual ────────────────────
   if (dashboardPendingCells || dashboardRecentActivity) {
-    const curWeek    = String(getQuarterWeekNumber());
+    const curWeek    = String(effectiveWeek);
     const curYear    = String(new Date().getFullYear());
     const curQuarter = String(getCurrentQuarter());
     const allScoped  = getScopedReports(reports);
@@ -4241,8 +4258,12 @@ function renderSeguimiento(reports) {
 
     if (dashboardPendingEyebrow) {
       const scopeLabel = getDashboardScopeLabel();
-      dashboardPendingEyebrow.textContent = scopeLabel ? `Esta semana · ${scopeLabel}` : "Esta semana";
+      dashboardPendingEyebrow.textContent = scopeLabel ? `${weekLabel} · ${scopeLabel}` : weekLabel;
     }
+    const rcsActivityEyebrow = document.getElementById("rcs-activity-eyebrow");
+    if (rcsActivityEyebrow) rcsActivityEyebrow.textContent = isPrevWeek ? "Reportaron la semana anterior" : "Reportaron esta semana";
+    const segTotalsEyebrow = document.getElementById("seg-totals-eyebrow");
+    if (segTotalsEyebrow) segTotalsEyebrow.textContent = weekLabel;
 
     if (dashboardPendingCells) {
       dashboardPendingCells.innerHTML = pendingCells.length
@@ -6538,12 +6559,12 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
   }
 });
 
-// Seguimiento: tabs de cuatrimestre
-document.getElementById("seguimiento-scope-tabs")?.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-sgscope]");
+// Seguimiento: toggle esta semana / semana anterior
+document.getElementById("seg-week-offset-tabs")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-weekoff]");
   if (!btn) return;
-  seguimientoScope = btn.dataset.sgscope;
-  document.querySelectorAll("#seguimiento-scope-tabs .filter-tab").forEach(b =>
+  seguimientoWeekOffset = parseInt(btn.dataset.weekoff, 10) || 0;
+  document.querySelectorAll("#seg-week-offset-tabs .filter-tab").forEach(b =>
     b.classList.toggle("is-active", b === btn)
   );
   renderSeguimiento(reportsData);

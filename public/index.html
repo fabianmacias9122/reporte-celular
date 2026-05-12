@@ -713,6 +713,11 @@
 
         <!-- Tab: Seguimiento -->
         <div id="seg-tab-seguimiento" class="seg-tab-panel">
+          <!-- Week offset toggle (oculto en semana 1 del cuatrimestre) -->
+          <div id="seg-week-offset-tabs" class="filter-tabs" style="margin-bottom:12px" hidden>
+            <button type="button" class="filter-tab is-active" data-weekoff="0">Esta semana</button>
+            <button type="button" class="filter-tab" data-weekoff="-1">Semana anterior</button>
+          </div>
           <!-- Compact weekly context strip -->
           <div id="report-context-strip" class="report-context-strip" hidden>
             <div class="rcs-col">
@@ -721,7 +726,7 @@
             </div>
             <div class="rcs-divider"></div>
             <div class="rcs-col">
-              <span class="rcs-label">Reportaron esta semana</span>
+              <span class="rcs-label" id="rcs-activity-eyebrow">Reportaron esta semana</span>
               <div class="rcs-chips" id="rcs-activity"></div>
             </div>
           </div>
@@ -733,7 +738,7 @@
           <section class="panel panel-soft" id="seg-totals-panel" hidden>
             <div class="panel-head">
               <div>
-                <p class="eyebrow">Esta semana</p>
+                <p class="eyebrow" id="seg-totals-eyebrow">Esta semana</p>
                 <h2>Totales de asistencia</h2>
               </div>
               <div class="seg-totals-scope-tabs">
@@ -752,10 +757,6 @@
               </div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <span id="seg-report-count" class="count-chip">0</span>
-                <div id="seguimiento-scope-tabs" class="filter-tabs">
-                  <button type="button" class="filter-tab is-active" data-sgscope="current" data-i18n="seg.thisQuarter">Este cuatrimestre</button>
-                  <button type="button" class="filter-tab" data-sgscope="all" data-i18n="seg.all">Todo</button>
-                </div>
               </div>
             </div>
             <div class="seg-legend">
@@ -1250,6 +1251,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260512-016"></script>
+  <script type="module" src="./app.js?v=20260512-018"></script>
 </body>
 </html>
