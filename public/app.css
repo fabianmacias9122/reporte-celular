@@ -426,6 +426,11 @@ details[data-stage].stage-visible { display: block !important; }
 
 /* ── Attendance table columns per stage ── */
 /* Column order: 1=Miembro 2=Estado 3=Planeación 4=Alcance 5=Privilegios 6=Culto 7=Observación */
+/* Atajos por etapa: ocultar los botones que no aplican a la etapa activa */
+.helper-actions .stage-action { display: none; }
+body[data-active-stage="planificacion"] .helper-actions .stage-action[data-stage-action="planificacion"],
+body[data-active-stage="alcance"]       .helper-actions .stage-action[data-stage-action="alcance"],
+body[data-active-stage="culto"]         .helper-actions .stage-action[data-stage-action="culto"] { display: inline-flex; }
 /* Planeación: solo col Planeación(3) — ocultar Alcance(4), Privilegios(5), Culto(6) */
 body[data-active-stage="planificacion"] #attendance-table-body tr td:nth-child(4),
 body[data-active-stage="planificacion"] #attendance-table-body tr td:nth-child(5),
