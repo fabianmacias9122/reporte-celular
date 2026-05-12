@@ -953,6 +953,27 @@ def validate_report_payload(payload: dict) -> str | None:
             row_day = conn.execute(
                 "SELECT value FROM app_settings WHERE key = 'week_start_day'"
             ).fetchone()
+            # Total de semanas del ciclo — derivado de rcm_weeks_config si trae
+            # un array completo (con phase+verb por entrada). Si no, default 16.
+            row_cfg = conn.execute(
+                "SELECT value FROM app_settings WHERE key = 'rcm_weeks_config'"
+            ).fetchone()
+            cycle_total_weeks = 16
+            if row_cfg and row_cfg["value"]:
+                try:
+                    cfg = json.loads(row_cfg["value"])
+                    if isinstance(cfg, list) and cfg:
+                        full = all(
+                            isinstance(e, dict)
+                            and isinstance(e.get("phase"), str)
+                            and isinstance(e.get("verb"), str)
+                            and isinstance(e.get("week"), int)
+                            for e in cfg
+                        )
+                        if full:
+                            cycle_total_weeks = max(1, len(cfg))
+                except Exception:
+                    pass
         if row_start and row_start["value"]:
             cycle_start = date.fromisoformat(row_start["value"])
             today = date.today()
@@ -970,9 +991,9 @@ def validate_report_payload(payload: dict) -> str | None:
                     if diff_days < days_to_first:
                         max_week = 1
                     else:
-                        max_week = min(16, (diff_days - days_to_first) // 7 + 2)
+                        max_week = min(cycle_total_weeks, (diff_days - days_to_first) // 7 + 2)
                 else:
-                    max_week = max(1, min(16, math.floor(diff_days / 7) + 1))
+                    max_week = max(1, min(cycle_total_weeks, math.floor(diff_days / 7) + 1))
                 submitted_week = int(str(payload.get("week", "1")).strip())
                 if submitted_week > max_week:
                     return (

@@ -1548,12 +1548,12 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   .rcm-verbs-table tbody { display: grid; gap: 10px; }
   .rcm-verbs-table tr {
     display: grid;
-    grid-template-columns: 32px 1fr;
+    grid-template-columns: 32px 1fr 28px;
     grid-template-areas:
-      "sem etapa"
-      "verbo verbo"
-      "desc desc"
-      "evento evento";
+      "sem etapa acc"
+      "verbo verbo verbo"
+      "desc desc desc"
+      "evento evento evento";
     gap: 6px 10px;
     padding: 10px;
     border: 1px solid var(--line);
@@ -1567,6 +1567,7 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   .rcm-verbs-table td:nth-child(3) { grid-area: verbo; }
   .rcm-verbs-table td:nth-child(4) { grid-area: desc; }
   .rcm-verbs-table td:nth-child(5) { grid-area: evento; }
+  .rcm-verbs-table td:nth-child(6) { grid-area: acc; align-self: center; justify-self: end; }
   .rcm-verbs-table td:nth-child(3)::before,
   .rcm-verbs-table td:nth-child(4)::before,
   .rcm-verbs-table td:nth-child(5)::before {
@@ -1587,6 +1588,9 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
 .rcm-verbs-phase-consolidar { background: #fff3e0; color: #e65100; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; display:inline-block; }
 .rcm-verbs-phase-discipular { background: #ede7f6; color: #4527a0; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; display:inline-block; }
 .rcm-verbs-event-badge { font-size: 0.7rem; color: var(--brand); background: var(--brand-soft); padding: 2px 7px; border-radius: 20px; font-weight: 600; }
+.rvt-row-ganar      td:first-child { box-shadow: inset 3px 0 0 #66bb6a; }
+.rvt-row-consolidar td:first-child { box-shadow: inset 3px 0 0 #ff9800; }
+.rvt-row-discipular td:first-child { box-shadow: inset 3px 0 0 #7e57c2; }
 .settings-quarter-body { display: flex; flex-direction: column; gap: 6px; font-size: 0.84rem; }
 .sq-row { display: flex; align-items: center; gap: 8px; }
 .sq-muted { color: var(--muted); font-size: 0.78rem; }

@@ -25,37 +25,101 @@ const RCM_WEEKS = [
   { week: 16, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "BAUTIZAR",   verbDesc: "La Pesca Milagrosa — Evento de Bautismos en agua.",                        event: "Cielos Abiertos", eventType: "Bautismos en agua",                  purpose: "Bautismos, llenura espiritual y envío al discipulado.", rcmKey: "cielosAbiertos" },
 ];
 
-const PHASE_WEEK_RANGES = {
-  GANAR:      { weekStart: 1,  weekEnd: 6  },
-  CONSOLIDAR: { weekStart: 7,  weekEnd: 11 },
-  DISCIPULAR: { weekStart: 12, weekEnd: 16 },
-};
+// Total de semanas del ciclo — derivado de RCM_WEEKS (configurable via settings)
+function getRcmTotalWeeks() {
+  return RCM_WEEKS.length;
+}
+
+// Rango de semanas por fase — calculado DINÁMICAMENTE desde RCM_WEEKS para que
+// cuando se agreguen/quiten semanas o se mueva la fase de alguna, los rangos
+// reflejen el estado actual sin tener que editar nada más.
+function getPhaseWeekRanges() {
+  const ranges = {};
+  RCM_WEEKS.forEach(w => {
+    const r = ranges[w.phase];
+    if (!r) {
+      ranges[w.phase] = { weekStart: w.week, weekEnd: w.week };
+    } else {
+      if (w.week < r.weekStart) r.weekStart = w.week;
+      if (w.week > r.weekEnd)   r.weekEnd   = w.week;
+    }
+  });
+  return ranges;
+}
+
+// Compat — se mantiene el nombre por si algún tercero lo lee, pero ya es dinámico.
+const PHASE_WEEK_RANGES = new Proxy({}, {
+  get: (_t, key) => getPhaseWeekRanges()[key],
+  ownKeys: () => Object.keys(getPhaseWeekRanges()),
+  getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
+});
 
 function getRcmWeekInfo(weekNumber) {
   const w = parseInt(weekNumber, 10);
-  if (!w || w < 1 || w > 16) return null;
+  const max = getRcmTotalWeeks();
+  if (!w || w < 1 || w > max) return null;
   const info = RCM_WEEKS.find((r) => r.week === w);
   if (!info) return null;
-  const range = PHASE_WEEK_RANGES[info.phase];
+  const range = getPhaseWeekRanges()[info.phase];
   return { ...info, ...range, isEventWeek: !!info.event };
 }
 
 // Apply coordinator overrides stored in app_settings.rcm_weeks_config (JSON array)
-// Each entry: { week, verb?, verbDesc?, event?, eventType? }
+// Soporta DOS formatos:
+//   A) Legacy: array de overrides parciales { week, verb?, verbDesc?, event?, eventType? }
+//      → aplica sobre las semanas existentes, NO altera la cantidad total.
+//   B) Nuevo: array completo de semanas { week, phase, phaseLabel, verb, verbDesc, event, eventType, rcmKey }
+//      → reemplaza RCM_WEEKS por completo (permite agregar/quitar semanas).
+//   Detección: si TODOS los entries traen phase + verb, se considera formato B.
 function applyRcmWeeksConfig() {
   const raw = appSettings?.rcm_weeks_config;
   if (!raw) return;
-  let overrides;
-  try { overrides = JSON.parse(raw); } catch { return; }
-  if (!Array.isArray(overrides)) return;
-  overrides.forEach(ov => {
+  let cfg;
+  try { cfg = JSON.parse(raw); } catch { return; }
+  if (!Array.isArray(cfg) || cfg.length === 0) return;
+
+  const isFullConfig = cfg.every(e => e && typeof e === "object"
+    && typeof e.phase === "string" && typeof e.verb === "string"
+    && Number.isInteger(e.week));
+
+  if (isFullConfig) {
+    // Reemplazo completo — ordenado por week para mantener invariantes.
+    const sorted = [...cfg].sort((a, b) => a.week - b.week);
+    RCM_WEEKS.length = 0;
+    sorted.forEach((e, idx) => {
+      RCM_WEEKS.push({
+        week:       idx + 1, // re-numerar para evitar huecos
+        phase:      String(e.phase || "GANAR").toUpperCase(),
+        phaseLabel: e.phaseLabel || titleCase(e.phase || "Ganar"),
+        verb:       e.verb || "",
+        verbDesc:   e.verbDesc || "",
+        event:      e.event || null,
+        eventType:  e.eventType || null,
+        purpose:    e.purpose || null,
+        rcmKey:     e.rcmKey || null,
+      });
+    });
+    return;
+  }
+
+  // Legacy: aplica como overrides parciales.
+  cfg.forEach(ov => {
     const entry = RCM_WEEKS.find(w => w.week === ov.week);
     if (!entry) return;
     if (ov.verb      !== undefined) entry.verb      = ov.verb      || entry.verb;
     if (ov.verbDesc  !== undefined) entry.verbDesc  = ov.verbDesc;
     if (ov.event     !== undefined) entry.event     = ov.event     || null;
     if (ov.eventType !== undefined) entry.eventType = ov.eventType || null;
+    if (ov.phase     !== undefined && ov.phase) {
+      entry.phase      = String(ov.phase).toUpperCase();
+      entry.phaseLabel = ov.phaseLabel || titleCase(ov.phase);
+    }
   });
+}
+
+function titleCase(s) {
+  const x = String(s || "").toLowerCase();
+  return x.charAt(0).toUpperCase() + x.slice(1);
 }
 
 const reportForm = document.querySelector("#report-form");
@@ -701,12 +765,13 @@ function isNextPeriod(previousKey, currentKey) {
   if (current.year === previous.year && current.quarter === previous.quarter && current.week === previous.week + 1) {
     return true;
   }
-  // Week 16 → Week 1 of next quarter (same year, Q1→Q2 or Q2→Q3)
-  if (previous.week === 16 && current.week === 1 && current.year === previous.year && current.quarter === previous.quarter + 1) {
+  // Última semana del ciclo → Week 1 of next quarter (same year, Q1→Q2 or Q2→Q3)
+  const lastWeek = getRcmTotalWeeks();
+  if (previous.week === lastWeek && current.week === 1 && current.year === previous.year && current.quarter === previous.quarter + 1) {
     return true;
   }
-  // Week 16 → Week 1 of Q1 next year (Q3 → Q1)
-  if (previous.week === 16 && current.week === 1 && previous.quarter === 3 && current.quarter === 1 && current.year === previous.year + 1) {
+  // Última semana del ciclo → Week 1 of Q1 next year (Q3 → Q1)
+  if (previous.week === lastWeek && current.week === 1 && previous.quarter === 3 && current.quarter === 1 && current.year === previous.year + 1) {
     return true;
   }
   return false;
@@ -1142,7 +1207,7 @@ function getQuarterWeekNumber(dateValue = "") {
       if (daysToFirst === 0) daysToFirst = 7; // la siguiente ocurrencia, no el mismo día
 
       if (diffDays < daysToFirst) return 1;
-      return Math.max(1, Math.min(16, Math.floor((diffDays - daysToFirst) / 7) + 2));
+      return Math.max(1, Math.min(getRcmTotalWeeks(), Math.floor((diffDays - daysToFirst) / 7) + 2));
     }
   }
 
@@ -1154,7 +1219,7 @@ function getQuarterWeekNumber(dateValue = "") {
   const current = new Date(sourceDate.getFullYear(), sourceDate.getMonth(), sourceDate.getDate());
   current.setHours(0, 0, 0, 0);
   const diffDays = Math.floor((current - quarterStart) / 86400000);
-  return Math.max(1, Math.min(16, Math.floor(diffDays / 7) + 1));
+  return Math.max(1, Math.min(getRcmTotalWeeks(), Math.floor(diffDays / 7) + 1));
 }
 
 function getCurrentWeekNumber() {
@@ -1345,7 +1410,7 @@ function populateWeekOptions() {
     });
   }
 
-  weekField.innerHTML = Array.from({ length: 16 }, (_, index) => {
+  weekField.innerHTML = Array.from({ length: getRcmTotalWeeks() }, (_, index) => {
     const value = String(index + 1);
     const num   = index + 1;
     const info  = getRcmWeekInfo(value);
@@ -3778,12 +3843,13 @@ function renderReports(reports) {
         reps.forEach(r => { byWeek[String(r.week)] = r; });
         const totalDone = Object.values(byWeek).filter(r => !(r.formData?._draft === true || r.formData?._draft === "true")).length;
 
-        const chips = Array.from({ length: 16 }, (_, i) => {
+        const totalWeeks = getRcmTotalWeeks();
+        const chips = Array.from({ length: totalWeeks }, (_, i) => {
           const w = String(i + 1);
           const info = getRcmWeekInfo(w);
           const rep = byWeek[w];
           const phaseKey = info ? phaseColors[info.phase] || "ganar" : "ganar";
-          const verb = info?.verb || (w === "16" ? "CIERRE" : "");
+          const verb = info?.verb || (Number(w) === totalWeeks ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
             const isDraft = rep.formData?._draft === true || rep.formData?._draft === "true";
@@ -3806,7 +3872,7 @@ function renderReports(reports) {
           </button>`;
         }).join("");
 
-        const progressPct = Math.round((totalDone / 16) * 100);
+        const progressPct = Math.round((totalDone / totalWeeks) * 100);
         return `
           <div class="cycle-card" data-cell-number="${escapeHtml(String(cell))}">
             <div class="cycle-card-head">
@@ -3817,7 +3883,7 @@ function renderReports(reports) {
                 <span class="cycle-range-tag">${quarterLabel(quarter)}</span>
               </div>
               <div class="cycle-card-meta">
-                <span class="cycle-progress-text">${totalDone} / 16 semanas</span>
+                <span class="cycle-progress-text">${totalDone} / ${totalWeeks} semanas</span>
                 <div class="cycle-progress-bar"><div class="cycle-progress-fill" style="width:${progressPct}%"></div></div>
               </div>
             </div>
@@ -3931,12 +3997,13 @@ function renderSeguimiento(reports) {
         reps.forEach(r => { byWeek[String(r.week)] = r; });
         const totalDone = Object.values(byWeek).filter(r => !(r.formData?._draft === true || r.formData?._draft === "true")).length;
 
-        const chips = Array.from({ length: 16 }, (_, i) => {
+        const totalWeeks = getRcmTotalWeeks();
+        const chips = Array.from({ length: totalWeeks }, (_, i) => {
           const w = String(i + 1);
           const info = getRcmWeekInfo(w);
           const rep = byWeek[w];
           const phaseKey = info ? phaseColors[info.phase] || "ganar" : "ganar";
-          const verb = info?.verb || (w === "16" ? "CIERRE" : "");
+          const verb = info?.verb || (Number(w) === totalWeeks ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
             const isDraft = rep.formData?._draft === true || rep.formData?._draft === "true";
@@ -3980,7 +4047,7 @@ function renderSeguimiento(reports) {
         const baptismChip  = baptismCount > 0
           ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
           : "";
-        const progressPct = Math.round((totalDone / 16) * 100);
+        const progressPct = Math.round((totalDone / totalWeeks) * 100);
         return `
           <div class="cycle-card" data-cell-number="${escapeHtml(String(cell))}">
             <div class="cycle-card-head">
@@ -3993,7 +4060,7 @@ function renderSeguimiento(reports) {
                 ${baptismChip}
               </div>
               <div class="cycle-card-meta">
-                <span class="cycle-progress-text">${totalDone} / 16 semanas</span>
+                <span class="cycle-progress-text">${totalDone} / ${totalWeeks} semanas</span>
                 <div class="cycle-progress-bar"><div class="cycle-progress-fill" style="width:${progressPct}%"></div></div>
               </div>
             </div>
@@ -4492,9 +4559,10 @@ function updateSettingsWeekPreview() {
     preview.innerHTML = `<span style="color:var(--warning)">⚠ El ciclo inicia en ${daysLeft} día${daysLeft !== 1 ? "s" : ""}.</span>`;
     return;
   }
-  const week = Math.max(1, Math.min(16, Math.floor(diff / 7) + 1));
+  const totalWeeks = getRcmTotalWeeks();
+  const week = Math.max(1, Math.min(totalWeeks, Math.floor(diff / 7) + 1));
   const endDate = new Date(cycleStart);
-  endDate.setDate(endDate.getDate() + 15 * 7 - 1);
+  endDate.setDate(endDate.getDate() + (totalWeeks - 1) * 7 - 1);
   const daysToEnd = Math.floor((endDate - today) / 86400000);
   const fmtFull = d => d.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const fmtShort = d => d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
@@ -4506,7 +4574,7 @@ function updateSettingsWeekPreview() {
   preview.innerHTML = `
     <div class="sq-row" style="margin-bottom:4px"><span class="sq-badge" style="font-size:0.7rem">Sem ${week}</span><strong>Semana ${week}${phaseLabel}</strong></div>
     <div style="font-size:0.78rem;color:var(--muted);line-height:1.5">
-      Inicio: ${fmtShort(cycleStart)} &nbsp;·&nbsp; Fin estimado (sem 15): ${fmtShort(endDate)}<br>${endMsg}
+      Inicio: ${fmtShort(cycleStart)} &nbsp;·&nbsp; Fin estimado (sem ${totalWeeks - 1}): ${fmtShort(endDate)}<br>${endMsg}
     </div>
   `;
 }
@@ -4538,46 +4606,124 @@ document.getElementById("settings-save-btn")?.addEventListener("click", async ()
 
 // ── Verbos RCM configurables ──────────────────────────────────────────
 const RCM_WEEKS_DEFAULT = RCM_WEEKS.map(w => ({ ...w })); // snapshot de defaults
+const RCM_PHASES = [
+  { value: "GANAR",      label: "Ganar"      },
+  { value: "CONSOLIDAR", label: "Consolidar" },
+  { value: "DISCIPULAR", label: "Discipular" },
+];
 
 function renderRcmVerbsTable() {
   const tbody = document.getElementById("rcm-verbs-tbody");
   if (!tbody) return;
   const phaseClass = { GANAR: "ganar", CONSOLIDAR: "consolidar", DISCIPULAR: "discipular" };
-  tbody.innerHTML = RCM_WEEKS.map(w => `
-    <tr data-week="${w.week}">
+  tbody.innerHTML = RCM_WEEKS.map(w => {
+    const phaseOptions = RCM_PHASES.map(p =>
+      `<option value="${p.value}" ${p.value === w.phase ? "selected" : ""}>${p.label}</option>`
+    ).join("");
+    const eventVal = (w.event || "").replace(/"/g, "&quot;");
+    return `
+    <tr data-week="${w.week}" class="rvt-row-${phaseClass[w.phase] || ""}">
       <td><span class="rcm-verbs-week-badge">${w.week}</span></td>
-      <td><span class="rcm-verbs-phase-${phaseClass[w.phase] || ""}">${w.phaseLabel}</span></td>
-      <td><input type="text" class="rvt-verb" data-week="${w.week}" value="${w.verb || ""}" maxlength="20" style="text-transform:uppercase" /></td>
+      <td>
+        <select class="rvt-phase" data-week="${w.week}" style="width:100%;font-size:0.78rem;padding:4px">
+          ${phaseOptions}
+        </select>
+      </td>
+      <td><input type="text" class="rvt-verb" data-week="${w.week}" value="${(w.verb || "").replace(/"/g, "&quot;")}" maxlength="20" style="text-transform:uppercase" /></td>
       <td><input type="text" class="rvt-desc" data-week="${w.week}" value="${(w.verbDesc || "").replace(/"/g, "&quot;")}" maxlength="120" /></td>
-      <td>${w.event ? `<input type="text" class="rvt-event" data-week="${w.week}" value="${w.event.replace(/"/g, "&quot;")}" maxlength="40" />` : `<span style="color:var(--muted);font-size:0.75rem">—</span>`}</td>
-    </tr>
-  `).join("");
+      <td><input type="text" class="rvt-event" data-week="${w.week}" value="${eventVal}" maxlength="40" placeholder="—" /></td>
+      <td>
+        <button type="button" class="rvt-remove" data-week="${w.week}" title="Quitar semana"
+          style="background:transparent;border:none;color:var(--danger,#c33);cursor:pointer;font-size:1.1rem;line-height:1">×</button>
+      </td>
+    </tr>`;
+  }).join("");
 }
+
+// Lee el estado actual de la tabla y devuelve un array completo de semanas
+// (formato nuevo de rcm_weeks_config: cada entry trae phase + verb + week)
+function collectRcmWeeksFromTable() {
+  const rows = Array.from(document.querySelectorAll("#rcm-verbs-tbody tr[data-week]"));
+  return rows.map((row, idx) => {
+    const oldWeek = parseInt(row.dataset.week, 10);
+    const oldEntry = RCM_WEEKS.find(w => w.week === oldWeek) || {};
+    const phase = row.querySelector(".rvt-phase")?.value || oldEntry.phase || "GANAR";
+    const phaseLabel = RCM_PHASES.find(p => p.value === phase)?.label || titleCase(phase);
+    return {
+      week:       idx + 1, // re-numerar continuo
+      phase,
+      phaseLabel,
+      verb:       (row.querySelector(".rvt-verb")?.value || "").trim().toUpperCase(),
+      verbDesc:   (row.querySelector(".rvt-desc")?.value || "").trim(),
+      event:      (row.querySelector(".rvt-event")?.value || "").trim() || null,
+      eventType:  oldEntry.eventType || null,
+      purpose:    oldEntry.purpose || null,
+      rcmKey:     oldEntry.rcmKey || null,
+    };
+  });
+}
+
+document.getElementById("rcm-verbs-add-btn")?.addEventListener("click", () => {
+  // Agrega una semana al final, copiando la fase de la última fila.
+  const current = collectRcmWeeksFromTable();
+  const last = current[current.length - 1];
+  current.push({
+    week:       current.length + 1,
+    phase:      last?.phase || "DISCIPULAR",
+    phaseLabel: last?.phaseLabel || "Discipular",
+    verb:       "",
+    verbDesc:   "",
+    event:      null,
+    eventType:  null,
+    purpose:    null,
+    rcmKey:     null,
+  });
+  // Aplicar al RCM_WEEKS en memoria para que renderRcmVerbsTable lo refleje
+  RCM_WEEKS.length = 0;
+  current.forEach(e => RCM_WEEKS.push(e));
+  renderRcmVerbsTable();
+});
+
+document.getElementById("rcm-verbs-tbody")?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".rvt-remove");
+  if (!btn) return;
+  if (RCM_WEEKS.length <= 1) {
+    alert("Debe quedar al menos una semana en el ciclo.");
+    return;
+  }
+  const week = parseInt(btn.dataset.week, 10);
+  if (!confirm(`¿Quitar la semana ${week} del ciclo? Esto NO elimina reportes ya guardados.`)) return;
+  const current = collectRcmWeeksFromTable().filter(e => e.week !== week);
+  RCM_WEEKS.length = 0;
+  current.forEach((e, idx) => RCM_WEEKS.push({ ...e, week: idx + 1 }));
+  renderRcmVerbsTable();
+});
+
+// Refresca el color de fila cuando cambia el selector de fase (sin re-render completo)
+document.getElementById("rcm-verbs-tbody")?.addEventListener("change", (e) => {
+  if (!e.target.classList.contains("rvt-phase")) return;
+  const row = e.target.closest("tr[data-week]");
+  if (!row) return;
+  const phaseClass = { GANAR: "ganar", CONSOLIDAR: "consolidar", DISCIPULAR: "discipular" };
+  row.className = `rvt-row-${phaseClass[e.target.value] || ""}`;
+});
 
 document.getElementById("settings-rcm-verbs-save-btn")?.addEventListener("click", async () => {
   const status = document.getElementById("settings-rcm-verbs-status");
   try {
-    // Collect overrides: only weeks where values differ from current RCM_WEEKS entries
-    const overrides = [];
-    document.querySelectorAll("#rcm-verbs-tbody tr[data-week]").forEach(row => {
-      const week = parseInt(row.dataset.week, 10);
-      const entry = RCM_WEEKS.find(w => w.week === week);
-      if (!entry) return;
-      const verbIn  = row.querySelector(".rvt-verb")?.value.trim().toUpperCase() || "";
-      const descIn  = row.querySelector(".rvt-desc")?.value.trim() || "";
-      const eventIn = row.querySelector(".rvt-event")?.value.trim() || "";
-      const ov = { week };
-      if (verbIn  !== (entry.verb  || "")) ov.verb  = verbIn;
-      if (descIn  !== (entry.verbDesc  || "")) ov.verbDesc  = descIn;
-      if (eventIn !== (entry.event || "")) ov.event = eventIn;
-      if (Object.keys(ov).length > 1) overrides.push(ov);
-    });
-    const cfg = JSON.stringify(overrides);
+    // Guarda el array COMPLETO (formato nuevo) — permite agregar/quitar semanas
+    const full = collectRcmWeeksFromTable();
+    if (full.length === 0) {
+      if (status) { status.textContent = "Debe haber al menos una semana."; status.className = "settings-save-status is-error"; }
+      return;
+    }
+    const cfg = JSON.stringify(full);
     await request("/api/settings", { method: "POST", body: JSON.stringify({ rcm_weeks_config: cfg }) });
     appSettings.rcm_weeks_config = cfg;
-    // Apply immediately
+    // Aplicar inmediatamente
     applyRcmWeeksConfig();
     populateWeekOptions();
+    renderRcmVerbsTable();
     if (status) { status.textContent = "✓ Guardado"; status.className = "settings-save-status is-ok"; }
     setTimeout(() => { if (status) status.textContent = ""; }, 3000);
   } catch {
@@ -4587,13 +4733,11 @@ document.getElementById("settings-rcm-verbs-save-btn")?.addEventListener("click"
 
 document.getElementById("settings-rcm-verbs-reset-btn")?.addEventListener("click", async () => {
   const status = document.getElementById("settings-rcm-verbs-status");
-  if (!confirm("¿Restablecer todos los verbos a los valores predeterminados de la IAFCJ?")) return;
+  if (!confirm("¿Restablecer ciclo a las 16 semanas predeterminadas de la IAFCJ?")) return;
   try {
-    // Restore defaults in memory
-    RCM_WEEKS_DEFAULT.forEach(def => {
-      const entry = RCM_WEEKS.find(w => w.week === def.week);
-      if (entry) { entry.verb = def.verb; entry.verbDesc = def.verbDesc; entry.event = def.event; entry.eventType = def.eventType; }
-    });
+    // Restaurar defaults completos en memoria
+    RCM_WEEKS.length = 0;
+    RCM_WEEKS_DEFAULT.forEach(def => RCM_WEEKS.push({ ...def }));
     await request("/api/settings", { method: "POST", body: JSON.stringify({ rcm_weeks_config: "[]" }) });
     appSettings.rcm_weeks_config = "[]";
     renderRcmVerbsTable();
@@ -5648,7 +5792,7 @@ function computeCycleReportId(cellNumber, currentYear) {
 }
 
 // Auto-advance the week selector to the next unreported week for this cell in the current cycle.
-// A "cycle" is a cuatrimestre (weeks 1-16). Only advances if not editing an existing report.
+// A "cycle" is a cuatrimestre (weeks 1..N, donde N = getRcmTotalWeeks()). Only advances if not editing an existing report.
 function autoAdvanceWeekForCell(cellNumber) {
   if (editingReportId) return;  // don't override when editing
   const cell = String(cellNumber || "").trim();
