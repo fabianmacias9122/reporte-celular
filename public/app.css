@@ -1533,12 +1533,55 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
 .settings-card--full { grid-column: 1 / -1; }  /* ocupa todo el ancho del grid */
 
 /* ─── Tabla de verbos RCM ─── */
-.rcm-verbs-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+.rcm-verbs-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 0.83rem; }
 .rcm-verbs-table th { text-align: left; font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 8px; border-bottom: 2px solid var(--line); }
 .rcm-verbs-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .rcm-verbs-table tr:last-child td { border-bottom: none; }
-.rcm-verbs-table input[type="text"] { width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 0.82rem; font-family: inherit; background: var(--panel); color: var(--text); }
+.rcm-verbs-table input[type="text"] { width: 100%; min-width: 0; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 0.82rem; font-family: inherit; background: var(--panel); color: var(--text); }
 .rcm-verbs-table input[type="text"]:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+
+/* ── Vista compacta de tarjetas para pantallas pequenas ── */
+@media (max-width: 720px) {
+  #settings-rcm-verbs-card .settings-card-body { overflow-x: visible !important; }
+  .rcm-verbs-table { min-width: 0; display: block; }
+  .rcm-verbs-table thead { display: none; }
+  .rcm-verbs-table tbody { display: grid; gap: 10px; }
+  .rcm-verbs-table tr {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    grid-template-areas:
+      "sem etapa"
+      "verbo verbo"
+      "desc desc"
+      "evento evento";
+    gap: 6px 10px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+  .rcm-verbs-table tr:last-child td { border-bottom: 1px solid var(--line); }
+  .rcm-verbs-table td { border: none !important; padding: 0; }
+  .rcm-verbs-table td:nth-child(1) { grid-area: sem;    align-self: center; }
+  .rcm-verbs-table td:nth-child(2) { grid-area: etapa;  align-self: center; }
+  .rcm-verbs-table td:nth-child(3) { grid-area: verbo; }
+  .rcm-verbs-table td:nth-child(4) { grid-area: desc; }
+  .rcm-verbs-table td:nth-child(5) { grid-area: evento; }
+  .rcm-verbs-table td:nth-child(3)::before,
+  .rcm-verbs-table td:nth-child(4)::before,
+  .rcm-verbs-table td:nth-child(5)::before {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+  }
+  .rcm-verbs-table td:nth-child(3)::before { content: "Verbo"; }
+  .rcm-verbs-table td:nth-child(4)::before { content: "Descripción"; }
+  .rcm-verbs-table td:nth-child(5)::before { content: "Evento catalizador"; }
+}
 .rcm-verbs-week-badge { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 0.7rem; font-weight: 800; }
 .rcm-verbs-phase-ganar      { background: #e8f5e9; color: #1b5e20; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; display:inline-block; }
 .rcm-verbs-phase-consolidar { background: #fff3e0; color: #e65100; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; display:inline-block; }
