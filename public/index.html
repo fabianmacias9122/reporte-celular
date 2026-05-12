@@ -64,6 +64,15 @@
     </button>
   </div>
 
+  <!-- SPLASH LOADER inicial (cubre la app mientras se cargan catálogos/reportes en cold-start) -->
+  <div id="app-splash" class="app-splash">
+    <div class="app-splash-card">
+      <div class="app-splash-spinner" aria-hidden="true"></div>
+      <strong class="app-splash-title">Cargando…</strong>
+      <span class="app-splash-sub" id="app-splash-sub">Despertando el servidor, un momento.</span>
+    </div>
+  </div>
+
   <!-- LOGIN OVERLAY -->
   <div id="login-overlay" class="login-overlay">
     <div class="login-card">
@@ -1240,6 +1249,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260512-001"></script>
+  <script type="module" src="./app.js?v=20260512-002"></script>
 </body>
 </html>

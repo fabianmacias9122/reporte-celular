@@ -69,6 +69,46 @@ body.app-fixed {
   padding: 16px;
 }
 .login-overlay.is-hidden { display: none !important; }
+
+/* SPLASH inicial (cubre la app durante cold-start de backend) */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(10, 10, 10, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+.app-splash.is-hidden { display: none !important; }
+.app-splash-card {
+  background: var(--panel, #1a1a1a);
+  border: 1px solid var(--line, #333);
+  border-radius: 14px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 220px;
+  text-align: center;
+  color: var(--text, #f5f5f5);
+}
+.app-splash-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #ff7a00;
+  border-radius: 50%;
+  animation: app-splash-spin 0.9s linear infinite;
+}
+.app-splash-title { font-size: 1.05rem; }
+.app-splash-sub { font-size: 0.82rem; opacity: 0.7; }
+@keyframes app-splash-spin {
+  to { transform: rotate(360deg); }
+}
 .login-card {
   background: var(--panel);
   border: 1px solid var(--line);

@@ -6957,6 +6957,17 @@ applyPreviewFlags();
 showView("report");
 renderPeopleFilterTabs();
 
+// ── Splash inicial: cubre la app durante cold-start del backend ──
+const _appSplash = document.getElementById("app-splash");
+const _appSplashSub = document.getElementById("app-splash-sub");
+function hideAppSplash() { _appSplash?.classList.add("is-hidden"); }
+// Watchdog: si el backend tarda >8s, avisar
+const _splashWatchdog = setTimeout(() => {
+  if (_appSplashSub && _appSplash && !_appSplash.classList.contains("is-hidden")) {
+    _appSplashSub.textContent = "El servidor está despertando, esto puede tomar hasta 30 segundos…";
+  }
+}, 8000);
+
 // Check for existing session before loading (overlay stays visible until resolved)
 const _savedSession = sessionStorage.getItem(RC_SESSION_KEY);
 if (_savedSession) {
@@ -6975,32 +6986,42 @@ if (_savedSession) {
   }
 }
 
-await loadCatalogs();
-await loadSettings();
-applyRcmWeeksConfig();
-populateWeekOptions();
-resetReportForm();
-await loadHealth();
-await loadReports();
-initGraceBanner();
+try {
+  await loadCatalogs();
+  await loadSettings();
+  applyRcmWeeksConfig();
+  populateWeekOptions();
+  resetReportForm();
+  await loadHealth();
+  await loadReports();
+  initGraceBanner();
 
-if (currentUser) {
-  // Restore session UI
-  applyUserSession(currentUser);
-  restrictCellFieldToUser(currentUser);
-  // For admins: ensure cellField is enabled and pre-select their cell if they lead one
-  if (currentUser.isAdmin) {
-    cellField.disabled = false;
-    if (currentUser.assignedCellNumber) {
-      cellField.value = String(currentUser.assignedCellNumber);
-      syncReportWithCell(true);
+  if (currentUser) {
+    // Restore session UI
+    applyUserSession(currentUser);
+    restrictCellFieldToUser(currentUser);
+    // For admins: ensure cellField is enabled and pre-select their cell if they lead one
+    if (currentUser.isAdmin) {
+      cellField.disabled = false;
+      if (currentUser.assignedCellNumber) {
+        cellField.value = String(currentUser.assignedCellNumber);
+        syncReportWithCell(true);
+      }
     }
+    await autoAdvanceWeekForCell(currentUser.assignedCellNumber || cellField.value);
+  } else {
+    // No session — populate login dropdown and keep overlay visible
+    populateLoginSelect();
+    await autoAdvanceWeekForCell(cellField.value);
   }
-  await autoAdvanceWeekForCell(currentUser.assignedCellNumber || cellField.value);
-} else {
-  // No session — populate login dropdown and keep overlay visible
-  populateLoginSelect();
-  await autoAdvanceWeekForCell(cellField.value);
+} catch (err) {
+  console.error("[init] error durante carga inicial", err);
+  if (_appSplashSub) {
+    _appSplashSub.textContent = "No se pudo cargar. Refresca la página.";
+  }
+} finally {
+  clearTimeout(_splashWatchdog);
+  hideAppSplash();
 }
 
 // ── Global tooltip (position:fixed so it never gets clipped) ──
