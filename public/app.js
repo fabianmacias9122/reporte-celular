@@ -4633,8 +4633,9 @@ function renderRcmVerbsTable() {
       <td><input type="text" class="rvt-desc" data-week="${w.week}" value="${(w.verbDesc || "").replace(/"/g, "&quot;")}" maxlength="120" /></td>
       <td><input type="text" class="rvt-event" data-week="${w.week}" value="${eventVal}" maxlength="40" placeholder="—" /></td>
       <td>
-        <button type="button" class="rvt-remove" data-week="${w.week}" title="Quitar semana"
-          style="background:transparent;border:none;color:var(--danger,#c33);cursor:pointer;font-size:1.1rem;line-height:1">×</button>
+        <button type="button" class="rvt-remove" data-week="${w.week}" title="Quitar semana" aria-label="Quitar semana ${w.week}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>
+        </button>
       </td>
     </tr>`;
   }).join("");
