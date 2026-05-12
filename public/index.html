@@ -879,7 +879,68 @@
                 <span id="settings-save-status" class="settings-save-status"></span>
               </div>
             </div>
-            <!-- Tarjeta Verbos RCM — solo coordinador -->
+            <div class="settings-card settings-card--info" id="settings-quarter-card">
+              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.yearContext">Contexto del año</strong>
+                  <p class="settings-card-desc" data-i18n="set.yearDesc">Referencia del cuatrimestre y año en curso según el calendario de la IAFCJ.</p>
+                </div>
+              </div>
+              <div id="settings-quarter-body" class="settings-quarter-body"></div>
+            </div>
+            <!-- Tarjeta Preferencias — visible a todos -->
+            <div class="settings-card" id="settings-prefs-card">              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.prefs">Preferencias de historial</strong>
+                  <p class="settings-card-desc" data-i18n="set.prefsDesc">Controla cuántos cuatrimestres se muestran en tus reportes registrados.</p>
+                </div>
+              </div>
+              <div class="settings-card-body">
+                <label class="settings-label" data-i18n="set.histVisible">Historial visible</label>
+                <div class="settings-toggle-group">
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="history_scope" id="pref-history-current" value="current" checked />
+                    <span data-i18n="set.currentOnly">Solo cuatrimestre actual</span>
+                  </label>
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="history_scope" id="pref-history-all" value="all" />
+                    <span data-i18n="set.allQuarters">Todos los cuatrimestres</span>
+                  </label>
+                </div>
+              </div>
+              <div class="settings-card-footer">
+                <button id="settings-prefs-save-btn" type="button" class="btn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span data-i18n="set.savePrefs">Guardar preferencias</span>
+                </button>
+                <span id="settings-prefs-save-status" class="settings-save-status"></span>
+              </div>
+            </div>
+            <!-- Language card -->
+            <div class="settings-card" id="settings-language-card">
+              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <div>
+                  <strong class="settings-card-title" data-i18n="set.language">Idioma</strong>
+                  <p class="settings-card-desc" data-i18n="set.langDesc">Selecciona el idioma de la interfaz.</p>
+                </div>
+              </div>
+              <div class="settings-card-body">
+                <div class="settings-toggle-group">
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="settings_lang" id="settings-lang-es" value="es" />
+                    <span>Español</span>
+                  </label>
+                  <label class="settings-toggle-option">
+                    <input type="radio" name="settings_lang" id="settings-lang-en" value="en" />
+                    <span>English</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <!-- Tarjeta Verbos RCM — solo coordinador (full-width, al final) -->
             <div class="settings-card settings-card--full" id="settings-rcm-verbs-card" hidden>
               <div class="settings-card-header">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -913,67 +974,6 @@
                   Restablecer predeterminados
                 </button>
                 <span id="settings-rcm-verbs-status" class="settings-save-status"></span>
-              </div>
-            </div>
-            <!-- Tarjeta Preferencias — visible a todos -->
-            <div class="settings-card" id="settings-prefs-card">              <div class="settings-card-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-                <div>
-                  <strong class="settings-card-title" data-i18n="set.prefs">Preferencias de historial</strong>
-                  <p class="settings-card-desc" data-i18n="set.prefsDesc">Controla cuántos cuatrimestres se muestran en tus reportes registrados.</p>
-                </div>
-              </div>
-              <div class="settings-card-body">
-                <label class="settings-label" data-i18n="set.histVisible">Historial visible</label>
-                <div class="settings-toggle-group">
-                  <label class="settings-toggle-option">
-                    <input type="radio" name="history_scope" id="pref-history-current" value="current" checked />
-                    <span data-i18n="set.currentOnly">Solo cuatrimestre actual</span>
-                  </label>
-                  <label class="settings-toggle-option">
-                    <input type="radio" name="history_scope" id="pref-history-all" value="all" />
-                    <span data-i18n="set.allQuarters">Todos los cuatrimestres</span>
-                  </label>
-                </div>
-              </div>
-              <div class="settings-card-footer">
-                <button id="settings-prefs-save-btn" type="button" class="btn">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  <span data-i18n="set.savePrefs">Guardar preferencias</span>
-                </button>
-                <span id="settings-prefs-save-status" class="settings-save-status"></span>
-              </div>
-            </div>
-            <div class="settings-card settings-card--info" id="settings-quarter-card">
-              <div class="settings-card-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <div>
-                  <strong class="settings-card-title" data-i18n="set.yearContext">Contexto del año</strong>
-                  <p class="settings-card-desc" data-i18n="set.yearDesc">Referencia del cuatrimestre y año en curso según el calendario de la IAFCJ.</p>
-                </div>
-              </div>
-              <div id="settings-quarter-body" class="settings-quarter-body"></div>
-            </div>
-            <!-- Language card -->
-            <div class="settings-card" id="settings-language-card">
-              <div class="settings-card-header">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <div>
-                  <strong class="settings-card-title" data-i18n="set.language">Idioma</strong>
-                  <p class="settings-card-desc" data-i18n="set.langDesc">Selecciona el idioma de la interfaz.</p>
-                </div>
-              </div>
-              <div class="settings-card-body">
-                <div class="settings-toggle-group">
-                  <label class="settings-toggle-option">
-                    <input type="radio" name="settings_lang" id="settings-lang-es" value="es" />
-                    <span>Español</span>
-                  </label>
-                  <label class="settings-toggle-option">
-                    <input type="radio" name="settings_lang" id="settings-lang-en" value="en" />
-                    <span>English</span>
-                  </label>
-                </div>
               </div>
             </div>
           </div>
