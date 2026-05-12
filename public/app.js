@@ -515,6 +515,9 @@ loginBtn?.addEventListener("click", async () => {
   renderReports(reportsData);  // re-render historial with user filter applied
   renderSeguimiento(reportsData);
   const targetCell = user.assignedCellNumber || cellField.value;
+  // Empieza siempre en "Inicio" para usuarios sin borrador. autoLoad lo cambiará
+  // si encuentra un reporte existente.
+  showStage("encabezado", { skipWeekCheck: true });
   try {
     // Re-cargar reports ANTES de buscar el borrador. Esto cubre el caso donde
     // el init inicial cargó reports con currentUser=null (sin filtro) o
@@ -522,6 +525,11 @@ loginBtn?.addEventListener("click", async () => {
     // fresco y filtrado correctamente para este usuario antes de auto-cargar.
     await loadReports();
     await autoAdvanceWeekForCell(targetCell);
+    // Red de seguridad: si autoLoadExistingReportIfAny no encontró borrador
+    // (editingReportId sigue null), garantizar que la UI esté en "Inicio".
+    if (!editingReportId) {
+      showStage("encabezado", { skipWeekCheck: true });
+    }
   } finally {
     loginOverlay?.classList.add("is-hidden");
     if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = "Entrar →"; }
