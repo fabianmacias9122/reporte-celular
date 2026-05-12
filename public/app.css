@@ -496,6 +496,14 @@ button.ghost, .member-card button, .row-actions .danger { background: var(--dang
 .metric-fields { display: grid; gap: 10px; }
 .metric-field { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 10px; align-items: center; }
 .metric-field input { text-align: center; }
+/* ── Metric subgroup (used to combine related sections in one panel) ── */
+.metric-subgroup { padding-top: 4px; }
+.metric-subgroup + .metric-subgroup { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.metric-subgroup-title { margin: 0 0 10px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--brand-deep); }
+.metric-subgroup .metric-fields { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); column-gap: 16px; }
+@media (max-width: 640px) {
+  .metric-subgroup .metric-fields { grid-template-columns: 1fr; }
+}
 .metric-field.is-auto input { background: var(--brand-soft); color: var(--brand-deep); border-color: var(--brand-mid); font-weight: 700; cursor: default; }
 .metric-auto-tag { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 999px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: var(--brand-mid); color: var(--brand-deep); vertical-align: middle; font-style: normal; }
 /* ── Metrics group collapsible ────────────────────────────── */
