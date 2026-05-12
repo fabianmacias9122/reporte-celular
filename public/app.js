@@ -5037,9 +5037,10 @@ async function handleReportTableClick(event) {
       assistantField.value = formData.assistantName || "";
       hostField.value = formData.hostName || "";
       syncReportWithCell(false, formData);
-      // Navegar al formulario de reporte
+      // Navegar al formulario de reporte y colocar al usuario en la primera etapa pendiente
       showView("report");
-      showStage("encabezado", { skipWeekCheck: true });
+      const resumeStage = pickResumeStage(formData);
+      showStage(resumeStage, { skipWeekCheck: true });
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -5721,6 +5722,48 @@ function autoAdvanceWeekForCell(cellNumber) {
   autoLoadExistingReportIfAny(cell, nextWeek);
 }
 
+// Determina la primera etapa pendiente de llenar a partir de los datos del reporte.
+// Útil al reabrir un borrador o reporte para colocar al usuario donde dejó.
+function inferNextIncompleteStage(formData) {
+  const fd = formData || {};
+  const members  = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+  const visitors = Array.isArray(fd.visitors) ? fd.visitors : [];
+  const kids     = Array.isArray(fd.kids) ? fd.kids : [];
+  const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms : [];
+
+  const hasPlanificacion = members.some(m => m && m.planningAttended);
+  const hasAlcance =
+    members.some(m => m && m.reachAttended) ||
+    visitors.some(v => v && v.reachAttended) ||
+    kids.some(k => k && k.reachAttended);
+  const hasCulto =
+    members.some(m => m && m.sundayAttended) ||
+    visitors.some(v => v && v.sundayAttended) ||
+    kids.some(k => k && k.sundayAttended);
+  const hasCierre =
+    baptisms.some(b => b && b.name) ||
+    String(fd.notes || "").trim().length > 0;
+
+  if (!hasPlanificacion) return "planificacion";
+  if (!hasAlcance)       return "alcance";
+  if (!hasCulto)         return "culto";
+  if (!hasCierre)        return "cierre";
+  return "cierre"; // todo lleno → quedarse en el cierre para finalizar
+}
+
+// Decide la etapa al reabrir: prioriza lastStage del borrador (siguiente etapa);
+// si no hay lastStage, infiere por contenido.
+function pickResumeStage(formData) {
+  const fd = formData || {};
+  const savedStage = fd.lastStage;
+  if (savedStage) {
+    const idx = STAGES.indexOf(savedStage);
+    if (idx >= 0 && idx < STAGES.length - 1) return STAGES[idx + 1];
+    return savedStage;
+  }
+  return inferNextIncompleteStage(fd);
+}
+
 async function autoLoadExistingReportIfAny(cell, week) {
   if (editingReportId) return;
   const cycleStartStr = appSettings.cycle_start_date;
@@ -5760,15 +5803,13 @@ async function autoLoadExistingReportIfAny(cell, week) {
     assistantField.value = formData.assistantName || "";
     hostField.value = formData.hostName || "";
     syncReportWithCell(false, formData);
-    // Si el borrador trae registrada la última etapa guardada, avanzar a la siguiente
-    const savedStage = formData.lastStage;
-    if (savedStage) {
-      const idx = STAGES.indexOf(savedStage);
-      const nextStage = (idx >= 0 && idx < STAGES.length - 1) ? STAGES[idx + 1] : savedStage;
-      showStage(nextStage, { skipWeekCheck: true });
-      setFeedback(`Continuando borrador en “${nextStage}”.`);
+    // Coloca al usuario en la primera etapa pendiente (usa lastStage si existe, si no infiere por datos)
+    const resumeStage = pickResumeStage(formData);
+    showStage(resumeStage, { skipWeekCheck: true });
+    if (formData.lastStage) {
+      setFeedback(`Continuando borrador en “${resumeStage}”.`);
     } else {
-      setFeedback(`Semana ${week} ya tiene reporte — editando el existente.`);
+      setFeedback(`Semana ${week} ya tiene reporte — continuando en “${resumeStage}”.`);
     }
   } catch {
     // silently ignore, leave form in new-report mode
