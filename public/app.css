@@ -1403,7 +1403,7 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   .table-wrap { overflow: visible; }
   .table-wrap table, .table-wrap thead, .table-wrap tbody, .table-wrap tr, .table-wrap td,
   .weekly-table-wrap table, .weekly-table-wrap thead, .weekly-table-wrap tbody, .weekly-table-wrap tr, .weekly-table-wrap td { display: block; width: 100%; }
-  .filter-tabs { display: none !important; }
+  .filter-tabs:not(#seg-week-offset-tabs) { display: none !important; }
   .people-filter-select { display: block; width: 100%; }
   /* Catalog tables: hide on mobile, show card grid instead */
   .catalog-table-scroll { display: none; }
