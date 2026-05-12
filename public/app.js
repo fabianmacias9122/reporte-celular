@@ -5777,19 +5777,20 @@ function markStageSaved(stage) {
   if (tab) tab.classList.add("has-draft");
 }
 
-// Compute internal cycle report ID — e.g. "1cuart2026", "2cuart2026"
-// Counts how many distinct reports this cell already has in the current cuatrimestre-year.
+// Compute internal cycle report ID — e.g. "1cuart2026" (Q1), "2cuart2026" (Q2), "3cuart2026" (Q3)
+// El número refleja el CUATRIMESTRE del reporte (1, 2 ó 3) según la fecha, no el conteo.
 function computeCycleReportId(cellNumber, currentYear) {
-  const cell = String(cellNumber || "").trim();
   const year = String(currentYear || new Date().getFullYear());
-  // Count existing reports for this cell in this year (excluding the one being edited)
-  const existing = reportsData.filter(r => {
-    const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
-    const rYear = getReportYear(r);
-    return rCell === cell && rYear === year && (!editingReportId || String(r.id) !== String(editingReportId));
-  });
-  const n = existing.length + 1;  // this will be report #n
-  return `${n}cuart${year}`;
+  // Derivar cuatrimestre desde la fecha capturada (misma regla que getReportQuarter)
+  const dateVal = getReportDateValue();
+  let q;
+  const month = parseInt(String(dateVal).slice(5, 7), 10) - 1; // 0-indexed
+  if (!isNaN(month) && month >= 0) {
+    q = month <= 3 ? 1 : month <= 7 ? 2 : 3;
+  } else {
+    q = getCurrentQuarter();
+  }
+  return `${q}cuart${year}`;
 }
 
 // Auto-advance the week selector to the next unreported week for this cell in the current cycle.
