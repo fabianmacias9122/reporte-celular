@@ -492,7 +492,15 @@ loginBtn?.addEventListener("click", async () => {
   }
 
   sessionStorage.setItem(RC_SESSION_KEY, JSON.stringify(user));
-  loginOverlay?.classList.add("is-hidden");
+  // Mantener overlay visible mientras se carga toda la sesión. Antes lo
+  // ocultábamos al instante y en Render (cold-start) el usuario alcanzaba
+  // a navegar a "Planeación" antes de que llegara la respuesta del reporte,
+  // así que el formulario aparecía vacío hasta que refrescaba la página.
+  if (loginOverlay) {
+    const loginCard = loginOverlay.querySelector(".login-card");
+    if (loginCard) loginCard.setAttribute("aria-busy", "true");
+    if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = "Cargando…"; }
+  }
   applyUserSession(user);
   restrictCellFieldToUser(user);
   // For admins/coordinators: ensure cellField is enabled (a prior non-admin session
@@ -507,7 +515,12 @@ loginBtn?.addEventListener("click", async () => {
   renderReports(reportsData);  // re-render historial with user filter applied
   renderSeguimiento(reportsData);
   const targetCell = user.assignedCellNumber || cellField.value;
-  await autoAdvanceWeekForCell(targetCell);
+  try {
+    await autoAdvanceWeekForCell(targetCell);
+  } finally {
+    loginOverlay?.classList.add("is-hidden");
+    if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = "Entrar →"; }
+  }
   initGraceBanner(); // re-evaluar banner ahora que currentUser es conocido
 });
 
