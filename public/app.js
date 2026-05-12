@@ -5790,7 +5790,30 @@ function showStage(stage, { skipWeekCheck = false } = {}) {
 
 // Wire stage tab clicks
 document.querySelectorAll(".stage-tab").forEach(btn => {
-  btn.addEventListener("click", () => showStage(btn.dataset.stage));
+  btn.addEventListener("click", async () => {
+    // Antes de cambiar de etapa, si el formulario está visualmente vacío (sin
+    // marcas en miembros/visitas/niños/bautizos y sin reporte en edición),
+    // intentar recuperar un borrador previo del backend. Esto cubre el caso
+    // en que un fetch inicial falló silenciosamente y reportsData quedó vacío
+    // o el draft no se cargó por una race condition en cold-start de Render.
+    try {
+      const hasMemberActivity = (currentMemberAttendance || []).some(
+        m => m && (m.planningAttended || m.reachAttended || m.sundayAttended || (m.status && m.status !== "pending"))
+      );
+      const hasVisitorActivity = (currentVisitors || []).some(v => v && String(v.name || "").trim());
+      const hasKidActivity = (currentKids || []).some(k => k && (k.reachAttended || k.sundayAttended));
+      const hasBaptismActivity = (currentBaptisms || []).some(b => b && String(b.name || "").trim());
+      const formIsEmpty = !hasMemberActivity && !hasVisitorActivity && !hasKidActivity && !hasBaptismActivity;
+      const cellVal = String(cellField?.value || "").trim();
+      const weekVal = String(weekField?.value || "").trim();
+      if (formIsEmpty && !editingReportId && cellVal && weekVal) {
+        await autoLoadExistingReportIfAny(cellVal, Number(weekVal));
+      }
+    } catch (e) {
+      console.warn("[stage-click] no se pudo recuperar borrador", e);
+    }
+    showStage(btn.dataset.stage);
+  });
 });
 
 // Mark stage as saved (green badge)
