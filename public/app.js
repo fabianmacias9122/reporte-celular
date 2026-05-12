@@ -470,7 +470,7 @@ loginPersonSelect?.addEventListener("change", () => {
   if (loginBtn) loginBtn.disabled = !loginPersonSelect.value;
 });
 
-loginBtn?.addEventListener("click", () => {
+loginBtn?.addEventListener("click", async () => {
   const val = loginPersonSelect?.value;
   if (!val) return;
 
@@ -507,7 +507,7 @@ loginBtn?.addEventListener("click", () => {
   renderReports(reportsData);  // re-render historial with user filter applied
   renderSeguimiento(reportsData);
   const targetCell = user.assignedCellNumber || cellField.value;
-  autoAdvanceWeekForCell(targetCell);
+  await autoAdvanceWeekForCell(targetCell);
   initGraceBanner(); // re-evaluar banner ahora que currentUser es conocido
 });
 
@@ -5779,7 +5779,7 @@ function computeCycleReportId(cellNumber, currentYear) {
 
 // Auto-advance the week selector to the next unreported week for this cell in the current cycle.
 // A "cycle" is a cuatrimestre (weeks 1..N, donde N = getRcmTotalWeeks()). Only advances if not editing an existing report.
-function autoAdvanceWeekForCell(cellNumber) {
+async function autoAdvanceWeekForCell(cellNumber) {
   if (editingReportId) return;  // don't override when editing
   const cell = String(cellNumber || "").trim();
   if (!cell) return;
@@ -5848,8 +5848,10 @@ function autoAdvanceWeekForCell(cellNumber) {
   weekField.value = String(nextWeek);
   syncPhaseIndicator();
 
-  // Si ya existe un reporte para esta semana en el ciclo actual, cargarlo en modo edición
-  autoLoadExistingReportIfAny(cell, nextWeek);
+  // Si ya existe un reporte para esta semana en el ciclo actual, cargarlo en modo edición.
+  // Esperamos para que el formulario tenga los datos antes de que el usuario interactúe
+  // (importante en Render cold-start: la primera request puede tardar varios segundos).
+  await autoLoadExistingReportIfAny(cell, nextWeek);
 }
 
 // Determina la primera etapa pendiente de llenar a partir de los datos del reporte.
@@ -6981,11 +6983,11 @@ if (currentUser) {
       syncReportWithCell(true);
     }
   }
-  autoAdvanceWeekForCell(currentUser.assignedCellNumber || cellField.value);
+  await autoAdvanceWeekForCell(currentUser.assignedCellNumber || cellField.value);
 } else {
   // No session — populate login dropdown and keep overlay visible
   populateLoginSelect();
-  autoAdvanceWeekForCell(cellField.value);
+  await autoAdvanceWeekForCell(cellField.value);
 }
 
 // ── Global tooltip (position:fixed so it never gets clipped) ──
