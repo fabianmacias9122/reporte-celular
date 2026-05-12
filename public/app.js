@@ -516,6 +516,11 @@ loginBtn?.addEventListener("click", async () => {
   renderSeguimiento(reportsData);
   const targetCell = user.assignedCellNumber || cellField.value;
   try {
+    // Re-cargar reports ANTES de buscar el borrador. Esto cubre el caso donde
+    // el init inicial cargó reports con currentUser=null (sin filtro) o
+    // donde un fetch falló silenciosamente. Garantiza que reportsData esté
+    // fresco y filtrado correctamente para este usuario antes de auto-cargar.
+    await loadReports();
     await autoAdvanceWeekForCell(targetCell);
   } finally {
     loginOverlay?.classList.add("is-hidden");
