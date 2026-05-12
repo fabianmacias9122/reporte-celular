@@ -5953,15 +5953,29 @@ function inferNextIncompleteStage(formData) {
 
 // Decide la etapa al reabrir: prioriza lastStage del borrador (siguiente etapa);
 // si no hay lastStage, infiere por contenido.
+// Decide la etapa al reabrir un borrador / reporte.
+// Comportamiento: aterrizamos exactamente en la etapa donde el usuario
+// guardó por última vez (`lastStage`), para que vea sus datos sin tener
+// que navegar manualmente. Si no hay `lastStage`, inferimos la primera
+// etapa con datos para mostrar contenido relevante.
+// Antes avanzábamos a `lastStage + 1` lo que mostraba un formulario VACÍO
+// en la siguiente etapa y confundía a los usuarios que esperaban ver lo
+// que ya habían capturado.
 function pickResumeStage(formData) {
   const fd = formData || {};
-  const savedStage = fd.lastStage;
-  if (savedStage) {
-    const idx = STAGES.indexOf(savedStage);
-    if (idx >= 0 && idx < STAGES.length - 1) return STAGES[idx + 1];
-    return savedStage;
+  if (fd.lastStage && STAGES.includes(fd.lastStage)) {
+    return fd.lastStage;
   }
-  return inferNextIncompleteStage(fd);
+  // Si no hay lastStage, ir a la primera etapa con datos (review-first)
+  const members  = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+  const visitors = Array.isArray(fd.visitors) ? fd.visitors : [];
+  const kids     = Array.isArray(fd.kids) ? fd.kids : [];
+  const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms : [];
+  if (members.some(m => m && m.planningAttended)) return "planificacion";
+  if (members.some(m => m && m.reachAttended) || visitors.some(v => v && v.reachAttended) || kids.some(k => k && k.reachAttended)) return "alcance";
+  if (members.some(m => m && m.sundayAttended) || visitors.some(v => v && v.sundayAttended) || kids.some(k => k && k.sundayAttended)) return "culto";
+  if (baptisms.some(b => b && b.name) || String(fd.notes || "").trim()) return "cierre";
+  return "encabezado";
 }
 
 async function autoLoadExistingReportIfAny(cell, week) {
