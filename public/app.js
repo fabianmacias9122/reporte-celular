@@ -1289,18 +1289,22 @@ function countBaptismsToPromote(baptisms = []) {
 }
 
 function getBaptismHistoryByCell(cellNumber, year, excludeReportId = null) {
+  // El cuatrimestre se determina por la fecha del bautismo (baptismDate), no por la semana
+  // en que se capturo el reporte. Por eso aceptamos bautismos "fuera-cierre" tambien:
+  // siempre cuentan en su cuatrimestre y en el total anual.
   return reportsData
     .filter((report) => String(report.id) !== String(excludeReportId || "")
       && String(report.cellNumber || report.formData?.cellNumber || "") === String(cellNumber || "")
-      && getReportYear(report) === String(year || "")
-      && getBaptismCaptureStatus(report?.formData?.reportDate || report?.reportDate || "").isAllowed)
+      && getReportYear(report) === String(year || ""))
     .flatMap((report) => normalizeBaptisms(report?.formData?.baptisms));
 }
 
 function computeBaptismMetrics() {
   const cellNumber = String(cellField.value || "").trim();
   const reportYear = getReportYearValue();
-  const currentReportBaptisms = getBaptismCaptureStatus().isAllowed ? normalizeBaptisms(currentBaptisms) : [];
+  // Los bautismos cuentan siempre por la fecha del bautismo (cuatrimestre del mes),
+  // sin importar si fueron capturados en semana de cierre o "fuera-cierre".
+  const currentReportBaptisms = normalizeBaptisms(currentBaptisms);
   const allBaptisms = [...getBaptismHistoryByCell(cellNumber, reportYear, editingReportId), ...currentReportBaptisms];
   const counts = { 1: 0, 2: 0, 3: 0, total: 0 };
   allBaptisms.forEach((entry) => {
