@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import math
 import os
+import secrets
 import sqlite3
 from datetime import datetime, date, timezone
 from pathlib import Path
@@ -137,6 +140,28 @@ REQUIRED_FIELDS = ("week", "cellNumber", "sector", "leaderName", "reportDate")
 VALID_PERSON_ROLES = ("leader", "assistant", "host", "member", "kid", "all")
 
 
+# ── Password hashing (PBKDF2-SHA256, 200k iters) ─────────────────────────────
+PBKDF2_ITERS = 200_000
+
+def _hash_password(plain: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", plain.encode("utf-8"), salt, PBKDF2_ITERS)
+    return f"pbkdf2_sha256${PBKDF2_ITERS}${salt.hex()}${digest.hex()}"
+
+def _verify_password(plain: str, stored: str) -> bool:
+    try:
+        algo, iters_str, salt_hex, digest_hex = stored.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        iters = int(iters_str)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+        actual = hashlib.pbkdf2_hmac("sha256", plain.encode("utf-8"), salt, iters)
+        return hmac.compare_digest(expected, actual)
+    except Exception:
+        return False
+
+
 def create_app() -> Flask:
     app = Flask(__name__, static_folder=str(PUBLIC_DIR), static_url_path="")
     initialize_database()
@@ -149,6 +174,145 @@ def create_app() -> Flask:
     def health() -> Response:
         db_label = TURSO_URL.split("@")[-1] if TURSO_URL else str(DB_PATH)
         return jsonify({"ok": True, "title": "Reporte Celular", "database": db_label})
+
+    # ── AUTH ────────────────────────────────────────────────────────────────
+    @app.get("/api/auth/status/<int:person_id>")
+    def auth_status(person_id: int) -> Response:
+        """Devuelve si la persona ya tiene password registrado y si debe cambiarla."""
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT password_hash, must_change FROM user_credentials WHERE person_id = ?",
+                (person_id,),
+            ).fetchone()
+        if not row or not row["password_hash"]:
+            return jsonify({"hasPassword": False, "mustChange": False})
+        return jsonify({"hasPassword": True, "mustChange": bool(int(row["must_change"] or 0))})
+
+    @app.post("/api/auth/login")
+    def auth_login() -> Response:
+        payload = read_payload() or {}
+        person_id = normalize_nullable_int(payload.get("personId"))
+        password  = str(payload.get("password") or "")
+        if not person_id:
+            return jsonify({"message": "personId requerido"}), 400
+        with get_connection() as connection:
+            person_row = connection.execute(
+                "SELECT * FROM people_catalog WHERE id = ?", (person_id,)
+            ).fetchone()
+            if not person_row:
+                return jsonify({"message": "Usuario no encontrado"}), 404
+            cred_row = connection.execute(
+                "SELECT password_hash, must_change FROM user_credentials WHERE person_id = ?",
+                (person_id,),
+            ).fetchone()
+            # Sin password registrado: login pasa (compatibilidad), pero indicamos al cliente.
+            if not cred_row or not cred_row["password_hash"]:
+                return jsonify({"ok": True, "personId": person_id, "hasPassword": False, "mustChange": False})
+            if not _verify_password(password, cred_row["password_hash"]):
+                return jsonify({"message": "Contraseña incorrecta"}), 401
+            return jsonify({
+                "ok": True,
+                "personId": person_id,
+                "hasPassword": True,
+                "mustChange": bool(int(cred_row["must_change"] or 0)),
+            })
+
+    @app.post("/api/auth/set-password")
+    def auth_set_password() -> Response:
+        """Crea password por primera vez o cuando must_change=true.
+        Requiere personId + newPassword. Si ya tiene password y NO está marcada
+        must_change, se debe usar /api/auth/change-password (que pide currentPassword).
+        """
+        payload = read_payload() or {}
+        person_id = normalize_nullable_int(payload.get("personId"))
+        new_pw    = str(payload.get("newPassword") or "")
+        if not person_id:
+            return jsonify({"message": "personId requerido"}), 400
+        if len(new_pw) < 6:
+            return jsonify({"message": "La contraseña debe tener al menos 6 caracteres"}), 400
+        with get_connection() as connection:
+            cred = connection.execute(
+                "SELECT password_hash, must_change FROM user_credentials WHERE person_id = ?",
+                (person_id,),
+            ).fetchone()
+            if cred and cred["password_hash"] and not int(cred["must_change"] or 0):
+                return jsonify({"message": "Ya tienes una contraseña. Usa cambiar contraseña."}), 409
+            now = utc_now_iso()
+            new_hash = _hash_password(new_pw)
+            if cred:
+                connection.execute(
+                    "UPDATE user_credentials SET password_hash = ?, must_change = 0, updated_at = ? WHERE person_id = ?",
+                    (new_hash, now, person_id),
+                )
+            else:
+                connection.execute(
+                    "INSERT INTO user_credentials (person_id, password_hash, must_change, created_at, updated_at) VALUES (?, ?, 0, ?, ?)",
+                    (person_id, new_hash, now, now),
+                )
+            connection.commit()
+        return jsonify({"ok": True})
+
+    @app.post("/api/auth/change-password")
+    def auth_change_password() -> Response:
+        payload = read_payload() or {}
+        person_id    = normalize_nullable_int(payload.get("personId"))
+        current_pw   = str(payload.get("currentPassword") or "")
+        new_pw       = str(payload.get("newPassword") or "")
+        if not person_id:
+            return jsonify({"message": "personId requerido"}), 400
+        if len(new_pw) < 6:
+            return jsonify({"message": "La nueva contraseña debe tener al menos 6 caracteres"}), 400
+        with get_connection() as connection:
+            cred = connection.execute(
+                "SELECT password_hash FROM user_credentials WHERE person_id = ?",
+                (person_id,),
+            ).fetchone()
+            if not cred or not cred["password_hash"]:
+                return jsonify({"message": "Aún no tienes contraseña; crea una primero."}), 400
+            if not _verify_password(current_pw, cred["password_hash"]):
+                return jsonify({"message": "Contraseña actual incorrecta"}), 401
+            connection.execute(
+                "UPDATE user_credentials SET password_hash = ?, must_change = 0, updated_at = ? WHERE person_id = ?",
+                (_hash_password(new_pw), utc_now_iso(), person_id),
+            )
+            connection.commit()
+        return jsonify({"ok": True})
+
+    @app.post("/api/auth/admin-reset/<int:person_id>")
+    def auth_admin_reset(person_id: int) -> Response:
+        """Super-admin marca a un usuario para que capture nueva password al entrar.
+        Requiere header X-Acting-Person-Id con el id del super-admin que ejecuta.
+        """
+        actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
+        if not actor_id:
+            return jsonify({"message": "Falta identificación del solicitante"}), 401
+        with get_connection() as connection:
+            actor = connection.execute(
+                "SELECT is_super_admin FROM people_catalog WHERE id = ?", (actor_id,)
+            ).fetchone()
+            if not actor or not int(actor["is_super_admin"] or 0):
+                return jsonify({"message": "Solo super-admin puede resetear contraseñas"}), 403
+            target = connection.execute(
+                "SELECT id FROM people_catalog WHERE id = ?", (person_id,)
+            ).fetchone()
+            if not target:
+                return jsonify({"message": "Persona no encontrada"}), 404
+            cred = connection.execute(
+                "SELECT person_id FROM user_credentials WHERE person_id = ?", (person_id,)
+            ).fetchone()
+            now = utc_now_iso()
+            if cred:
+                connection.execute(
+                    "UPDATE user_credentials SET password_hash = '', must_change = 1, updated_at = ? WHERE person_id = ?",
+                    (now, person_id),
+                )
+            else:
+                connection.execute(
+                    "INSERT INTO user_credentials (person_id, password_hash, must_change, created_at, updated_at) VALUES (?, '', 1, ?, ?)",
+                    (person_id, now, now),
+                )
+            connection.commit()
+        return jsonify({"ok": True})
 
     @app.get("/api/catalogs")
     def get_catalogs() -> Response:
@@ -737,6 +901,17 @@ def initialize_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_credentials (
+                person_id INTEGER PRIMARY KEY,
+                password_hash TEXT NOT NULL DEFAULT '',
+                must_change INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
         ensure_schema(connection)
         seed_catalogs(connection)
         connection.commit()
@@ -767,6 +942,9 @@ def ensure_schema(connection) -> None:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN supervisor_sector TEXT NOT NULL DEFAULT ''")
         if "is_coordinator" not in people_columns:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN is_coordinator INTEGER NOT NULL DEFAULT 0")
+            people_columns = get_table_columns(connection, "people_catalog")
+        if "is_super_admin" not in people_columns:
+            connection.execute("ALTER TABLE people_catalog ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0")
 
     cell_columns = get_table_columns(connection, "cell_catalog")
     if cell_columns:
@@ -1261,6 +1439,7 @@ def load_catalogs_payload(connection) -> dict:
             person.rcm_progress,
             person.supervisor_sector,
             person.is_coordinator,
+            person.is_super_admin,
             guardian.name AS guardian_person_name,
             person.created_at,
             person.updated_at
@@ -1344,6 +1523,7 @@ def serialize_person(row: sqlite3.Row, assignments: list[dict] | None = None) ->
         "rcmProgress": parse_json_field(row["rcm_progress"]),
         "supervisorSector": row["supervisor_sector"] or "",
         "isCoordinator": bool(int(row["is_coordinator"] or 0)),
+        "isSuperAdmin": bool(int(row["is_super_admin"] or 0)) if "is_super_admin" in row.keys() else False,
         "assignedCellId": primary_assignment["cellId"] if primary_assignment else None,
         "assignedCellNumber": primary_assignment["cellNumber"] if primary_assignment else "",
         "assignedCellCount": len(assignments),
