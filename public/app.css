@@ -582,12 +582,15 @@ button.ghost, .member-card button, .row-actions .danger { background: var(--dang
 .report-grid-people { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 .date-field { max-width: 200px; }
 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-.metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 /* ── Metric cards ─────────────────────────────────────── */
-.metric-card { display: grid; gap: 14px; }
-.metric-fields { display: grid; gap: 10px; }
-.metric-field { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 10px; align-items: center; }
-.metric-field input { text-align: center; }
+.metric-card { display: grid; gap: 8px; padding: 14px 16px; }
+.metric-card .eyebrow { margin-bottom: 2px; font-size: 0.62rem; letter-spacing: 0.12em; }
+.metric-card h2 { font-size: 0.95rem; margin: 0; }
+.metric-fields { display: grid; gap: 6px; }
+.metric-field { display: grid; grid-template-columns: minmax(0, 1fr) 70px; gap: 8px; align-items: center; font-size: 0.82rem; }
+.metric-field input { text-align: center; padding: 4px 6px; height: auto; min-height: 0; }
+.metric-field span { line-height: 1.15; }
 /* ── Metric subgroup (used to combine related sections in one panel) ── */
 .metric-subgroup { padding-top: 4px; }
 .metric-subgroup + .metric-subgroup { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
