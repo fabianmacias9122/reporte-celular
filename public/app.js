@@ -2155,7 +2155,7 @@ function renderSegTotalsPanel(weeklyReps) {
         ${row('Niños célula', agg.sundayKidsCell,  '#8e44ad', '')}
         ${row('Niños visit.', agg.sundayKidsVisit, '#a367d9', '')}
         ${row('Total culto',  agg.sundayTotal,     '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
-        ${showOffering && agg.offering > 0 ? `<div class="tot-row-wrap"><div class="tot-row tot-row-offering"><span class="tot-row-label">Ofrenda</span><div class="tot-bar-track"><div class="tot-bar" style="width:100%;background:#1f8a4d"></div></div><strong class="tot-row-val">$${Math.round(agg.offering).toLocaleString('es-MX')}</strong></div></div>` : ''}
+        ${showOffering ? `<div class="tot-row-wrap"><div class="tot-row tot-row-offering"><span class="tot-row-label">Ofrenda</span><div class="tot-bar-track"><div class="tot-bar" style="width:${agg.offering > 0 ? 100 : 0}%;background:#1f8a4d"></div></div><strong class="tot-row-val">$${Math.round(agg.offering || 0).toLocaleString('es-MX')}</strong></div></div>` : ''}
       </div>
     </div>`;
   }
