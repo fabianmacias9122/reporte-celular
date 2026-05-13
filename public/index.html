@@ -93,6 +93,16 @@
             <option value="">— Elige tu nombre —</option>
           </select>
         </div>
+        <div class="form-field" id="login-password-field" hidden>
+          <label class="field-label" for="login-password" id="login-password-label">Contraseña</label>
+          <input id="login-password" class="field-input" type="password" autocomplete="current-password" placeholder="Tu contraseña">
+        </div>
+        <div class="form-field" id="login-password-confirm-field" hidden>
+          <label class="field-label" for="login-password-confirm">Confirma tu contraseña</label>
+          <input id="login-password-confirm" class="field-input" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
+        </div>
+        <p id="login-help" class="login-help" hidden></p>
+        <p id="login-error" class="login-error" hidden></p>
         <button id="login-btn" class="btn-save-next" type="button" disabled data-i18n="login.enter">Entrar →</button>
       </div>
     </div>

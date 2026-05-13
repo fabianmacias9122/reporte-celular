@@ -470,20 +470,125 @@ function restrictCellFieldToUser(user) {
   syncReportWithCell(true);
 }
 
-loginPersonSelect?.addEventListener("change", () => {
-  if (loginBtn) loginBtn.disabled = !loginPersonSelect.value;
+loginPersonSelect?.addEventListener("change", async () => {
+  await refreshLoginPasswordUI();
 });
+const loginPasswordField        = document.getElementById("login-password-field");
+const loginPasswordConfirmField = document.getElementById("login-password-confirm-field");
+const loginPasswordInput        = document.getElementById("login-password");
+const loginPasswordConfirm      = document.getElementById("login-password-confirm");
+const loginPasswordLabel        = document.getElementById("login-password-label");
+const loginHelp                 = document.getElementById("login-help");
+const loginError                = document.getElementById("login-error");
+
+let loginAuthMode = "none"; // 'none' | 'enter' | 'create' | 'reset'
+
+[loginPasswordInput, loginPasswordConfirm].forEach(el => {
+  el?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && loginBtn && !loginBtn.disabled) {
+      e.preventDefault();
+      loginBtn.click();
+    }
+  });
+});
+
+function setLoginError(msg) {
+  if (!loginError) return;
+  if (msg) { loginError.textContent = msg; loginError.hidden = false; }
+  else { loginError.textContent = ''; loginError.hidden = true; }
+}
+function setLoginHelp(msg) {
+  if (!loginHelp) return;
+  if (msg) { loginHelp.textContent = msg; loginHelp.hidden = false; }
+  else { loginHelp.textContent = ''; loginHelp.hidden = true; }
+}
+async function refreshLoginPasswordUI() {
+  setLoginError('');
+  if (loginPasswordInput) loginPasswordInput.value = '';
+  if (loginPasswordConfirm) loginPasswordConfirm.value = '';
+  const val = loginPersonSelect?.value || '';
+  if (!val || val === '__coordinator__') {
+    loginAuthMode = 'none';
+    if (loginPasswordField) loginPasswordField.hidden = true;
+    if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
+    setLoginHelp('');
+    if (loginBtn) loginBtn.disabled = !val;
+    return;
+  }
+  // Persona real → consultar status
+  try {
+    const r = await fetch(`/api/auth/status/${encodeURIComponent(val)}`);
+    const data = await r.json();
+    if (data.hasPassword && !data.mustChange) {
+      loginAuthMode = 'enter';
+      if (loginPasswordLabel) loginPasswordLabel.textContent = 'Contraseña';
+      if (loginPasswordField) loginPasswordField.hidden = false;
+      if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
+      setLoginHelp('');
+    } else if (data.mustChange) {
+      loginAuthMode = 'reset';
+      if (loginPasswordLabel) loginPasswordLabel.textContent = 'Crea una nueva contraseña';
+      if (loginPasswordField) loginPasswordField.hidden = false;
+      if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = false;
+      setLoginHelp('Tu contraseña fue reseteada. Crea una nueva (mínimo 6 caracteres).');
+    } else {
+      // Sin password todavía → primera vez. La pedimos para crear.
+      loginAuthMode = 'create';
+      if (loginPasswordLabel) loginPasswordLabel.textContent = 'Crea tu contraseña';
+      if (loginPasswordField) loginPasswordField.hidden = false;
+      if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = false;
+      setLoginHelp('Es tu primera vez. Crea una contraseña (mínimo 6 caracteres) — la usarás siempre.');
+    }
+  } catch (err) {
+    // Si falla el endpoint (servidor viejo), permitir entrar sin password (compat)
+    loginAuthMode = 'none';
+    if (loginPasswordField) loginPasswordField.hidden = true;
+    if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
+    setLoginHelp('');
+  }
+  if (loginBtn) loginBtn.disabled = !loginPersonSelect.value;
+}
 
 loginBtn?.addEventListener("click", async () => {
   const val = loginPersonSelect?.value;
   if (!val) return;
+  setLoginError('');
 
   let user;
   if (val === "__coordinator__") {
-    user = { personId: null, name: "Coordinador", role: "all", assignedCellNumber: null, supervisedSector: null, isAdmin: true, isSupervisor: false };
+    user = { personId: null, name: "Coordinador", role: "all", assignedCellNumber: null, supervisedSector: null, isAdmin: true, isSupervisor: false, isSuperAdmin: false };
   } else {
     const person = (catalogs.people || []).find(p => String(p.id) === val);
     if (!person) return;
+
+    // Validar/crear password según modo
+    if (loginAuthMode === 'enter') {
+      const pw = String(loginPasswordInput?.value || '');
+      if (!pw) { setLoginError('Ingresa tu contraseña.'); return; }
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personId: person.id, password: pw }),
+        });
+        const data = await r.json();
+        if (!r.ok) { setLoginError(data.message || 'No se pudo entrar.'); return; }
+      } catch (e) { setLoginError('Error de conexión.'); return; }
+    } else if (loginAuthMode === 'create' || loginAuthMode === 'reset') {
+      const pw  = String(loginPasswordInput?.value || '');
+      const pw2 = String(loginPasswordConfirm?.value || '');
+      if (pw.length < 6) { setLoginError('La contraseña debe tener al menos 6 caracteres.'); return; }
+      if (pw !== pw2) { setLoginError('Las contraseñas no coinciden.'); return; }
+      try {
+        const r = await fetch('/api/auth/set-password', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personId: person.id, newPassword: pw }),
+        });
+        const data = await r.json();
+        if (!r.ok) { setLoginError(data.message || 'No se pudo crear la contraseña.'); return; }
+      } catch (e) { setLoginError('Error de conexión.'); return; }
+    }
+    // loginAuthMode === 'none' → sin password aún (compat); entrar directo
+
     user = {
       personId: person.id,
       name: person.name,
@@ -492,6 +597,7 @@ loginBtn?.addEventListener("click", async () => {
       supervisedSector: person.supervisorSector || null,
       isAdmin: !!(person.isCoordinator),
       isSupervisor: !!(person.supervisorSector),
+      isSuperAdmin: !!(person.isSuperAdmin),
     };
   }
 
