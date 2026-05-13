@@ -4528,7 +4528,13 @@ function renderSeguimiento(reports) {
             ${isEvent ? '<span class="cycle-chip-star">★</span>' : ''}
           </button>`;
         }).join("");
-        const baptismCount = reps.reduce((s, r) => s + (Array.isArray(r.formData?.baptisms) ? r.formData.baptisms.length : 0), 0);
+        const baptismCount = reps.reduce((s, r) => {
+          const list = Array.isArray(r.formData?.baptisms) ? r.formData.baptisms : [];
+          // Solo cuentan los bautismos cuya fecha real (baptismDate) cae en el
+          // cuatrimestre de esta card. Un bautismo del 2026-04-30 capturado en
+          // un reporte de mayo pertenece a Q1, no a Q2.
+          return s + list.filter(b => String(getBaptismQuarter(b?.baptismDate)) === String(quarter)).length;
+        }, 0);
         const baptismChip  = baptismCount > 0
           ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
           : "";
