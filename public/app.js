@@ -1808,6 +1808,7 @@ function renderPeopleRows() {
       <td data-label="Acciones">
         <div class="row-actions">
           <button type="button" data-action="edit-person" data-id="${person.id}" data-tooltip="Editar datos de ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Editar</button>
+          ${currentUser?.isSuperAdmin ? `<button type="button" data-action="reset-password" data-id="${person.id}" data-tooltip="Resetear contraseña de ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Resetear pwd</button>` : ""}
           <button type="button" class="danger" data-action="delete-person" data-id="${person.id}" data-tooltip="Eliminar permanentemente a ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> Eliminar</button>
         </div>
       </td>
@@ -1836,6 +1837,7 @@ function renderPeopleRows() {
         </button>` : ""}
         <div class="pc-actions">
           <button type="button" class="pc-icon-btn" data-action="edit-person" data-id="${person.id}" title="Editar datos de ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
+          ${currentUser?.isSuperAdmin ? `<button type="button" class="pc-icon-btn" data-action="reset-password" data-id="${person.id}" title="Resetear contraseña de ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>` : ""}
           <button type="button" class="pc-icon-btn danger" data-action="delete-person" data-id="${person.id}" title="Eliminar a ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
         </div>
       </div>
@@ -5877,6 +5879,18 @@ async function handlePeopleTableClick(event) {
       populatePeopleForm();
       await loadCatalogs();
       setFeedback("Persona eliminada.");
+    }
+    if (button.dataset.action === "reset-password") {
+      if (!currentUser?.isSuperAdmin) return;
+      const ok = await appConfirm(`¿Resetear la contraseña de "${person.name}"?\nEn su próximo login se le pedirá crear una nueva.`, "Resetear contraseña");
+      if (!ok) return;
+      const resp = await fetch(`/api/auth/admin-reset/${person.id}`, {
+        method: "POST",
+        headers: { "X-Acting-Person-Id": String(currentUser.personId || "") },
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setFeedback(data.message || "No se pudo resetear.", true); return; }
+      setFeedback(`Contraseña de ${person.name} reseteada. Creará una nueva en su próximo login.`);
     }
   } catch (error) {
     setFeedback(error.message, true);
