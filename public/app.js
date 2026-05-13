@@ -839,24 +839,34 @@ function normalizeVisitorName(name) {
 }
 
 function getVisitorHistory() {
+  // El historial de visitas/amigos se restringe SIEMPRE a la célula seleccionada
+  // en el reporte actual. Esto evita fugas de datos entre células incluso si el
+  // usuario es admin o supervisor.
+  const activeCellNumber = String(cellField?.value || "").trim();
+  if (!activeCellNumber) {
+    return [];
+  }
   const visitorMap = new Map();
-  getScopedReports(reportsData).forEach((report) => {
-    const visitors = Array.isArray(report?.formData?.visitors) ? report.formData.visitors : [];
-    visitors.forEach((visitor) => {
-      const normalizedName = normalizeVisitorName(visitor?.name);
-      if (!normalizedName) {
-        return;
-      }
-      const previous = visitorMap.get(normalizedName) || { name: String(visitor?.name || "").trim(), invitedBy: "", phone: "", converted: false, visitCount: 0 };
-      visitorMap.set(normalizedName, {
-        name: previous.name || String(visitor?.name || "").trim(),
-        invitedBy: String(visitor?.invitedBy || previous.invitedBy || "").trim(),
-        phone: String(visitor?.phone || previous.phone || "").trim(),
-        converted: Boolean(visitor?.converted) || Boolean(previous.converted),
-        visitCount: previous.visitCount + 1,
+  getScopedReports(reportsData)
+    .filter((report) => String(report?.cellNumber || report?.formData?.cellNumber || "").trim() === activeCellNumber)
+    .forEach((report) => {
+      const visitors = Array.isArray(report?.formData?.visitors) ? report.formData.visitors : [];
+      visitors.forEach((visitor) => {
+        const normalizedName = normalizeVisitorName(visitor?.name);
+        if (!normalizedName) {
+          return;
+        }
+        const previous = visitorMap.get(normalizedName) || { name: String(visitor?.name || "").trim(), invitedBy: "", phone: "", converted: false, kind: "amigo", visitCount: 0 };
+        visitorMap.set(normalizedName, {
+          name: previous.name || String(visitor?.name || "").trim(),
+          invitedBy: String(visitor?.invitedBy || previous.invitedBy || "").trim(),
+          phone: String(visitor?.phone || previous.phone || "").trim(),
+          converted: Boolean(visitor?.converted) || Boolean(previous.converted),
+          kind: normalizeVisitorKind(visitor?.kind || previous.kind),
+          visitCount: previous.visitCount + 1,
+        });
       });
     });
-  });
   return Array.from(visitorMap.values()).sort((left, right) => left.name.localeCompare(right.name, "es"));
 }
 
@@ -6594,6 +6604,7 @@ cellField.addEventListener("change", () => {
   syncReportWithCell(true);
   populateWeekOptions(); // re-evaluate disabled past weeks for the new cell
   autoAdvanceWeekForCell(cellField.value);
+  renderVisitorHistoryOptions(); // historial de visitas restringido a la célula activa
 });
 reportForm.elements.namedItem("reportDate")?.addEventListener?.("change", () => {
   syncWeekFieldWithReportDate(true);
