@@ -670,10 +670,16 @@ body[data-active-stage="encabezado"] .inicio-team-card {
   gap: 14px;
   align-items: end;
 }
+.inicio-location-row > label { min-width: 0; }
+.inicio-location-row > label > input { width: 100%; max-width: 100%; box-sizing: border-box; }
 .inicio-date-field {
   min-width: 170px;
+  min-width: 0;
 }
 .inicio-date-field input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   font-weight: 700;
   color: var(--brand-deep);
   border-color: var(--brand-mid);
