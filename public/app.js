@@ -2132,20 +2132,20 @@ function renderSegTotalsPanel(weeklyReps) {
         ${row('Asistieron',       agg.planningPresent,  'var(--brand)', planningMissTxt, roster)}
 
         ${sectionLabel('Alcance')}
-        ${row('Hermanos',         agg.reachMembers,     '#2d8a55', reachMissParts.join(' · '), roster)}
-        ${row('Amigos (no bautizados)',         agg.reachFriends, '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
-        ${row('Visitas (restauración)',         agg.reachRestor,  '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
-        ${row('Niños de la célula',             agg.reachKidsCell,  '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
-        ${row('Niños visitantes',               agg.reachKidsVisit, '#a367d9', agg.kidsVisitUnique ? `${agg.kidsVisitUnique} únic.` : '')}
+        ${row('Hermanos',     agg.reachMembers,    '#2d8a55', reachMissParts.join(' · '), roster)}
+        ${row('Amigos',       agg.reachFriends,    '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
+        ${row('Restauración', agg.reachRestor,     '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
+        ${row('Niños célula', agg.reachKidsCell,   '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
+        ${row('Niños visit.', agg.reachKidsVisit,  '#a367d9', agg.kidsVisitUnique ? `${agg.kidsVisitUnique} únic.` : '')}
         ${agg.reachConversions ? row('Conversiones', agg.reachConversions, '#e0872a', '') : ''}
 
         ${sectionLabel('Culto')}
-        ${row('Hermanos',         agg.sundayMembers,    '#3a7bd5', sundayMissTxt, roster)}
-        ${row('Amigos (no bautizados)',         agg.sundayFriends, '#1565c0', '')}
-        ${row('Visitas (restauración)',         agg.sundayRestor,  '#6a1b9a', '')}
-        ${row('Niños de la célula',             agg.sundayKidsCell,  '#8e44ad', '')}
-        ${row('Niños visitantes',               agg.sundayKidsVisit, '#a367d9', '')}
-        ${row('Total culto',      agg.sundayTotal,      '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
+        ${row('Hermanos',     agg.sundayMembers,   '#3a7bd5', sundayMissTxt, roster)}
+        ${row('Amigos',       agg.sundayFriends,   '#1565c0', '')}
+        ${row('Restauración', agg.sundayRestor,    '#6a1b9a', '')}
+        ${row('Niños célula', agg.sundayKidsCell,  '#8e44ad', '')}
+        ${row('Niños visit.', agg.sundayKidsVisit, '#a367d9', '')}
+        ${row('Total culto',  agg.sundayTotal,     '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
 
         ${agg.absent ? row('Con falta',  agg.absent,  '#e05252', agg.justified ? `${agg.justified} just.` : '') : ''}
       </div>

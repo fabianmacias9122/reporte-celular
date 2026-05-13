@@ -1272,19 +1272,20 @@ tr.people-group-header + tr td { border-top: none; }
 .tot-group-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 0 0 10px; }
 .tot-section-label { font-size: 0.7rem; font-weight: 700; color: var(--brand-deep); text-transform: uppercase; letter-spacing: 0.06em; margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed var(--line); }
 .tot-section-label:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
-.tot-rows { display: grid; gap: 6px; }
-.tot-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
-.tot-row-label { font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; }
-.tot-row-val   { font-size: 0.9rem; font-weight: 800; color: var(--brand-deep); text-align: right; white-space: nowrap; min-width: 40px; }
-.tot-row-pct   { font-size: 0.65rem; font-weight: 600; color: var(--muted); margin-left: 4px; white-space: nowrap; }
+.tot-rows { display: grid; gap: 4px; }
+.tot-row { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.tot-row-label { font-size: 0.72rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tot-row-val   { font-size: 0.82rem; font-weight: 800; color: var(--brand-deep); text-align: right; white-space: nowrap; }
+.tot-row-pct   { font-size: 0.62rem; font-weight: 600; color: var(--muted); margin-left: 3px; white-space: nowrap; }
 .tot-roster-hint { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); opacity: 0.7; }
-.tot-row-hint  { grid-column: 2 / -1; font-size: 0.65rem; color: var(--muted); margin-top: -4px; }
-.tot-bar-track { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 0; }
+.tot-row-hint  { grid-column: 2 / -1; font-size: 0.62rem; color: var(--muted); margin-top: -2px; line-height: 1.2; }
+.tot-bar-track { height: 7px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 0; }
 .tot-bar       { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
 @media (max-width: 600px) {
   .tot-scope-grid { grid-template-columns: 1fr; }
-  .tot-row { grid-template-columns: 100px minmax(0, 1fr) auto; gap: 6px; }
-  .tot-row-val { font-size: 0.8rem; }
+  .tot-row { grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; }
+  .tot-row-label { font-size: 0.68rem; }
+  .tot-row-val { font-size: 0.75rem; }
 }
 .report-context-strip {
   display: flex; align-items: flex-start; gap: 0;
