@@ -315,7 +315,9 @@ const AUTO_FIELDS = new Set([
 
 let catalogs = { people: [], cells: [] };
 let appSettings = {};   // loaded from /api/settings
-let historyScope = "current"; // "current" = solo cuatrimestre activo, "all" = todo
+let historyScope = (typeof localStorage !== "undefined" && (localStorage.getItem("historyScope") === "all" || localStorage.getItem("historyScope") === "current"))
+  ? localStorage.getItem("historyScope")
+  : "current"; // "current" = solo cuatrimestre activo, "all" = todo
 let editingReportId = null;
 let reportReadOnlyMode = false;  // true when viewing a closed-week report in the form
 let suppressWeekChangeHandler = false;  // prevents re-entrant change events from form.reset()
@@ -7080,6 +7082,7 @@ document.getElementById("seg-week-offset-tabs")?.addEventListener("click", (e) =
 document.getElementById("settings-prefs-save-btn")?.addEventListener("click", () => {
   const selected = document.querySelector("input[name='history_scope']:checked")?.value || "current";
   historyScope = selected;
+  try { localStorage.setItem("historyScope", selected); } catch (_) {}
   renderReports(reportsData);
   const status = document.getElementById("settings-prefs-save-status");
   if (status) {
