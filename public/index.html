@@ -88,10 +88,8 @@
           <p class="login-card-sub" data-i18n="login.subtitle">Selecciona tu nombre para acceder</p>
         </div>
         <div class="form-field">
-          <label class="field-label" for="login-person-select" data-i18n="login.who">¿Quién eres?</label>
-          <select id="login-person-select" class="field-input">
-            <option value="">— Elige tu nombre —</option>
-          </select>
+          <label class="field-label" for="login-username">Usuario</label>
+          <input id="login-username" class="field-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ej. fabian.macias">
         </div>
         <div class="form-field" id="login-password-field" hidden>
           <label class="field-label" for="login-password" id="login-password-label">Contraseña</label>
@@ -1188,6 +1186,10 @@
         <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
           <input id="people-is-coordinator" name="isCoordinator" type="checkbox" form="people-form" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
           <span>Es coordinador <small style="font-weight:400;opacity:.6">(acceso total)</small></span>
+        </label>
+        <label id="people-username-field" hidden>
+          <span>Usuario para login <small style="font-weight:400;opacity:.6">(letras, números, '.', '_' o '-')</small></span>
+          <input id="people-username" name="username" type="text" form="people-form" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ej. fabian.macias">
         </label>
       </div>
     </div>

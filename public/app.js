@@ -334,7 +334,7 @@ let currentUser = null;
 const RC_SESSION_KEY = "rcSession";
 
 const loginOverlay     = document.getElementById("login-overlay");
-const loginPersonSelect = document.getElementById("login-person-select");
+const loginPersonSelect = document.getElementById("login-username");
 const loginBtn         = document.getElementById("login-btn");
 const userChip         = document.getElementById("user-chip");
 const userChipNameEl   = document.getElementById("user-chip-name");
@@ -363,67 +363,8 @@ function canPersonLogin(p) {
 }
 
 function populateLoginSelect() {
-  if (!loginPersonSelect) return;
-  loginPersonSelect.innerHTML = `<option value="">${t("login.placeholder")}</option>`;
-
-  // Coordinators first
-  const coordinators = (catalogs.people || [])
-    .filter(p => p.isCoordinator)
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  if (coordinators.length) {
-    const grpCoord = document.createElement("optgroup");
-    grpCoord.label = "Coordinadores";
-    coordinators.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = String(p.id);
-      opt.textContent = p.name;
-      opt.dataset.role = "coordinator";
-      grpCoord.appendChild(opt);
-    });
-    loginPersonSelect.appendChild(grpCoord);
-  }
-
-  // Supervisors (non-coordinator)
-  const supervisors = (catalogs.people || [])
-    .filter(p => p.supervisorSector && !p.isCoordinator)
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  if (supervisors.length) {
-    const grpSup = document.createElement("optgroup");
-    grpSup.label = "Supervisores";
-    supervisors.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = String(p.id);
-      const cellNum = getCellForPerson(p.id) || p.assignedCellNumber || "";
-      const cellLabel = cellNum ? ` · Célula ${cellNum}` : "";
-      opt.textContent = `${p.name}${cellLabel} — Sector ${p.supervisorSector}`;
-      grpSup.appendChild(opt);
-    });
-    loginPersonSelect.appendChild(grpSup);
-  }
-
-  // Leaders / Assistants (not coordinator, not supervisor) — derived from cell assignments
-  const leaders = (catalogs.people || [])
-    .filter(p => {
-      if (p.isCoordinator || p.supervisorSector || p.role === "kid") return false;
-      const id = String(p.id);
-      return catalogs.cells.some(c => String(c.leaderPersonId) === id || String(c.assistantPersonId) === id);
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  if (leaders.length) {
-    const grpLdr = document.createElement("optgroup");
-    grpLdr.label = "Líderes y Asistentes";
-    leaders.forEach(p => {
-      const opt = document.createElement("option");
-      opt.value = String(p.id);
-      const fn = getDerivedFunction(p);
-      const fnLabel = fn === "leader" ? "Líder" : "Asistente";
-      const cellNum = getCellForPerson(p.id) || p.assignedCellNumber || "";
-      const cellLabel = cellNum ? ` · Célula ${cellNum}` : "";
-      opt.textContent = `${p.name} — ${fnLabel}${cellLabel}`;
-      grpLdr.appendChild(opt);
-    });
-    loginPersonSelect.appendChild(grpLdr);
-  }
+  // Login ahora usa input de username; ya no se llena un combo.
+  // Esta funcion se conserva como no-op para no romper llamadas existentes.
 }
 
 function applyUserSession(user) {
@@ -478,8 +419,28 @@ function restrictCellFieldToUser(user) {
   syncReportWithCell(true);
 }
 
-loginPersonSelect?.addEventListener("change", async () => {
+loginPersonSelect?.addEventListener("input", () => {
+  // Reset estado al teclear; el lookup sucede al hacer blur o submit.
+  loginAuthMode = "none";
+  loginLookupResult = null;
+  if (loginPasswordField) loginPasswordField.hidden = true;
+  if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
+  setLoginHelp('');
+  setLoginError('');
+  if (loginBtn) loginBtn.disabled = !(loginPersonSelect.value || '').trim();
+});
+loginPersonSelect?.addEventListener("blur", async () => {
   await refreshLoginPasswordUI();
+});
+loginPersonSelect?.addEventListener("keydown", (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    refreshLoginPasswordUI().then(() => {
+      // Si ya hay password creado, foco al password
+      if (loginAuthMode === 'enter') loginPasswordInput?.focus();
+      else if (loginAuthMode === 'none' && loginLookupResult && loginBtn && !loginBtn.disabled) loginBtn.click();
+    });
+  }
 });
 const loginPasswordField        = document.getElementById("login-password-field");
 const loginPasswordConfirmField = document.getElementById("login-password-confirm-field");
@@ -490,6 +451,7 @@ const loginHelp                 = document.getElementById("login-help");
 const loginError                = document.getElementById("login-error");
 
 let loginAuthMode = "none"; // 'none' | 'enter' | 'create' | 'reset'
+let loginLookupResult = null; // { personId, name, hasPassword, mustChange }
 
 [loginPasswordInput, loginPasswordConfirm].forEach(el => {
   el?.addEventListener('keydown', (e) => {
@@ -510,104 +472,119 @@ function setLoginHelp(msg) {
   if (msg) { loginHelp.textContent = msg; loginHelp.hidden = false; }
   else { loginHelp.textContent = ''; loginHelp.hidden = true; }
 }
+function _normalizeUsernameClient(raw) {
+  return String(raw || '')
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9._-]+/g, '');
+}
 async function refreshLoginPasswordUI() {
   setLoginError('');
   if (loginPasswordInput) loginPasswordInput.value = '';
   if (loginPasswordConfirm) loginPasswordConfirm.value = '';
-  const val = loginPersonSelect?.value || '';
-  if (!val || val === '__coordinator__') {
+  loginLookupResult = null;
+  const raw = (loginPersonSelect?.value || '').trim();
+  const username = _normalizeUsernameClient(raw);
+  if (!username) {
     loginAuthMode = 'none';
     if (loginPasswordField) loginPasswordField.hidden = true;
     if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
     setLoginHelp('');
-    if (loginBtn) loginBtn.disabled = !val;
+    if (loginBtn) loginBtn.disabled = true;
     return;
   }
-  // Persona real → consultar status
   try {
-    const r = await fetch(`/api/auth/status/${encodeURIComponent(val)}`);
+    const r = await fetch(`/api/auth/lookup/${encodeURIComponent(username)}`);
+    if (r.status === 404) {
+      loginAuthMode = 'none';
+      if (loginPasswordField) loginPasswordField.hidden = true;
+      if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
+      setLoginHelp('');
+      setLoginError('Usuario no encontrado.');
+      if (loginBtn) loginBtn.disabled = true;
+      return;
+    }
     const data = await r.json();
+    if (!r.ok) { setLoginError(data.message || 'Error.'); return; }
+    loginLookupResult = data;
     if (data.hasPassword && !data.mustChange) {
       loginAuthMode = 'enter';
-      if (loginPasswordLabel) loginPasswordLabel.textContent = 'Contraseña';
+      if (loginPasswordLabel) loginPasswordLabel.textContent = `Contraseña de ${data.name}`;
       if (loginPasswordField) loginPasswordField.hidden = false;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
       setLoginHelp('');
     } else if (data.mustChange) {
       loginAuthMode = 'reset';
-      if (loginPasswordLabel) loginPasswordLabel.textContent = 'Crea una nueva contraseña';
+      if (loginPasswordLabel) loginPasswordLabel.textContent = `Crea una nueva contraseña (${data.name})`;
       if (loginPasswordField) loginPasswordField.hidden = false;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = false;
       setLoginHelp('Tu contraseña fue reseteada. Crea una nueva (mínimo 6 caracteres).');
     } else {
-      // Sin password todavía → primera vez. La pedimos para crear.
       loginAuthMode = 'create';
-      if (loginPasswordLabel) loginPasswordLabel.textContent = 'Crea tu contraseña';
+      if (loginPasswordLabel) loginPasswordLabel.textContent = `Crea tu contraseña (${data.name})`;
       if (loginPasswordField) loginPasswordField.hidden = false;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = false;
       setLoginHelp('Es tu primera vez. Crea una contraseña (mínimo 6 caracteres) — la usarás siempre.');
     }
+    if (loginBtn) loginBtn.disabled = false;
   } catch (err) {
-    // Si falla el endpoint (servidor viejo), permitir entrar sin password (compat)
-    loginAuthMode = 'none';
-    if (loginPasswordField) loginPasswordField.hidden = true;
-    if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
-    setLoginHelp('');
+    setLoginError('Error de conexión.');
+    if (loginBtn) loginBtn.disabled = true;
   }
-  if (loginBtn) loginBtn.disabled = !loginPersonSelect.value;
 }
 
 loginBtn?.addEventListener("click", async () => {
-  const val = loginPersonSelect?.value;
-  if (!val) return;
+  const username = _normalizeUsernameClient(loginPersonSelect?.value);
+  if (!username) return;
   setLoginError('');
 
-  let user;
-  if (val === "__coordinator__") {
-    user = { personId: null, name: "Coordinador", role: "all", assignedCellNumber: null, supervisedSector: null, isAdmin: true, isSupervisor: false, isSuperAdmin: false };
-  } else {
-    const person = (catalogs.people || []).find(p => String(p.id) === val);
-    if (!person) return;
-
-    // Validar/crear password según modo
-    if (loginAuthMode === 'enter') {
-      const pw = String(loginPasswordInput?.value || '');
-      if (!pw) { setLoginError('Ingresa tu contraseña.'); return; }
-      try {
-        const r = await fetch('/api/auth/login', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personId: person.id, password: pw }),
-        });
-        const data = await r.json();
-        if (!r.ok) { setLoginError(data.message || 'No se pudo entrar.'); return; }
-      } catch (e) { setLoginError('Error de conexión.'); return; }
-    } else if (loginAuthMode === 'create' || loginAuthMode === 'reset') {
-      const pw  = String(loginPasswordInput?.value || '');
-      const pw2 = String(loginPasswordConfirm?.value || '');
-      if (pw.length < 6) { setLoginError('La contraseña debe tener al menos 6 caracteres.'); return; }
-      if (pw !== pw2) { setLoginError('Las contraseñas no coinciden.'); return; }
-      try {
-        const r = await fetch('/api/auth/set-password', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personId: person.id, newPassword: pw }),
-        });
-        const data = await r.json();
-        if (!r.ok) { setLoginError(data.message || 'No se pudo crear la contraseña.'); return; }
-      } catch (e) { setLoginError('Error de conexión.'); return; }
-    }
-    // loginAuthMode === 'none' → sin password aún (compat); entrar directo
-
-    user = {
-      personId: person.id,
-      name: person.name,
-      role: person.role,
-      assignedCellNumber: getCellForPerson(person.id) || person.assignedCellNumber || null,
-      supervisedSector: person.supervisorSector || null,
-      isAdmin: !!(person.isCoordinator),
-      isSupervisor: !!(person.supervisorSector),
-      isSuperAdmin: !!(person.isSuperAdmin),
-    };
+  // Si no hay lookup todavia (no perdio el foco), hacerlo ahora.
+  if (!loginLookupResult) {
+    await refreshLoginPasswordUI();
+    if (!loginLookupResult) return;
   }
+  const lookup = loginLookupResult;
+
+  // Validar/crear password segun modo
+  if (loginAuthMode === 'enter') {
+    const pw = String(loginPasswordInput?.value || '');
+    if (!pw) { setLoginError('Ingresa tu contraseña.'); return; }
+    try {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: pw }),
+      });
+      const data = await r.json();
+      if (!r.ok) { setLoginError(data.message || 'No se pudo entrar.'); return; }
+    } catch (e) { setLoginError('Error de conexión.'); return; }
+  } else if (loginAuthMode === 'create' || loginAuthMode === 'reset') {
+    const pw  = String(loginPasswordInput?.value || '');
+    const pw2 = String(loginPasswordConfirm?.value || '');
+    if (pw.length < 6) { setLoginError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (pw !== pw2) { setLoginError('Las contraseñas no coinciden.'); return; }
+    try {
+      const r = await fetch('/api/auth/set-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId: lookup.personId, newPassword: pw }),
+      });
+      const data = await r.json();
+      if (!r.ok) { setLoginError(data.message || 'No se pudo crear la contraseña.'); return; }
+    } catch (e) { setLoginError('Error de conexión.'); return; }
+  }
+  // 'none' = compat (sin password todavia, no se exigio)
+
+  const person = (catalogs.people || []).find(p => String(p.id) === String(lookup.personId));
+  if (!person) { setLoginError('Persona no encontrada en catalogo.'); return; }
+  const user = {
+    personId: person.id,
+    name: person.name,
+    role: person.role,
+    assignedCellNumber: getCellForPerson(person.id) || person.assignedCellNumber || null,
+    supervisedSector: person.supervisorSector || null,
+    isAdmin: !!(person.isCoordinator),
+    isSupervisor: !!(person.supervisorSector),
+    isSuperAdmin: !!(person.isSuperAdmin),
+  };
 
   sessionStorage.setItem(RC_SESSION_KEY, JSON.stringify(user));
   // Mantener overlay visible mientras se carga toda la sesión. Antes lo
@@ -4830,6 +4807,18 @@ function populatePeopleForm(person = null) {
   }
   const coordCheck = /** @type {HTMLInputElement|null} */ (document.querySelector("#people-is-coordinator"));
   if (coordCheck) coordCheck.checked = !!(person?.isCoordinator);
+  // Username (solo super-admin)
+  const usernameField = document.getElementById("people-username-field");
+  const usernameInput = /** @type {HTMLInputElement|null} */ (document.getElementById("people-username"));
+  if (usernameField && usernameInput) {
+    if (currentUser?.isSuperAdmin) {
+      usernameField.hidden = false;
+      usernameInput.value = person?.username || "";
+    } else {
+      usernameField.hidden = true;
+      usernameInput.value = "";
+    }
+  }
   syncPeopleGuardianFields();
   renderPeopleRcmPanel(person);
 }
@@ -5416,15 +5405,34 @@ async function handlePeopleSubmit(event) {
 
   try {
     let savedPersonId = editId;
+    // Si username viene en el form pero el usuario actual NO es super-admin,
+    // lo quitamos para que el backend NO rechace la peticion (403).
+    // Tambien quitamos username si el campo esta vacio en una EDICION sin cambios:
+    // mejor no enviar la clave que enviar "" (que el backend interpreta como borrar).
+    const actorHeaders = currentUser?.personId
+      ? { "X-Acting-Person-Id": String(currentUser.personId) }
+      : {};
+    if (!currentUser?.isSuperAdmin) {
+      delete payload.username;
+    } else {
+      // Super-admin: si el campo no cambio respecto al original, no lo enviamos
+      const originalUsername = (catalogs.people.find(p => String(p.id) === editId)?.username) || "";
+      const submittedUsername = String(payload.username || "");
+      if (editId && submittedUsername === originalUsername) {
+        delete payload.username;
+      }
+    }
     if (editId) {
       await request(`/api/catalogs/people/${editId}`, {
         method: "PUT",
+        headers: actorHeaders,
         body: JSON.stringify(payload),
       });
       setFeedback("Persona actualizada.");
     } else {
       const created = await request("/api/catalogs/people", {
         method: "POST",
+        headers: actorHeaders,
         body: JSON.stringify(payload),
       });
       savedPersonId = String(created.id);

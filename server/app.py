@@ -162,6 +162,23 @@ def _verify_password(plain: str, stored: str) -> bool:
         return False
 
 
+# ── Username helpers ─────────────────────────────────────────────────────────
+import re
+import unicodedata
+
+def _normalize_username(raw: str) -> str:
+    """Username canonico: minusculas, ASCII, solo [a-z0-9._-]."""
+    if not raw:
+        return ""
+    s = unicodedata.normalize("NFKD", str(raw)).encode("ascii", "ignore").decode("ascii")
+    s = s.lower().strip()
+    s = re.sub(r"[^a-z0-9._-]+", "", s)
+    return s
+
+def _is_valid_username(u: str) -> bool:
+    return bool(u) and 2 <= len(u) <= 40 and bool(re.fullmatch(r"[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?", u))
+
+
 def create_app() -> Flask:
     app = Flask(__name__, static_folder=str(PUBLIC_DIR), static_url_path="")
     initialize_database()
@@ -176,6 +193,33 @@ def create_app() -> Flask:
         return jsonify({"ok": True, "title": "Reporte Celular", "database": db_label})
 
     # ── AUTH ────────────────────────────────────────────────────────────────
+    @app.get("/api/auth/lookup/<string:username>")
+    def auth_lookup(username: str) -> Response:
+        """Resuelve username -> { personId, name, hasPassword, mustChange }.
+        Devuelve 404 si el username no existe.
+        """
+        u = _normalize_username(username)
+        if not u:
+            return jsonify({"message": "Usuario inválido"}), 400
+        with get_connection() as connection:
+            person = connection.execute(
+                "SELECT id, name FROM people_catalog WHERE lower(username) = ?",
+                (u,),
+            ).fetchone()
+            if not person:
+                return jsonify({"message": "Usuario no encontrado"}), 404
+            cred = connection.execute(
+                "SELECT password_hash, must_change FROM user_credentials WHERE person_id = ?",
+                (person["id"],),
+            ).fetchone()
+        has_pw = bool(cred and cred["password_hash"])
+        return jsonify({
+            "personId": person["id"],
+            "name": person["name"],
+            "hasPassword": has_pw,
+            "mustChange": bool(int(cred["must_change"] or 0)) if cred else False,
+        })
+
     @app.get("/api/auth/status/<int:person_id>")
     def auth_status(person_id: int) -> Response:
         """Devuelve si la persona ya tiene password registrado y si debe cambiarla."""
@@ -192,15 +236,23 @@ def create_app() -> Flask:
     def auth_login() -> Response:
         payload = read_payload() or {}
         person_id = normalize_nullable_int(payload.get("personId"))
+        username  = _normalize_username(payload.get("username") or "")
         password  = str(payload.get("password") or "")
-        if not person_id:
-            return jsonify({"message": "personId requerido"}), 400
         with get_connection() as connection:
-            person_row = connection.execute(
-                "SELECT * FROM people_catalog WHERE id = ?", (person_id,)
-            ).fetchone()
+            person_row = None
+            if person_id:
+                person_row = connection.execute(
+                    "SELECT * FROM people_catalog WHERE id = ?", (person_id,)
+                ).fetchone()
+            elif username:
+                person_row = connection.execute(
+                    "SELECT * FROM people_catalog WHERE lower(username) = ?", (username,)
+                ).fetchone()
+            else:
+                return jsonify({"message": "username o personId requerido"}), 400
             if not person_row:
                 return jsonify({"message": "Usuario no encontrado"}), 404
+            person_id = person_row["id"]
             cred_row = connection.execute(
                 "SELECT password_hash, must_change FROM user_credentials WHERE person_id = ?",
                 (person_id,),
@@ -326,13 +378,29 @@ def create_app() -> Flask:
         if validation_error:
             return jsonify({"message": validation_error}), 400
 
+        # username es opcional; si viene, se valida y solo super-admin puede asignarlo
+        username_value = None
+        if payload.get("username") not in (None, ""):
+            actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
+            if actor_id:
+                with get_connection() as _c:
+                    actor = _c.execute("SELECT is_super_admin FROM people_catalog WHERE id = ?", (actor_id,)).fetchone()
+            else:
+                actor = None
+            if not actor or not int(actor["is_super_admin"] or 0):
+                return jsonify({"message": "Solo super-admin puede asignar username"}), 403
+            u = _normalize_username(payload.get("username"))
+            if not _is_valid_username(u):
+                return jsonify({"message": "Username inválido (usa letras, números, '.', '_' o '-')"}), 400
+            username_value = u
+
         now = utc_now_iso()
         try:
             with get_connection() as connection:
                 cursor = connection.execute(
                     """
-                    INSERT INTO people_catalog (name, role, phone, email, guardian_person_id, guardian_name, supervisor_sector, is_coordinator, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO people_catalog (name, role, phone, email, guardian_person_id, guardian_name, supervisor_sector, is_coordinator, username, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         payload["name"],
@@ -343,12 +411,15 @@ def create_app() -> Flask:
                         payload.get("guardianName", ""),
                         payload.get("supervisorSector", ""),
                         1 if payload.get("isCoordinator") else 0,
+                        username_value,
                         now,
                         now,
                     ),
                 )
                 connection.commit()
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as e:
+            if "username" in str(e).lower():
+                return jsonify({"message": "Ese username ya está en uso."}), 409
             return jsonify({"message": "La persona ya existe en el catálogo."}), 409
 
         return jsonify({"ok": True, "id": cursor.lastrowid}), 201
@@ -360,29 +431,75 @@ def create_app() -> Flask:
         if validation_error:
             return jsonify({"message": validation_error}), 400
 
+        # Si el payload incluye 'username' (incluyendo cadena vacía para borrarlo),
+        # solo super-admin puede modificarlo. Si no viene la clave, no se toca.
+        update_username = "username" in payload
+        username_value = None
+        if update_username:
+            actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
+            if actor_id:
+                with get_connection() as _c:
+                    actor = _c.execute("SELECT is_super_admin FROM people_catalog WHERE id = ?", (actor_id,)).fetchone()
+            else:
+                actor = None
+            if not actor or not int(actor["is_super_admin"] or 0):
+                return jsonify({"message": "Solo super-admin puede asignar username"}), 403
+            raw = payload.get("username") or ""
+            if raw == "":
+                username_value = None
+            else:
+                u = _normalize_username(raw)
+                if not _is_valid_username(u):
+                    return jsonify({"message": "Username inválido (usa letras, números, '.', '_' o '-')"}), 400
+                username_value = u
+
         try:
             with get_connection() as connection:
-                cursor = connection.execute(
-                    """
-                    UPDATE people_catalog
-                    SET name = ?, role = ?, phone = ?, email = ?, guardian_person_id = ?, guardian_name = ?, supervisor_sector = ?, is_coordinator = ?, updated_at = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        payload["name"],
-                        payload["role"],
-                        payload.get("phone", ""),
-                        payload.get("email", ""),
-                        normalize_nullable_int(payload.get("guardianPersonId")),
-                        payload.get("guardianName", ""),
-                        payload.get("supervisorSector", ""),
-                        1 if payload.get("isCoordinator") else 0,
-                        utc_now_iso(),
-                        person_id,
-                    ),
-                )
+                if update_username:
+                    cursor = connection.execute(
+                        """
+                        UPDATE people_catalog
+                        SET name = ?, role = ?, phone = ?, email = ?, guardian_person_id = ?, guardian_name = ?, supervisor_sector = ?, is_coordinator = ?, username = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            payload["name"],
+                            payload["role"],
+                            payload.get("phone", ""),
+                            payload.get("email", ""),
+                            normalize_nullable_int(payload.get("guardianPersonId")),
+                            payload.get("guardianName", ""),
+                            payload.get("supervisorSector", ""),
+                            1 if payload.get("isCoordinator") else 0,
+                            username_value,
+                            utc_now_iso(),
+                            person_id,
+                        ),
+                    )
+                else:
+                    cursor = connection.execute(
+                        """
+                        UPDATE people_catalog
+                        SET name = ?, role = ?, phone = ?, email = ?, guardian_person_id = ?, guardian_name = ?, supervisor_sector = ?, is_coordinator = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            payload["name"],
+                            payload["role"],
+                            payload.get("phone", ""),
+                            payload.get("email", ""),
+                            normalize_nullable_int(payload.get("guardianPersonId")),
+                            payload.get("guardianName", ""),
+                            payload.get("supervisorSector", ""),
+                            1 if payload.get("isCoordinator") else 0,
+                            utc_now_iso(),
+                            person_id,
+                        ),
+                    )
                 connection.commit()
-        except sqlite3.IntegrityError:
+        except sqlite3.IntegrityError as e:
+            if "username" in str(e).lower():
+                return jsonify({"message": "Ese username ya está en uso."}), 409
             return jsonify({"message": "Ya existe otra persona con ese nombre."}), 409
 
         if cursor.rowcount == 0:
@@ -945,6 +1062,16 @@ def ensure_schema(connection) -> None:
             people_columns = get_table_columns(connection, "people_catalog")
         if "is_super_admin" not in people_columns:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0")
+            people_columns = get_table_columns(connection, "people_catalog")
+        if "username" not in people_columns:
+            connection.execute("ALTER TABLE people_catalog ADD COLUMN username TEXT")
+            try:
+                connection.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_people_username "
+                    "ON people_catalog(lower(username)) WHERE username IS NOT NULL AND username <> ''"
+                )
+            except Exception:
+                pass
 
     cell_columns = get_table_columns(connection, "cell_catalog")
     if cell_columns:
@@ -1524,6 +1651,7 @@ def serialize_person(row: sqlite3.Row, assignments: list[dict] | None = None) ->
         "supervisorSector": row["supervisor_sector"] or "",
         "isCoordinator": bool(int(row["is_coordinator"] or 0)),
         "isSuperAdmin": bool(int(row["is_super_admin"] or 0)) if "is_super_admin" in row.keys() else False,
+        "username": (row["username"] or "") if "username" in row.keys() else "",
         "assignedCellId": primary_assignment["cellId"] if primary_assignment else None,
         "assignedCellNumber": primary_assignment["cellNumber"] if primary_assignment else "",
         "assignedCellCount": len(assignments),
