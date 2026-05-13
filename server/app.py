@@ -573,6 +573,7 @@ def create_app() -> Flask:
                 report_id = existing_report["id"]
                 was_updated = True
             promote_baptized_people(connection, payload)
+            promote_visitors_to_members(connection, payload)
             connection.commit()
 
         status_code = 200 if was_updated else 201
@@ -615,6 +616,7 @@ def create_app() -> Flask:
                 ),
             )
             promote_baptized_people(connection, payload)
+            promote_visitors_to_members(connection, payload)
             connection.commit()
 
         if cursor.rowcount == 0:
@@ -1066,6 +1068,62 @@ def promote_baptized_people(connection, payload: dict) -> None:
                 VALUES (?, 'member', '', '', NULL, '', ?, ?)
                 """,
                 (baptism["name"], now, now),
+            )
+            person_id = int(cursor.lastrowid)
+        else:
+            person_id = int(person_row["id"])
+            if person_row["role"] not in {"leader", "assistant", "host", "member"}:
+                connection.execute(
+                    """
+                    UPDATE people_catalog
+                    SET role = 'member', guardian_person_id = NULL, guardian_name = '', updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (now, person_id),
+                )
+
+        connection.execute(
+            "INSERT OR IGNORE INTO cell_membership (cell_id, person_id, created_at) VALUES (?, ?, ?)",
+            (cell_id, person_id, now),
+        )
+
+
+def promote_visitors_to_members(connection, payload: dict) -> None:
+    """Visitas (kind='visita') ya bautizadas que el usuario marcó para promover
+    a miembros de la célula. No crea registro de bautismo."""
+    raw_visitors = payload.get("visitors")
+    if not isinstance(raw_visitors, list):
+        return
+    cell_id = find_cell_id_by_number(connection, str(payload.get("cellNumber", "")).strip())
+    if cell_id is None:
+        return
+
+    now = utc_now_iso()
+    seen_names: set[str] = set()
+    for visitor in raw_visitors:
+        if not isinstance(visitor, dict):
+            continue
+        kind = str(visitor.get("kind", "")).strip().lower()
+        if kind != "visita":
+            continue
+        if not visitor.get("promoteToMember"):
+            continue
+        name = str(visitor.get("name", "")).strip()
+        if not name:
+            continue
+        normalized_name = name.casefold()
+        if normalized_name in seen_names:
+            continue
+        seen_names.add(normalized_name)
+
+        person_row = find_person_by_name(connection, name)
+        if person_row is None:
+            cursor = connection.execute(
+                """
+                INSERT INTO people_catalog (name, role, phone, email, guardian_person_id, guardian_name, created_at, updated_at)
+                VALUES (?, 'member', ?, '', NULL, '', ?, ?)
+                """,
+                (name, str(visitor.get("phone", "") or ""), now, now),
             )
             person_id = int(cursor.lastrowid)
         else:

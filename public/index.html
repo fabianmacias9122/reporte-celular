@@ -133,7 +133,10 @@
         <div id="grace-banner" class="grace-banner" hidden>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <span id="grace-banner-text"></span>
-          <button type="button" id="grace-banner-capture" class="grace-banner-action">Capturar ahora</button>
+          <button type="button" id="grace-banner-capture" class="grace-banner-action btn-with-icon">
+            <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Capturar ahora</span>
+          </button>
           <button type="button" id="grace-banner-close" class="grace-banner-close" aria-label="Cerrar">✕</button>
         </div>
         <div class="workspace-grid">
@@ -250,7 +253,10 @@
 
           <!-- SAVE BAR: encabezado -->
           <div class="stage-save-bar full-width" data-stage="encabezado">
-            <button type="button" id="save-next-encabezado" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+            <button type="button" id="save-next-encabezado" class="btn-save-next btn-with-icon">
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span data-i18n="form.saveNext">Guardar y continuar →</span>
+            </button>
           </div>
 
           <!-- Resumen de totales — visible desde Planeación -->
@@ -268,12 +274,26 @@
               <span id="attendance-progress-chip" class="count-chip">0 marcados</span>
             </div>
             <div class="helper-actions" aria-label="Atajos de miembros">
-              <button type="button" class="secondary helper-action-button stage-action" data-stage-action="planificacion" id="fill-planning-members" data-i18n="att.allPlanning">Todos en planeación</button>
-              <button type="button" class="secondary helper-action-button stage-action" data-stage-action="alcance" id="fill-reach-members">Todos a Alcance</button>
-              <button type="button" class="secondary helper-action-button stage-action" data-stage-action="alcance" id="fill-reach-privileges">Todos a Alcance + Privilegios</button>
-              <button type="button" class="secondary helper-action-button stage-action" data-stage-action="culto" id="copy-reach-to-sunday" data-i18n="att.reachToSunday">Alcance → Culto</button>
-              <button type="button" class="secondary helper-action-button" id="sync-status-from-activities" data-i18n="att.statusFromActs">Estado según actividades</button>
-              <button type="button" class="secondary helper-action-button" id="clear-member-activities" data-i18n="att.clearActivities">Limpiar actividades</button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="planificacion" id="fill-planning-members">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span data-i18n="att.allPlanning">Todos en planeación</span>
+              </button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-members">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Todos a Alcance</span>
+              </button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-privileges">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span>Todos a Alcance + Privilegios</span>
+              </button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="copy-reach-to-sunday">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <span data-i18n="att.reachToSunday">Alcance → Culto</span>
+              </button>
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-member-activities">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                <span data-i18n="att.clearActivities">Limpiar actividades</span>
+              </button>
             </div>
             <div class="table-wrap weekly-table-wrap">
               <table>
@@ -304,7 +324,10 @@
 
           <!-- SAVE BAR: planificacion -->
           <div class="stage-save-bar full-width" data-stage="planificacion">
-            <button type="button" id="save-next-planificacion" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+            <button type="button" id="save-next-planificacion" class="btn-save-next btn-with-icon">
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span data-i18n="form.saveNext">Guardar y continuar →</span>
+            </button>
           </div>
 
           <!-- ── 4. ALCANCE ─────────────────────────────── -->
@@ -314,7 +337,10 @@
                 <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
                 <h2 data-i18n="vis.title">Visitas y amigos</h2>
               </div>
-              <button id="add-visitor-button" type="button" class="secondary" data-i18n="vis.addManual">Agregar fila manual</button>
+              <button id="add-visitor-button" type="button" class="secondary btn-with-icon">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span data-i18n="vis.addManual">Agregar fila manual</span>
+              </button>
             </div>
             <div id="visitor-quick-form" class="visitor-quick-form">
               <label>
@@ -326,6 +352,13 @@
               <label>
                 <span data-i18n="vis.visitorName">Nombre de la visita</span>
                 <input id="visitor-quick-name" name="visitorName" type="text" placeholder="Nombre completo">
+              </label>
+              <label>
+                <span data-i18n="vis.kind">Tipo</span>
+                <select id="visitor-quick-kind" name="visitorKind">
+                  <option value="amigo" data-i18n="vis.kindFriend">Amigo (no bautizado)</option>
+                  <option value="visita" data-i18n="vis.kindVisitor">Visita (restauración)</option>
+                </select>
               </label>
               <label>
                 <span data-i18n="vis.invitedBy">Invitó</span>
@@ -345,7 +378,7 @@
                 <span data-i18n="vis.firstTime">Primera vez</span>
                 <input id="visitor-quick-first-visit" name="firstVisit" type="checkbox" checked>
               </label>
-              <label class="quick-toggle-field">
+              <label id="visitor-quick-converted-field" class="quick-toggle-field">
                 <span data-i18n="vis.conversion">Conversión</span>
                 <input id="visitor-quick-converted" name="converted" type="checkbox">
               </label>
@@ -354,14 +387,29 @@
                 <input id="visitor-quick-event" name="eventAttended" type="checkbox">
               </label>
               <div class="visitor-quick-actions">
-                <button id="add-visitor-quick-button" type="button" data-i18n="vis.addVisitor">Agregar visita</button>
-                <button id="reset-visitor-quick-button" type="button" class="secondary" data-i18n="vis.clear">Limpiar</button>
+                <button id="add-visitor-quick-button" type="button" class="btn-with-icon">
+                  <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                  <span data-i18n="vis.addVisitor">Agregar visita</span>
+                </button>
+                <button id="reset-visitor-quick-button" type="button" class="secondary btn-with-icon">
+                  <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                  <span data-i18n="vis.clear">Limpiar</span>
+                </button>
               </div>
             </div>
             <div class="helper-actions" aria-label="Atajos de amigos">
-              <button type="button" class="secondary helper-action-button" id="copy-visitor-reach-to-sunday" data-i18n="vis.reachToSunday">Alcance → Culto</button>
-              <button type="button" class="secondary helper-action-button" id="mark-visitor-first-visit" data-i18n="vis.allFirstTime">Todos primera vez</button>
-              <button type="button" class="secondary helper-action-button" id="clear-visitor-activities" data-i18n="vis.clearFriends">Limpiar amigos</button>
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="copy-visitor-reach-to-sunday">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <span data-i18n="vis.reachToSunday">Alcance → Culto</span>
+              </button>
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="mark-visitor-first-visit">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span data-i18n="vis.allFirstTime">Todos primera vez</span>
+              </button>
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-visitor-activities">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                <span data-i18n="vis.clearFriends">Limpiar amigos</span>
+              </button>
             </div>
             <div class="table-wrap weekly-table-wrap">
               <table>
@@ -395,11 +443,20 @@
                 <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
                 <h2 data-i18n="kids.title">Niños</h2>
               </div>
-              <button id="add-kid-button" type="button" class="secondary" data-i18n="kids.addVisit">Agregar niño de visita</button>
+              <button id="add-kid-button" type="button" class="secondary btn-with-icon">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                <span data-i18n="kids.addVisit">Agregar niño de visita</span>
+              </button>
             </div>
             <div class="helper-actions" aria-label="Atajos de niños">
-              <button type="button" class="secondary helper-action-button" id="copy-kid-reach-to-sunday" data-i18n="kids.reachToSunday">Alcance → Culto</button>
-              <button type="button" class="secondary helper-action-button" id="clear-kid-activities" data-i18n="kids.clear">Limpiar niños</button>
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="copy-kid-reach-to-sunday">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <span data-i18n="kids.reachToSunday">Alcance → Culto</span>
+              </button>
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-kid-activities">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+                <span data-i18n="kids.clear">Limpiar niños</span>
+              </button>
             </div>
             <div class="member-summary">
               <span class="member-summary-label" data-i18n="kids.preloaded">Niños precargados de la célula</span>
@@ -478,7 +535,10 @@
 
           <!-- SAVE BAR: alcance -->
           <div class="stage-save-bar full-width" data-stage="alcance">
-            <button type="button" id="save-next-alcance" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+            <button type="button" id="save-next-alcance" class="btn-save-next btn-with-icon">
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span data-i18n="form.saveNext">Guardar y continuar →</span>
+            </button>
           </div>
 
           <section class="panel panel-soft full-width" data-stage="culto">
@@ -487,7 +547,10 @@
                 <p class="eyebrow" data-i18n="bap.quarterly">Cierre cuatrimestral</p>
                 <h2 data-i18n="bap.title">Bautismos</h2>
               </div>
-              <button id="add-baptism-button" type="button" class="secondary" data-i18n="bap.register">Registrar bautismo</button>
+              <button id="add-baptism-button" type="button" class="secondary btn-with-icon">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                <span data-i18n="bap.register">Registrar bautismo</span>
+              </button>
             </div>
             <div class="member-summary">
               <span class="member-summary-label" data-i18n="bap.quarterSummary">Bautismos del cierre del cuatrimestre</span>
@@ -517,7 +580,10 @@
 
           <!-- SAVE BAR: culto -->
           <div class="stage-save-bar full-width" data-stage="culto">
-            <button type="button" id="save-next-culto" class="btn-save-next" data-i18n="form.saveNext">Guardar y continuar →</button>
+            <button type="button" id="save-next-culto" class="btn-save-next btn-with-icon">
+              <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span data-i18n="form.saveNext">Guardar y continuar →</span>
+            </button>
           </div>
 
           <details class="metrics-section-collapse full-width" data-stage="cierre">
@@ -539,15 +605,33 @@
               <span data-i18n="form.observations">Observaciones</span>
               <textarea name="notes" rows="5" placeholder="Observaciones de la reunión, seguimiento o acuerdos."></textarea>
             </label>
-            <div class="form-actions">
-              <button id="report-preview-open-btn" type="button" data-i18n="form.preview">Vista previa y guardar</button>
-              <button id="reset-button" type="button" class="secondary" data-i18n="form.reset">Limpiar</button>
+            <div class="form-actions cierre-actions">
+              <button id="report-preview-open-btn" type="button">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span data-i18n="form.preview">Vista previa</span>
+              </button>
+              <button id="reset-button" type="button" class="secondary">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                  <path d="M10 11v6"/>
+                  <path d="M14 11v6"/>
+                  <path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/>
+                </svg>
+                <span data-i18n="form.reset">Limpiar</span>
+              </button>
             </div>
           </section>
 
           <!-- SAVE BAR: cierre -->
           <div class="stage-save-bar full-width" data-stage="cierre">
-            <button type="button" id="finalizar-reporte" class="btn-save-next btn-finalizar" data-i18n="form.finalize">✅ Finalizar reporte</button>
+            <button type="button" id="finalizar-reporte" class="btn-save-next btn-finalizar btn-with-icon">
+              <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span data-i18n="form.finalize">Finalizar reporte</span>
+            </button>
           </div>
         </form>
 

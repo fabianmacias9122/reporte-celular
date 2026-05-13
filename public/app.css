@@ -359,11 +359,18 @@ body.app-fixed {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE/Edge legacy */
   margin-bottom: 4px;
 }
+.stage-nav::-webkit-scrollbar { display: none; } /* WebKit */
 .stage-tab {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: max-content; /* nunca recortar el contenido del tab */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -378,6 +385,7 @@ body.app-fixed {
   cursor: pointer;
   transition: background 0.13s, color 0.13s;
   position: relative;
+  scroll-snap-align: center;
 }
 .stage-tab:last-child { border-right: none; }
 .stage-tab:hover { background: var(--brand-soft); color: var(--brand); }
@@ -391,6 +399,11 @@ body.app-fixed {
 }
 .stage-tab.is-active .stage-tab-num { background: rgba(255,255,255,0.25); }
 .stage-tab-label { white-space: nowrap; }
+@media (max-width: 640px) {
+  .stage-nav { scroll-snap-type: x mandatory; }
+  .stage-tab { padding: 10px 14px; font-size: 0.82rem; }
+  .stage-tab-num { width: 20px; height: 20px; font-size: 0.68rem; }
+}
 .stage-tab-badge {
   background: #22c55e; color: #fff;
   font-size: 0.65rem; font-weight: 800;
@@ -478,8 +491,7 @@ body[data-active-stage="cierre"]  [data-summary-stage]                 { display
 /* ── Helper action buttons: show only relevant per stage ── */
 /* Planeación: only "Todos en planeación" + "Limpiar actividades" */
 body[data-active-stage="planificacion"] #copy-planning-to-reach,
-body[data-active-stage="planificacion"] #copy-reach-to-sunday,
-body[data-active-stage="planificacion"] #sync-status-from-activities { display: none !important; }
+body[data-active-stage="planificacion"] #copy-reach-to-sunday { display: none !important; }
 /* Alcance: "Planeación → Alcance" + "Estado" + "Limpiar"; hide fill-planning + reach→culto */
 body[data-active-stage="alcance"] #fill-planning-members,
 body[data-active-stage="alcance"] #copy-reach-to-sunday { display: none !important; }
@@ -511,6 +523,26 @@ button:hover { opacity: 0.88; }
 button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
 button.ghost, .member-card button, .row-actions .danger { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(159, 47, 33, 0.16); }
 .form-actions, .compact-actions, .member-form, .helper-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+/* Botones con icono + texto: alinear icono al texto y permitir compactar en móvil */
+.btn-with-icon { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-with-icon .btn-icon { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .btn-with-icon { gap: 6px; }
+  .btn-with-icon .btn-icon { width: 14px; height: 14px; }
+  .helper-actions .btn-with-icon { padding: 7px 10px; font-size: 0.78rem; }
+  .visitor-quick-actions .btn-with-icon,
+  .panel-head .btn-with-icon { padding: 8px 12px; font-size: 0.82rem; }
+}
+/* Separación entre el textarea de notas y los botones de acción del cierre */
+.cierre-actions { margin-top: 14px; }
+
+.cierre-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.cierre-actions .btn-icon { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .cierre-actions { gap: 6px; }
+  .cierre-actions button { padding: 8px 12px; font-size: 0.86rem; flex: 1 1 auto; min-width: 0; }
+  .cierre-actions .btn-icon { width: 14px; height: 14px; }
+}
 .cell-dialog-msg { font-size: 0.82rem; font-weight: 600; padding: 6px 10px; border-radius: var(--radius-sm); margin-top: 4px; }
 .cell-dialog-msg--error { background: rgba(159,47,33,0.08); color: #8e2d21; }
 .cell-dialog-msg--ok    { background: rgba(34,130,89,0.1);  color: #1a7d55; }
@@ -665,6 +697,17 @@ body[data-active-stage="encabezado"] .inicio-team-card {
 #visitor-quick-history { color: var(--text); }
 #visitor-quick-history:invalid { color: var(--muted); }
 .helper-action-button { flex: 0 1 auto; }
+
+/* VISITOR KIND (amigo/visita) */
+.visitor-name-cell { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.visitor-name-cell input[type="text"] { flex: 1 1 140px; min-width: 120px; }
+.visitor-kind-select { flex: 0 0 auto; padding: 4px 6px; font-size: 0.78rem; border-radius: 6px; }
+.visitor-kind-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em; }
+.visitor-kind-chip.is-amigo  { background: #e3f2fd; color: #1565c0; }
+.visitor-kind-chip.is-visita { background: #f3e5f5; color: #6a1b9a; }
+.visitor-actions-cell { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.visitor-promote-toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 0.78rem; color: var(--text); cursor: pointer; }
+.visitor-promote-toggle input[type="checkbox"] { width: 16px; height: 16px; }
 
 /* FILTER TABS */
 .filter-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 14px; padding: 4px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: var(--radius); width: fit-content; }
@@ -1448,6 +1491,56 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   .trend-bar-track { min-width: 40px; }
   /* Metrics event blocks: 2 columns */
   .metrics-events-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+
+  /* ───────── Vista compacta permanente para tarjetas de asistencia ─────────
+     Aplica automáticamente en móvil (≤820px) sin necesidad de toggle. */
+  #attendance-table-body tr,
+  #visitor-table-body tr,
+  #kids-table-body tr,
+  #baptism-table-body tr {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    box-shadow: none;
+    border-radius: var(--radius-sm);
+  }
+  #attendance-table-body td,
+  #visitor-table-body td,
+  #kids-table-body td,
+  #baptism-table-body td {
+    padding: 3px 0;
+  }
+  #attendance-table-body td::before,
+  #visitor-table-body td::before,
+  #kids-table-body td::before,
+  #baptism-table-body td::before {
+    font-size: 0.6rem;
+    margin-bottom: 1px;
+    letter-spacing: 0.06em;
+  }
+  #attendance-table-body select,
+  #attendance-table-body input[type="text"],
+  #visitor-table-body select,
+  #visitor-table-body input[type="text"],
+  #visitor-table-body input[type="tel"],
+  #kids-table-body select,
+  #kids-table-body input[type="text"],
+  #baptism-table-body input[type="text"],
+  #baptism-table-body input[type="date"] {
+    padding: 6px 9px;
+    min-height: 34px;
+    font-size: 0.88rem;
+  }
+  /* Nombre del miembro: más compacto, sin sub-tag de rol */
+  #attendance-table-body .member-name { font-size: 0.95rem; line-height: 1.15; }
+  #attendance-table-body .member-role-chip,
+  #attendance-table-body .member-role-tag,
+  #attendance-table-body .member-subline { display: none; }
+  /* Checkbox un poco más compacto */
+  .checkbox-cell input[type="checkbox"] { width: 18px; height: 18px; }
+  /* Observación: textarea/input más bajo */
+  #attendance-table-body input[name*="bservation"],
+  #visitor-table-body input[name*="bservation"],
+  #kids-table-body input[name*="bservation"] { min-height: 32px; }
 }
 
 @media (max-width: 820px) {

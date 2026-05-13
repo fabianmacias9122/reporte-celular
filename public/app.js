@@ -171,6 +171,8 @@ const visitorQuickReach = document.querySelector("#visitor-quick-reach");
 const visitorQuickSunday = document.querySelector("#visitor-quick-sunday");
 const visitorQuickFirstVisit = document.querySelector("#visitor-quick-first-visit");
 const visitorQuickConverted = document.querySelector("#visitor-quick-converted");
+const visitorQuickConvertedField = document.querySelector("#visitor-quick-converted-field");
+const visitorQuickKind = document.querySelector("#visitor-quick-kind");
 const addVisitorQuickButton = document.querySelector("#add-visitor-quick-button");
 const resetVisitorQuickButton = document.querySelector("#reset-visitor-quick-button");
 const visitorQuickEvent = document.querySelector("#visitor-quick-event");
@@ -183,7 +185,6 @@ const fillReachPrivilegesButton = document.querySelector("#fill-reach-privileges
 const copyPlanningToReachButton = document.querySelector("#copy-planning-to-reach");
 const copyReachToSundayButton = document.querySelector("#copy-reach-to-sunday");
 const markAllPrivilegesButton = document.querySelector("#mark-all-privileges");
-const syncStatusFromActivitiesButton = document.querySelector("#sync-status-from-activities");
 const clearMemberActivitiesButton = document.querySelector("#clear-member-activities");
 const copyVisitorReachToSundayButton = document.querySelector("#copy-visitor-reach-to-sunday");
 const markVisitorFirstVisitButton = document.querySelector("#mark-visitor-first-visit");
@@ -3221,22 +3222,33 @@ function buildDefaultKidsAttendance(cell, savedEntries = []) {
   return [...catalogKids, ...manualKids];
 }
 
+function normalizeVisitorKind(value) {
+  return String(value || "").toLowerCase() === "visita" ? "visita" : "amigo";
+}
+
 function normalizeVisitors(savedVisitors = []) {
   if (!Array.isArray(savedVisitors)) {
     return [];
   }
-  return savedVisitors.map((visitor) => ({
-    name: visitor?.name || "",
-    invitedBy: visitor?.invitedBy || "",
-    reachAttended: Boolean(visitor?.reachAttended),
-    sundayAttended: Boolean(visitor?.sundayAttended),
-    firstVisit: Boolean(visitor?.firstVisit),
-    converted: Boolean(visitor?.converted),
-    contacted: Boolean(visitor?.contacted),
-    eventAttended: Boolean(visitor?.eventAttended),
-    phone: visitor?.phone || "",
-    note: visitor?.note || "",
-  }));
+  return savedVisitors.map((visitor) => {
+    const kind = normalizeVisitorKind(visitor?.kind);
+    return {
+      name: visitor?.name || "",
+      kind,
+      invitedBy: visitor?.invitedBy || "",
+      reachAttended: Boolean(visitor?.reachAttended),
+      sundayAttended: Boolean(visitor?.sundayAttended),
+      firstVisit: Boolean(visitor?.firstVisit),
+      // "converted" solo aplica a amigos (no bautizados); para visitas siempre false.
+      converted: kind === "visita" ? false : Boolean(visitor?.converted),
+      // "promoteToMember" solo aplica a visitas (ya bautizadas).
+      promoteToMember: kind === "visita" ? Boolean(visitor?.promoteToMember) : false,
+      contacted: Boolean(visitor?.contacted),
+      eventAttended: Boolean(visitor?.eventAttended),
+      phone: visitor?.phone || "",
+      note: visitor?.note || "",
+    };
+  });
 }
 
 function computeWeeklySummary() {
@@ -3599,9 +3611,28 @@ function renderVisitorTable() {
 
   const invitedByPeople = getInvitedByPeople();
 
-  visitorTableBody.innerHTML = currentVisitors.map((visitor, index) => `
+  visitorTableBody.innerHTML = currentVisitors.map((visitor, index) => {
+    const kind = normalizeVisitorKind(visitor.kind);
+    const kindLabel = kind === "visita" ? "Visita (restauración)" : "Amigo";
+    const kindChip = `<span class="visitor-kind-chip is-${kind}" title="${kind === "visita" ? "Bautizado, en proceso de restauración" : "No bautizado"}">${kindLabel}</span>`;
+    const convertedCell = kind === "visita"
+      ? `<td data-label="Conversión" class="checkbox-cell"><span class="member-admin-caption" title="Las visitas ya están bautizadas">N/A</span></td>`
+      : `<td data-label="Conversión" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="converted" type="checkbox"${visitor.converted ? " checked" : ""}></td>`;
+    const promoteAction = kind === "visita"
+      ? `<label class="visitor-promote-toggle" title="Al guardar el reporte, se agregará a la membresía de la célula"><input data-visitor-index="${index}" data-visitor-field="promoteToMember" type="checkbox"${visitor.promoteToMember ? " checked" : ""}> <span>Promover a miembro</span></label>`
+      : "";
+    return `
     <tr>
-      <td data-label="Nombre"><input data-visitor-index="${index}" data-visitor-field="name" type="text" value="${escapeHtml(visitor.name)}" placeholder="Nombre"></td>
+      <td data-label="Nombre">
+        <div class="visitor-name-cell">
+          <select data-visitor-index="${index}" data-visitor-field="kind" class="visitor-kind-select" title="Tipo de visita">
+            <option value="amigo"${kind === "amigo" ? " selected" : ""}>Amigo (no bautizado)</option>
+            <option value="visita"${kind === "visita" ? " selected" : ""}>Visita (restauración)</option>
+          </select>
+          <input data-visitor-index="${index}" data-visitor-field="name" type="text" value="${escapeHtml(visitor.name)}" placeholder="Nombre">
+          ${kindChip}
+        </div>
+      </td>
       <td data-label="Invitó"><select data-visitor-index="${index}" data-visitor-field="invitedBy">${[
         '<option value="">— Quién invitó —</option>',
         ...invitedByPeople.map(p => `<option value="${escapeHtml(p.name)}"${visitor.invitedBy === p.name ? " selected" : ""}>${escapeHtml(p.name)}</option>`)
@@ -3609,14 +3640,20 @@ function renderVisitorTable() {
       <td data-label="Alcance" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="reachAttended" type="checkbox"${visitor.reachAttended ? " checked" : ""}></td>
       <td data-label="Culto" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="sundayAttended" type="checkbox"${visitor.sundayAttended ? " checked" : ""}></td>
       <td data-label="Primera vez" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="firstVisit" type="checkbox"${visitor.firstVisit ? " checked" : ""}></td>
-      <td data-label="Conversión" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="converted" type="checkbox"${visitor.converted ? " checked" : ""}></td>
+      ${convertedCell}
       ${isEventWeek ? `<td data-label="${escapeHtml(eventName)}" class="checkbox-cell event-col"><input data-visitor-index="${index}" data-visitor-field="eventAttended" type="checkbox"${visitor.eventAttended ? " checked" : ""}></td>` : ""}
       <td data-label="Contactado" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="contacted" type="checkbox"${visitor.contacted ? " checked" : ""}></td>
       <td data-label="Teléfono"><input data-visitor-index="${index}" data-visitor-field="phone" type="text" value="${escapeHtml(visitor.phone)}" placeholder="Teléfono"></td>
       <td data-label="Observación"><input data-visitor-index="${index}" data-visitor-field="note" type="text" value="${escapeHtml(visitor.note)}" placeholder="Observación"></td>
-      <td data-label="Acciones"><button type="button" class="danger" data-action="remove-visitor" data-visitor-index="${index}">Quitar</button></td>
+      <td data-label="Acciones">
+        <div class="visitor-actions-cell">
+          ${promoteAction}
+          <button type="button" class="danger" data-action="remove-visitor" data-visitor-index="${index}">Quitar</button>
+        </div>
+      </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
   renderAttendanceSummary();
 }
 
@@ -3722,6 +3759,21 @@ function resetVisitorQuickForm() {
   if (visitorQuickConverted instanceof HTMLInputElement) {
     visitorQuickConverted.checked = false;
   }
+  if (visitorQuickKind instanceof HTMLSelectElement) {
+    visitorQuickKind.value = "amigo";
+  }
+  syncVisitorQuickKindUI();
+}
+
+// Cuando el tipo es "visita" (bautizado), oculta el toggle de Conversión.
+function syncVisitorQuickKindUI() {
+  const kind = normalizeVisitorKind(visitorQuickKind?.value);
+  if (visitorQuickConvertedField) {
+    visitorQuickConvertedField.hidden = kind === "visita";
+  }
+  if (kind === "visita" && visitorQuickConverted instanceof HTMLInputElement) {
+    visitorQuickConverted.checked = false;
+  }
 }
 
 function toggleHelperButtons() {
@@ -3732,7 +3784,6 @@ function toggleHelperButtons() {
     copyPlanningToReachButton,
     copyReachToSundayButton,
     markAllPrivilegesButton,
-    syncStatusFromActivitiesButton,
     clearMemberActivitiesButton,
   ];
   const visitorButtons = [
@@ -3847,15 +3898,6 @@ function handleMarkAllPrivileges() {
   // está deshabilitada en ese caso).
   updateMemberActivities((entry) => {
     if (entry.reachAttended) entry.reachPrivileged = true;
-  });
-}
-
-function handleSyncStatusFromActivities() {
-  updateMemberActivities((entry) => {
-    entry.planningStatus = entry.planningAttended ? "present" : "pending";
-    entry.reachStatus    = entry.reachAttended    ? "present" : "pending";
-    entry.sundayStatus   = entry.sundayAttended   ? "present" : "pending";
-    entry.status = deriveOverallStatus(entry);
   });
 }
 
@@ -5606,6 +5648,29 @@ function handleAttendanceTableInput(event) {
       // Fallback raro (etapa sin sub-estado): editar el campo derivado.
       entry.status = target.value;
     }
+    // Sincroniza el check de la etapa activa con el estado seleccionado:
+    //  - present / service → check = true (asistió, aun "sirviendo")
+    //  - absent / justified → check = false (no asistió)
+    //  - pending           → no se fuerza nada
+    const stageAttendedField = {
+      planificacion: "planningAttended",
+      alcance:       "reachAttended",
+      culto:         "sundayAttended",
+    }[currentStage];
+    if (stageAttendedField) {
+      const v = target.value;
+      if (v === "present" || v === "service") {
+        entry[stageAttendedField] = true;
+      } else if (v === "absent" || v === "justified") {
+        entry[stageAttendedField] = false;
+        // Si dejamos de marcar Alcance, también limpiar Privilegios.
+        if (stageAttendedField === "reachAttended") entry.reachPrivileged = false;
+      }
+      entry.status = deriveOverallStatus(entry);
+      // Re-pintar para reflejar los checks actualizados (incluye disabled de Privilegios).
+      renderAttendanceTable();
+      return;
+    }
     entry.status = deriveOverallStatus(entry);
   }
   if (["planningAttended", "reachAttended", "reachPrivileged", "sundayAttended"].includes(target.dataset.attendanceField) && target instanceof HTMLInputElement) {
@@ -5618,12 +5683,28 @@ function handleAttendanceTableInput(event) {
       const privChk = attendanceTableBody.querySelector(`[data-attendance-index="${target.dataset.attendanceIndex}"][data-attendance-field="reachPrivileged"]`);
       if (privChk) { privChk.disabled = false; }
     }
-    // No auto-promovemos `status` aquí. La columna "Estado semanal" es
-    // compartida entre Planeación/Alcance/Culto y auto-marcar "Presente"
-    // al togglear un check de Planeación hacía que al entrar a Alcance
-    // todos aparecieran como "Presente" sin que el líder lo hubiera
-    // decidido. Si el usuario quiere derivar estado desde actividades,
-    // existe el botón "Estado según actividades" (#sync-status-from-activities).
+    // Mantener el <select> "Estado" coherente con el check de la etapa activa.
+    // Solo ajustamos cuando el sub-estado es "soft" (pending/present/service):
+    // no pisamos selecciones manuales como "absent" (Faltó) o "justified" (Justificado).
+    const stageMap = {
+      planningAttended: { stage: "planificacion", field: "planningStatus" },
+      reachAttended:    { stage: "alcance",       field: "reachStatus" },
+      sundayAttended:   { stage: "culto",         field: "sundayStatus" },
+    };
+    const m = stageMap[target.dataset.attendanceField];
+    if (m && currentStage === m.stage) {
+      const cur = entry[m.field];
+      if (target.checked) {
+        if (cur === "pending" || !cur) entry[m.field] = "present";
+        // si era "service" lo dejamos; sigue siendo "asistió"
+      } else {
+        if (cur === "present" || cur === "service") entry[m.field] = "pending";
+      }
+      entry.status = deriveOverallStatus(entry);
+      // Refrescar el <select> de esta fila sin re-render completo (evita perder foco).
+      const sel = attendanceTableBody.querySelector(`[data-attendance-index="${target.dataset.attendanceIndex}"][data-attendance-field="status"]`);
+      if (sel) sel.value = entry[m.field];
+    }
   }
   if (target.dataset.attendanceField === "rcmEventAttended" && target instanceof HTMLInputElement) {
     const rcmKey = target.dataset.rcmKey;
@@ -5686,6 +5767,21 @@ function handleVisitorTableInput(event) {
   }
 
   const fieldName = target.dataset.visitorField;
+  if (fieldName === "kind" && target instanceof HTMLSelectElement) {
+    visitor.kind = normalizeVisitorKind(target.value);
+    if (visitor.kind === "visita") {
+      visitor.converted = false;
+    } else {
+      visitor.promoteToMember = false;
+    }
+    renderAttendanceSummary();
+    renderVisitorTable();
+    return;
+  }
+  if (fieldName === "promoteToMember" && target instanceof HTMLInputElement) {
+    visitor.promoteToMember = target.checked;
+    return;
+  }
   if (fieldName === "firstVisit" && target instanceof HTMLInputElement) {
     visitor.firstVisit = target.checked;
     renderAttendanceSummary();
@@ -5753,7 +5849,7 @@ function handleBaptismTableClick(event) {
 }
 
 function handleAddVisitorClick() {
-  currentVisitors.push({ name: "", invitedBy: "", reachAttended: true, sundayAttended: false, firstVisit: true, converted: false, contacted: false, eventAttended: false, phone: "", note: "" });
+  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, sundayAttended: false, firstVisit: true, converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
   renderVisitorTable();
 }
 
@@ -5789,13 +5885,16 @@ function handleVisitorQuickSubmit() {
 
   clearFeedback();
   applyQuickVisitorHistory(name);
+  const quickKind = normalizeVisitorKind(visitorQuickKind?.value);
   currentVisitors.push({
     name,
+    kind: quickKind,
     invitedBy: String(visitorQuickInvitedBy?.value || "").trim(),
     reachAttended: Boolean(visitorQuickReach?.checked),
     sundayAttended: Boolean(visitorQuickSunday?.checked),
     firstVisit: Boolean(visitorQuickFirstVisit?.checked),
-    converted: Boolean(visitorQuickConverted?.checked),
+    converted: quickKind === "visita" ? false : Boolean(visitorQuickConverted?.checked),
+    promoteToMember: false,
     contacted: false,
     eventAttended: Boolean(visitorQuickEvent?.checked),
     phone: "",
@@ -5925,6 +6024,15 @@ function showStage(stage, { skipWeekCheck = false } = {}) {
   document.querySelectorAll(".stage-tab").forEach(btn => {
     btn.classList.toggle("is-active", btn.dataset.stage === stage);
   });
+
+  // Asegurar que el tab activo sea visible (centrado) en pantallas angostas
+  // donde la stage-nav hace scroll horizontal en móvil.
+  const activeTab = document.querySelector(`.stage-tab.is-active[data-stage="${stage}"]`);
+  if (activeTab && typeof activeTab.scrollIntoView === "function") {
+    try {
+      activeTab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    } catch { /* navegadores muy viejos */ }
+  }
 
   // Show/hide: visible if data-stage contains the current stage (space-separated list supported)
   document.querySelectorAll("[data-stage]").forEach(el => {
@@ -6288,8 +6396,40 @@ async function saveDraft(stage) {
 document.querySelector("#save-next-culto")?.addEventListener("click",           () => saveDraftAndAdvance("culto"));
 document.querySelector("#finalizar-reporte")?.addEventListener("click",         () => finalizarReporte());
 
+// Verifica si la etapa tiene datos capturados (asistencias, status, visitas, etc.)
+function stageHasData(stage) {
+  const members  = Array.isArray(currentMemberAttendance) ? currentMemberAttendance : [];
+  const visitors = Array.isArray(currentVisitors) ? currentVisitors.filter(v => String(v.name || "").trim()) : [];
+  const kids     = Array.isArray(currentKids)     ? currentKids.filter(k => String(k.name || "").trim())     : [];
+  const baptisms = Array.isArray(currentBaptisms) ? currentBaptisms.filter(b => String(b.name || "").trim()) : [];
+  if (stage === "planificacion") {
+    return members.some(m => m.planningAttended || (m.planningStatus && m.planningStatus !== "pending"));
+  }
+  if (stage === "alcance") {
+    if (members.some(m => m.reachAttended || m.reachPrivileged || (m.reachStatus && m.reachStatus !== "pending"))) return true;
+    if (visitors.some(v => v.reachAttended)) return true;
+    return false;
+  }
+  if (stage === "culto") {
+    if (members.some(m => m.sundayAttended || (m.sundayStatus && m.sundayStatus !== "pending"))) return true;
+    if (visitors.some(v => v.sundayAttended)) return true;
+    if (kids.some(k => k.sundayAttended)) return true;
+    if (baptisms.length) return true;
+    return false;
+  }
+  return true;
+}
+
 // Guardar y continuar — saves then advances to next stage
 async function saveDraftAndAdvance(stage) {
+  if (["planificacion", "alcance", "culto"].includes(stage) && !stageHasData(stage)) {
+    const labels = { planificacion: "Planeación", alcance: "Alcance", culto: "Culto" };
+    const ok = await appConfirm(
+      `No detectamos asistencias ni datos capturados en ${labels[stage]}.\n¿Guardar y continuar de todos modos?`,
+      "Sin datos capturados"
+    );
+    if (!ok) return;
+  }
   await saveDraft(stage);
   const idx = STAGES.indexOf(stage);
   if (idx >= 0 && idx < STAGES.length - 1) showStage(STAGES[idx + 1]);
@@ -6694,6 +6834,9 @@ if (visitorQuickForm) {
 if (addVisitorQuickButton) {
   addVisitorQuickButton.addEventListener("click", handleVisitorQuickSubmit);
 }
+if (visitorQuickKind) {
+  visitorQuickKind.addEventListener("change", syncVisitorQuickKindUI);
+}
 if (resetVisitorQuickButton) {
   resetVisitorQuickButton.addEventListener("click", handleVisitorQuickReset);
 }
@@ -6714,7 +6857,6 @@ fillReachPrivilegesButton?.addEventListener("click", handleFillReachPrivileges);
 copyPlanningToReachButton?.addEventListener("click", handleCopyPlanningToReach);
 copyReachToSundayButton.addEventListener("click", handleCopyReachToSunday);
 markAllPrivilegesButton?.addEventListener("click", handleMarkAllPrivileges);
-syncStatusFromActivitiesButton.addEventListener("click", handleSyncStatusFromActivities);
 clearMemberActivitiesButton.addEventListener("click", handleClearMemberActivities);
 copyVisitorReachToSundayButton.addEventListener("click", handleCopyVisitorReachToSunday);
 markVisitorFirstVisitButton.addEventListener("click", handleMarkVisitorFirstVisit);
