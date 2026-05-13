@@ -2077,16 +2077,41 @@ function renderSegTotalsPanel(weeklyReps) {
   const sectors = [...new Set(weeklyReps.map(r => r.formData?.sector || r.sector || "?"))].sort();
   const cells   = [...new Set(weeklyReps.map(r => String(r.cellNumber || r.formData?.cellNumber || "?")))].sort((a,b) => Number(a)-Number(b));
 
-  function buildRows(agg, label) {
-    const max = Math.max(agg.planningPresent, agg.reachMembers, agg.sundayTotal, agg.cellMembersUnique || 0, 1);
-    const bar = (val, color) => `<div class="tot-bar-track"><div class="tot-bar" style="width:${Math.round((val/max)*100)}%;background:${color}"></div></div>`;
-    const row = (label, val, color, hint) =>
-      `<div class="tot-row">
+  // Roster helpers (denominators) — restringidos a las células visibles para el usuario actual
+  const visibleCells = (typeof getVisibleCells === 'function' ? getVisibleCells() : (catalogs.cells || []));
+  const rosterForCell = (cellNum) => {
+    const c = visibleCells.find(c => String(c.cellNumber) === String(cellNum));
+    return c ? getCellMembers(c).length : 0;
+  };
+  const rosterForSector = (sec) => visibleCells
+    .filter(c => String(c.sector || '').trim() === String(sec).trim())
+    .reduce((sum, c) => sum + getCellMembers(c).length, 0);
+  const rosterForTotal = () => visibleCells.reduce((sum, c) => sum + getCellMembers(c).length, 0);
+
+  function buildRows(agg, label, roster) {
+    const memberMax = roster && roster > 0
+      ? roster
+      : Math.max(agg.cellMembersUnique || 0, agg.planningPresent, agg.reachMembers, agg.sundayMembers, 1);
+    const otherMax = Math.max(
+      agg.reachFriends || 0, agg.reachRestor || 0, agg.reachKidsCell || 0, agg.reachKidsVisit || 0,
+      agg.sundayFriends || 0, agg.sundayRestor || 0, agg.sundayKidsCell || 0, agg.sundayKidsVisit || 0,
+      agg.sundayTotal || 0, agg.reachConversions || 0, agg.absent || 0, 1
+    );
+    const bar = (val, color, denom) => {
+      const m = denom && denom > 0 ? denom : otherMax;
+      const pct = Math.min(100, Math.round((val / m) * 100));
+      return `<div class="tot-bar-track"><div class="tot-bar" style="width:${pct}%;background:${color}"></div></div>`;
+    };
+    const row = (label, val, color, hint, denom) => {
+      const display = denom && denom > 0 ? `${val}/${denom}` : `${val}`;
+      const pct = denom && denom > 0 ? ` <span class="tot-row-pct">(${Math.round((val/denom)*100)}%)</span>` : '';
+      return `<div class="tot-row">
         <span class="tot-row-label">${label}</span>
-        ${bar(val, color)}
-        <strong class="tot-row-val">${val}</strong>
+        ${bar(val, color, denom)}
+        <strong class="tot-row-val">${display}${pct}</strong>
         ${hint ? `<span class="tot-row-hint">${hint}</span>` : ''}
       </div>`;
+    };
     const sectionLabel = (txt) => `<div class="tot-section-label">${txt}</div>`;
 
     const planningTotal   = agg.planningPresent + agg.planningAbsent;
@@ -2095,18 +2120,19 @@ function renderSegTotalsPanel(weeklyReps) {
     if (agg.reachPrivileged) reachMissParts.push(`${agg.reachPrivileged} ★`);
     if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} falta${agg.reachAbsentMembers!==1?'s':''}`);
     const sundayMissTxt = agg.sundayAbsentMembers > 0 ? `${agg.sundayAbsentMembers} falta${agg.sundayAbsentMembers!==1?'s':''}` : '';
+    const rosterHint = roster && roster > 0 ? `de ${roster} miembros activos` : '';
 
     return `<div class="tot-group">
-      <p class="tot-group-label">${escapeHtml(label)}</p>
+      <p class="tot-group-label">${escapeHtml(label)}${rosterHint ? ` · <span class="tot-roster-hint">${rosterHint}</span>` : ''}</p>
       <div class="tot-rows">
         ${sectionLabel('Hermanos de la célula')}
-        ${row('Miembros (únicos)', agg.cellMembersUnique || 0, '#5063b8', planningTotal ? `${planningTotal} en planeación` : '')}
+        ${row('Miembros (únicos)', agg.cellMembersUnique || 0, '#5063b8', planningTotal ? `${planningTotal} en planeación` : '', roster)}
 
         ${sectionLabel('Planeación')}
-        ${row('Asistieron',       agg.planningPresent,  'var(--brand)', planningMissTxt)}
+        ${row('Asistieron',       agg.planningPresent,  'var(--brand)', planningMissTxt, roster)}
 
         ${sectionLabel('Alcance')}
-        ${row('Hermanos',         agg.reachMembers,     '#2d8a55', reachMissParts.join(' · '))}
+        ${row('Hermanos',         agg.reachMembers,     '#2d8a55', reachMissParts.join(' · '), roster)}
         ${row('Amigos (no bautizados)',         agg.reachFriends, '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
         ${row('Visitas (restauración)',         agg.reachRestor,  '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
         ${row('Niños de la célula',             agg.reachKidsCell,  '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
@@ -2114,7 +2140,7 @@ function renderSegTotalsPanel(weeklyReps) {
         ${agg.reachConversions ? row('Conversiones', agg.reachConversions, '#e0872a', '') : ''}
 
         ${sectionLabel('Culto')}
-        ${row('Hermanos',         agg.sundayMembers,    '#3a7bd5', sundayMissTxt)}
+        ${row('Hermanos',         agg.sundayMembers,    '#3a7bd5', sundayMissTxt, roster)}
         ${row('Amigos (no bautizados)',         agg.sundayFriends, '#1565c0', '')}
         ${row('Visitas (restauración)',         agg.sundayRestor,  '#6a1b9a', '')}
         ${row('Niños de la célula',             agg.sundayKidsCell,  '#8e44ad', '')}
@@ -2129,13 +2155,15 @@ function renderSegTotalsPanel(weeklyReps) {
   function renderScope(scope) {
     if (scope === 'total') {
       const agg = aggregateMetrics(weeklyReps);
-      return `<div class="tot-scope-total">${buildRows(agg, `${weeklyReps.length} reporte${weeklyReps.length!==1?'s':''} esta semana`)}</div>`;
+      const roster = rosterForTotal();
+      return `<div class="tot-scope-total">${buildRows(agg, `${weeklyReps.length} reporte${weeklyReps.length!==1?'s':''} esta semana`, roster)}</div>`;
     }
     if (scope === 'sector') {
       return `<div class="tot-scope-grid">${sectors.map(sec => {
         const reps = weeklyReps.filter(r => (r.formData?.sector || r.sector || "?") === sec);
         const agg  = aggregateMetrics(reps);
-        return buildRows(agg, `Sector ${sec} · ${reps.length} célula${reps.length!==1?'s':''}`);
+        const roster = rosterForSector(sec);
+        return buildRows(agg, `Sector ${sec} · ${reps.length} célula${reps.length!==1?'s':''}`, roster);
       }).join('')}</div>`;
     }
     // cell
@@ -2143,7 +2171,8 @@ function renderSegTotalsPanel(weeklyReps) {
       const reps = weeklyReps.filter(r => String(r.cellNumber || r.formData?.cellNumber || "?") === cellNum);
       const agg  = aggregateMetrics(reps);
       const leader = reps[0]?.leaderName || reps[0]?.formData?.leaderName || '';
-      return buildRows(agg, `Célula ${cellNum}${leader ? ` · ${leader}` : ''}`);
+      const roster = rosterForCell(cellNum);
+      return buildRows(agg, `Célula ${cellNum}${leader ? ` · ${leader}` : ''}`, roster);
     }).join('')}</div>`;
   }
 
