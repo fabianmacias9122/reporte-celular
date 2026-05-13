@@ -2078,7 +2078,7 @@ function renderSegTotalsPanel(weeklyReps) {
   const cells   = [...new Set(weeklyReps.map(r => String(r.cellNumber || r.formData?.cellNumber || "?")))].sort((a,b) => Number(a)-Number(b));
 
   function buildRows(agg, label) {
-    const max = Math.max(agg.planningPresent, agg.reachMembers, agg.sundayTotal, 1);
+    const max = Math.max(agg.planningPresent, agg.reachMembers, agg.sundayTotal, agg.cellMembersUnique || 0, 1);
     const bar = (val, color) => `<div class="tot-bar-track"><div class="tot-bar" style="width:${Math.round((val/max)*100)}%;background:${color}"></div></div>`;
     const row = (label, val, color, hint) =>
       `<div class="tot-row">
@@ -2087,14 +2087,40 @@ function renderSegTotalsPanel(weeklyReps) {
         <strong class="tot-row-val">${val}</strong>
         ${hint ? `<span class="tot-row-hint">${hint}</span>` : ''}
       </div>`;
+    const sectionLabel = (txt) => `<div class="tot-section-label">${txt}</div>`;
+
+    const planningTotal   = agg.planningPresent + agg.planningAbsent;
+    const planningMissTxt = agg.planningAbsent ? `${agg.planningAbsent} falta${agg.planningAbsent!==1?'s':''}` : '';
+    const reachMissParts = [];
+    if (agg.reachPrivileged) reachMissParts.push(`${agg.reachPrivileged} ★`);
+    if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} falta${agg.reachAbsentMembers!==1?'s':''}`);
+    const sundayMissTxt = agg.sundayAbsentMembers > 0 ? `${agg.sundayAbsentMembers} falta${agg.sundayAbsentMembers!==1?'s':''}` : '';
+
     return `<div class="tot-group">
       <p class="tot-group-label">${escapeHtml(label)}</p>
       <div class="tot-rows">
-        ${row('Plan. hermanos',    agg.planningPresent,  'var(--brand)',    agg.planningAbsent ? `${agg.planningAbsent} falta${agg.planningAbsent!==1?'s':''}` : '')}
-        ${row('Alc. hermanos',     agg.reachMembers,     '#2d8a55',         (() => { const total = agg.planningPresent + agg.planningAbsent; const miss = total - agg.reachMembers; const parts = []; if (agg.reachPrivileged) parts.push(`${agg.reachPrivileged} ★`); if (miss > 0) parts.push(`${miss} falta${miss!==1?'s':''}`); return parts.join(' · '); })())}
-        ${row('Alc. amigos',       agg.reachVisitors,    '#e0872a',         agg.reachConversions ? `${agg.reachConversions} conv.` : '')}
-        ${row('Alc. niños',        agg.reachKids,        '#a367d9',         '')}
-        ${row('Culto total',       agg.sundayTotal,      '#3a7bd5',         `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} amigos · ${agg.sundayKids} niños`)}
+        ${sectionLabel('Hermanos de la célula')}
+        ${row('Miembros (únicos)', agg.cellMembersUnique || 0, '#5063b8', planningTotal ? `${planningTotal} en planeación` : '')}
+
+        ${sectionLabel('Planeación')}
+        ${row('Asistieron',       agg.planningPresent,  'var(--brand)', planningMissTxt)}
+
+        ${sectionLabel('Alcance')}
+        ${row('Hermanos',         agg.reachMembers,     '#2d8a55', reachMissParts.join(' · '))}
+        ${row('Amigos (no bautizados)',         agg.reachFriends, '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
+        ${row('Visitas (restauración)',         agg.reachRestor,  '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
+        ${row('Niños de la célula',             agg.reachKidsCell,  '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
+        ${row('Niños visitantes',               agg.reachKidsVisit, '#a367d9', agg.kidsVisitUnique ? `${agg.kidsVisitUnique} únic.` : '')}
+        ${agg.reachConversions ? row('Conversiones', agg.reachConversions, '#e0872a', '') : ''}
+
+        ${sectionLabel('Culto')}
+        ${row('Hermanos',         agg.sundayMembers,    '#3a7bd5', sundayMissTxt)}
+        ${row('Amigos (no bautizados)',         agg.sundayFriends, '#1565c0', '')}
+        ${row('Visitas (restauración)',         agg.sundayRestor,  '#6a1b9a', '')}
+        ${row('Niños de la célula',             agg.sundayKidsCell,  '#8e44ad', '')}
+        ${row('Niños visitantes',               agg.sundayKidsVisit, '#a367d9', '')}
+        ${row('Total culto',      agg.sundayTotal,      '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
+
         ${agg.absent ? row('Con falta',  agg.absent,  '#e05252', agg.justified ? `${agg.justified} just.` : '') : ''}
       </div>
     </div>`;
@@ -2740,9 +2766,18 @@ function renderDashboard(reports) {
 }
 
 function aggregateMetrics(reportsList) {
-  return reportsList.reduce((acc, report) => {
+  // Para conteos "únicos" (miembros de la célula, niños de catálogo) usamos sets
+  // por celda+persona para no inflar al sumar varias semanas.
+  const memberSet = new Set();      // miembros únicos vistos en cualquier reporte
+  const kidsCellSet = new Set();    // niños de catálogo (parte de la célula)
+  const kidsVisitSet = new Set();   // niños de visita (no son de la célula)
+  const friendsSet = new Set();     // amigos únicos (kind=amigo)
+  const restorSet = new Set();      // visitas en restauración únicas (kind=visita)
+
+  const acc = reportsList.reduce((acc, report) => {
     const fd = report?.formData || {};
     const s  = fd.attendanceSummary || {};
+    const cellNum = String(report.cellNumber || fd.cellNumber || "");
     acc.planningPresent  += Number(s.planningMembersPresent  || 0);
     acc.planningAbsent   += Number(s.planningMembersAbsent   || 0);
     acc.reachMembers     += Number(s.reachMembersPresent     || 0);
@@ -2760,11 +2795,67 @@ function aggregateMetrics(reportsList) {
     acc.absent           += Number(s.absent    || 0);
     acc.justified        += Number(s.justified || 0);
     acc.baptisms         += Array.isArray(fd.baptisms) ? fd.baptisms.length : 0;
+
+    // ── Splits por kind (amigos vs visitas restauración) y origen de niños ──
+    const visitors = Array.isArray(fd.visitors) ? fd.visitors : [];
+    visitors.forEach((v) => {
+      const name = String(v?.name || "").trim();
+      if (!name) return;
+      const kind = String(v?.kind || "amigo").toLowerCase() === "visita" ? "visita" : "amigo";
+      const key = `${cellNum}|${name.toLowerCase()}`;
+      if (kind === "visita") {
+        restorSet.add(key);
+        if (v.reachAttended)  acc.reachRestor  += 1;
+        if (v.sundayAttended) acc.sundayRestor += 1;
+      } else {
+        friendsSet.add(key);
+        if (v.reachAttended)  acc.reachFriends  += 1;
+        if (v.sundayAttended) acc.sundayFriends += 1;
+      }
+    });
+
+    const kids = Array.isArray(fd.kids) ? fd.kids : [];
+    kids.forEach((k) => {
+      const name = String(k?.name || "").trim();
+      if (!name) return;
+      const isCellKid = String(k?.source || "").toLowerCase() === "catalog";
+      const key = `${cellNum}|${name.toLowerCase()}`;
+      if (isCellKid) {
+        kidsCellSet.add(key);
+        if (k.reachAttended)  acc.reachKidsCell  += 1;
+        if (k.sundayAttended) acc.sundayKidsCell += 1;
+      } else {
+        kidsVisitSet.add(key);
+        if (k.reachAttended)  acc.reachKidsVisit  += 1;
+        if (k.sundayAttended) acc.sundayKidsVisit += 1;
+      }
+    });
+
+    const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+    members.forEach((m) => {
+      const name = String(m?.name || m?.memberName || "").trim();
+      if (!name) return;
+      memberSet.add(`${cellNum}|${name.toLowerCase()}`);
+    });
+
     return acc;
   }, { planningPresent: 0, planningAbsent: 0, reachMembers: 0, reachPrivileged: 0,
        reachVisitors: 0, reachKids: 0, reachConversions: 0,
        sundayMembers: 0, sundayVisitors: 0, sundayKids: 0, sundayTotal: 0,
-       absent: 0, justified: 0, baptisms: 0 });
+       absent: 0, justified: 0, baptisms: 0,
+       reachFriends: 0, reachRestor: 0, sundayFriends: 0, sundayRestor: 0,
+       reachKidsCell: 0, reachKidsVisit: 0, sundayKidsCell: 0, sundayKidsVisit: 0 });
+
+  acc.cellMembersUnique = memberSet.size;
+  acc.kidsCellUnique    = kidsCellSet.size;
+  acc.kidsVisitUnique   = kidsVisitSet.size;
+  acc.friendsUnique     = friendsSet.size;
+  acc.restorUnique      = restorSet.size;
+  // Faltas absolutas por etapa basadas en miembros únicos vistos en la ventana.
+  // Si no hay miembros vistos, caer a planningAbsent que ya viene del summary.
+  acc.reachAbsentMembers  = Math.max(0, acc.cellMembersUnique - acc.reachMembers);
+  acc.sundayAbsentMembers = Math.max(0, acc.cellMembersUnique - acc.sundayMembers);
+  return acc;
 }
 
 // Extended aggregation used for quarter/year views: adds averages + consistent-member count

@@ -1270,6 +1270,8 @@ tr.people-group-header + tr td { border-top: none; }
 .tot-scope-total .tot-group { max-width: 720px; }
 .tot-group { background: var(--bg, #f7f7fb); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .tot-group-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 0 0 10px; }
+.tot-section-label { font-size: 0.7rem; font-weight: 700; color: var(--brand-deep); text-transform: uppercase; letter-spacing: 0.06em; margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.tot-section-label:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
 .tot-rows { display: grid; gap: 6px; }
 .tot-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 40px; align-items: center; gap: 10px; }
 .tot-row-label { font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; }
