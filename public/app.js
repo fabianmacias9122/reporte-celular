@@ -4271,7 +4271,7 @@ function renderReports(reports) {
 // ── Seguimiento: vista de células para supervisor / coordinador ────────────
 let seguimientoScope = "current";
 // Offset de semana para Seguimiento: 0 = esta semana, -1 = semana anterior.
-let seguimientoWeekOffset = 0;
+let seguimientoWeekOffset = -1;
 
 function renderSeguimiento(reports) {
   const cyclesList = document.querySelector("#seguimiento-cycles-list");
