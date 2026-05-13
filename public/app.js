@@ -4231,9 +4231,9 @@ function renderSeguimiento(reports) {
   }).join("");
 
   // ── Toggle de semana (esta / anterior) ────────────────────────────────────
-  // Usa getCurrentWeekNumber() para respetar el periodo de gracia:
-  // durante la gracia, "Esta semana" sigue refiriéndose a la semana en captura.
-  const baseWeekNum = getCurrentWeekNumber();
+  // Usa la semana real (ignora la gracia): durante gracia, "Esta semana" es la
+  // nueva (puede estar vacía) y "Semana anterior" es la que se está capturando.
+  const baseWeekNum = getQuarterWeekNumber();
   const offsetTabs  = document.getElementById("seg-week-offset-tabs");
   if (offsetTabs) {
     // Solo tiene sentido si hay una semana anterior dentro del mismo cuatrimestre.
