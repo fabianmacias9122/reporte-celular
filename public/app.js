@@ -2123,11 +2123,11 @@ function renderSegTotalsPanel(weeklyReps) {
     const sectionLabel = (txt) => `<div class="tot-section-label">${txt}</div>`;
 
     const planningTotal   = agg.planningPresent + agg.planningAbsent;
-    const planningMissTxt = agg.planningAbsent ? `${agg.planningAbsent} falta${agg.planningAbsent!==1?'s':''}` : '';
+    const planningMissTxt = agg.planningAbsent ? `${agg.planningAbsent} no fue${agg.planningAbsent!==1?'ron':''} a planeación` : '';
     const reachMissParts = [];
     if (agg.reachPrivileged) reachMissParts.push(`${agg.reachPrivileged} ★`);
-    if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} falta${agg.reachAbsentMembers!==1?'s':''}`);
-    const sundayMissTxt = agg.sundayAbsentMembers > 0 ? `${agg.sundayAbsentMembers} falta${agg.sundayAbsentMembers!==1?'s':''}` : '';
+    if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} no fue${agg.reachAbsentMembers!==1?'ron':''} al alcance`);
+    const sundayMissTxt = agg.sundayAbsentMembers > 0 ? `${agg.sundayAbsentMembers} no fue${agg.sundayAbsentMembers!==1?'ron':''} al culto` : '';
     const rosterHint = roster && roster > 0 ? `de ${roster} miembros activos` : '';
 
     return `<div class="tot-group">
@@ -2154,8 +2154,6 @@ function renderSegTotalsPanel(weeklyReps) {
         ${row('Niños célula', agg.sundayKidsCell,  '#8e44ad', '')}
         ${row('Niños visit.', agg.sundayKidsVisit, '#a367d9', '')}
         ${row('Total culto',  agg.sundayTotal,     '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
-
-        ${agg.absent ? row('Con falta',  agg.absent,  '#e05252', agg.justified ? `${agg.justified} just.` : '') : ''}
       </div>
     </div>`;
   }
