@@ -2077,16 +2077,22 @@ function renderSegTotalsPanel(weeklyReps) {
   const sectors = [...new Set(weeklyReps.map(r => r.formData?.sector || r.sector || "?"))].sort();
   const cells   = [...new Set(weeklyReps.map(r => String(r.cellNumber || r.formData?.cellNumber || "?")))].sort((a,b) => Number(a)-Number(b));
 
-  // Roster helpers (denominators) — restringidos a las células visibles para el usuario actual
-  const visibleCells = (typeof getVisibleCells === 'function' ? getVisibleCells() : (catalogs.cells || []));
+  // Roster helpers (denominators) — restringidos a las células del scope del usuario actual
+  const scopedCellsList = (typeof getScopedCells === 'function' ? getScopedCells() : (catalogs.cells || []));
+  const allScopedSectors = [...new Set(scopedCellsList.map(c => String(c.sector || '?').trim()))].sort();
+  const allScopedCellNums = [...new Set(scopedCellsList.map(c => String(c.cellNumber)))].sort((a,b) => Number(a)-Number(b));
   const rosterForCell = (cellNum) => {
-    const c = visibleCells.find(c => String(c.cellNumber) === String(cellNum));
+    const c = scopedCellsList.find(c => String(c.cellNumber) === String(cellNum));
     return c ? getCellMembers(c).length : 0;
   };
-  const rosterForSector = (sec) => visibleCells
+  const rosterForSector = (sec) => scopedCellsList
     .filter(c => String(c.sector || '').trim() === String(sec).trim())
     .reduce((sum, c) => sum + getCellMembers(c).length, 0);
-  const rosterForTotal = () => visibleCells.reduce((sum, c) => sum + getCellMembers(c).length, 0);
+  const rosterForTotal = () => scopedCellsList.reduce((sum, c) => sum + getCellMembers(c).length, 0);
+  const leaderForCell = (cellNum) => {
+    const c = scopedCellsList.find(c => String(c.cellNumber) === String(cellNum));
+    return c?.leaderName || '';
+  };
 
   function buildRows(agg, label, roster) {
     const memberMax = roster && roster > 0
@@ -2161,24 +2167,51 @@ function renderSegTotalsPanel(weeklyReps) {
       return `<div class="tot-scope-total">${buildRows(agg, `${weeklyReps.length} reporte${weeklyReps.length!==1?'s':''} esta semana`, roster)}</div>`;
     }
     if (scope === 'sector') {
-      return `<div class="tot-scope-grid">${sectors.map(sec => {
-        const reps = weeklyReps.filter(r => (r.formData?.sector || r.sector || "?") === sec);
+      // Lista TODOS los sectores del scope, incluso sin reportes
+      const sectorsToShow = allScopedSectors.length ? allScopedSectors : sectors;
+      return `<div class="tot-scope-grid">${sectorsToShow.map(sec => {
+        const reps = weeklyReps.filter(r => String(r.formData?.sector || r.sector || "?").trim() === sec);
         const agg  = aggregateMetrics(reps);
         const roster = rosterForSector(sec);
-        return buildRows(agg, `Sector ${sec} · ${reps.length} célula${reps.length!==1?'s':''}`, roster);
+        const cellsInSector = scopedCellsList.filter(c => String(c.sector || '').trim() === sec).length;
+        return buildRows(agg, `Sector ${sec} · ${reps.length}/${cellsInSector} célula${cellsInSector!==1?'s':''} reportó`, roster);
       }).join('')}</div>`;
     }
-    // cell
-    return `<div class="tot-scope-grid">${cells.map(cellNum => {
+    // cell — lista TODAS las células del scope, incluso sin reportes
+    const cellsToShow = allScopedCellNums.length ? allScopedCellNums : cells;
+    return `<div class="tot-scope-grid">${cellsToShow.map(cellNum => {
       const reps = weeklyReps.filter(r => String(r.cellNumber || r.formData?.cellNumber || "?") === cellNum);
       const agg  = aggregateMetrics(reps);
-      const leader = reps[0]?.leaderName || reps[0]?.formData?.leaderName || '';
+      const leader = reps[0]?.leaderName || reps[0]?.formData?.leaderName || leaderForCell(cellNum);
       const roster = rosterForCell(cellNum);
-      return buildRows(agg, `Célula ${cellNum}${leader ? ` · ${leader}` : ''}`, roster);
+      const noRep = reps.length === 0 ? ' · sin reporte' : '';
+      return buildRows(agg, `Célula ${cellNum}${leader ? ` · ${leader}` : ''}${noRep}`, roster);
     }).join('')}</div>`;
   }
 
-  let currentScope = 'total';
+  // Mostrar/ocultar tabs según rol
+  const isAdmin = !!(currentUser && currentUser.isAdmin);
+  const isSupervisor = !!(currentUser && currentUser.isSupervisor && currentUser.supervisedSector);
+  segTotalsPanel.querySelectorAll('.seg-totals-tab').forEach(tab => {
+    const sc = tab.dataset.tscope;
+    if (isAdmin) {
+      tab.hidden = false;
+    } else if (isSupervisor) {
+      // Supervisor: solo Por sector y Por célula
+      tab.hidden = (sc === 'total');
+    } else {
+      // Líder de célula: solo Por célula
+      tab.hidden = (sc !== 'cell');
+    }
+  });
+
+  // Scope inicial según rol
+  let currentScope = isAdmin ? 'total' : (isSupervisor ? 'sector' : 'cell');
+  // Marcar tab activa correcta
+  segTotalsPanel.querySelectorAll('.seg-totals-tab').forEach(tab => {
+    tab.classList.toggle('is-active', tab.dataset.tscope === currentScope);
+  });
+
   const render = () => { segTotalsBody.innerHTML = renderScope(currentScope); };
   render();
 
