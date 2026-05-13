@@ -2105,10 +2105,12 @@ function renderSegTotalsPanel(weeklyReps) {
     const row = (label, val, color, hint, denom) => {
       const display = denom && denom > 0 ? `${val}/${denom}` : `${val}`;
       const pct = denom && denom > 0 ? ` <span class="tot-row-pct">(${Math.round((val/denom)*100)}%)</span>` : '';
-      return `<div class="tot-row">
-        <span class="tot-row-label">${label}</span>
-        ${bar(val, color, denom)}
-        <strong class="tot-row-val">${display}${pct}</strong>
+      return `<div class="tot-row-wrap">
+        <div class="tot-row">
+          <span class="tot-row-label">${label}</span>
+          ${bar(val, color, denom)}
+          <strong class="tot-row-val">${display}${pct}</strong>
+        </div>
         ${hint ? `<span class="tot-row-hint">${hint}</span>` : ''}
       </div>`;
     };
