@@ -2394,7 +2394,7 @@ function renderDashboardForLeader(reports) {
 
   // Summary cards — differentiated by scope
   if (activeDashboardTimeScope === "week") {
-    const agg = aggregateMetrics(scopeReports);
+    const agg = aggregateMetrics(scopeReports, { baptismYear: selectedYear, baptismQuarter: selectedQuarter });
     dashboardSummaryGrid.innerHTML = [
       { label: "Planeación · hermanos", value: agg.planningPresent,    hint: "Presentes en planeación" },
       { label: "Planeación · ausentes", value: agg.absent + agg.justified, hint: "Faltas (justificadas incluidas)" },
@@ -2414,7 +2414,7 @@ function renderDashboardForLeader(reports) {
     `).join("");
 
   } else if (activeDashboardTimeScope === "quarter") {
-    const ext = aggregateMetricsExtended(scopeReports);
+    const ext = aggregateMetricsExtended(scopeReports, { baptismYear: selectedYear, baptismQuarter: parsedQuarter || getCurrentQuarter() });
     const qLabel = activeDashboardTimeScope === "quarter" ? scopeTitleText : "";
     dashboardSummaryGrid.innerHTML = [
       { label: "Sem. reportadas",       value: ext.n,                    hint: "Semanas con reporte en el cuatrimestre", cls: "accent-neutral" },
@@ -2436,7 +2436,7 @@ function renderDashboardForLeader(reports) {
 
   } else {
     // Year scope
-    const ext  = aggregateMetricsExtended(scopeReports);
+    const ext  = aggregateMetricsExtended(scopeReports, { baptismYear: selectedYear });
     const byQ  = aggregateByQuarter(allCellReports, selectedYear);
     const QNAMES = ["", "Ene–Abr", "May–Ago", "Sep–Dic"];
     const qTableRows = byQ.filter(q => q.n > 0).map(q => `
@@ -2805,7 +2805,11 @@ function renderDashboard(reports) {
     dashboardPendingEyebrow.textContent = scopeLabel ? `Seguimiento · ${scopeLabel}` : "Seguimiento";
   }
 
-  const agg = aggregateMetrics(scopeTimeReports);
+  // Para el filtro de bautismos: si scope=year usamos solo year; si scope=quarter o week usamos year+quarter.
+  const baptismScopeOpts = activeDashboardTimeScope === "year"
+    ? { baptismYear: selectedYear }
+    : { baptismYear: selectedYear, baptismQuarter: selectedQuarter };
+  const agg = aggregateMetrics(scopeTimeReports, baptismScopeOpts);
   const reportedCellsCount = new Set(scopeTimeReports.map(r => String(r.cellNumber || r.formData?.cellNumber || ""))).size;
 
   if (activeDashboardTimeScope === "week") {
@@ -2827,7 +2831,7 @@ function renderDashboard(reports) {
     `).join("");
 
   } else if (activeDashboardTimeScope === "quarter") {
-    const ext = aggregateMetricsExtended(scopeTimeReports);
+    const ext = aggregateMetricsExtended(scopeTimeReports, baptismScopeOpts);
     dashboardSummaryGrid.innerHTML = [
       { label: "Sem. reportadas",        value: reportedCellsCount ? `${scopeTimeReports.length}` : "0", hint: "Reportes en el cuatrimestre",         cls: "accent-neutral" },
       { label: "Células activas",        value: reportedCellsCount,                                       hint: "Con al menos un reporte",             cls: "accent-neutral" },
@@ -2849,11 +2853,11 @@ function renderDashboard(reports) {
 
   } else {
     // Year scope — totals + per-quarter breakdown table
-    const ext = aggregateMetricsExtended(scopeTimeReports);
+    const ext = aggregateMetricsExtended(scopeTimeReports, baptismScopeOpts);
     const allForYear = scopedReports.filter(r => getReportYear(r) === selectedYear);
     const byQ  = [1, 2, 3].map(q => {
       const reps = allForYear.filter(r => String(getReportQuarter(r)) === String(q));
-      const ag   = aggregateMetrics(reps);
+      const ag   = aggregateMetrics(reps, { baptismYear: selectedYear, baptismQuarter: q });
       const cells = new Set(reps.map(r => String(r.cellNumber || r.formData?.cellNumber || ""))).size;
       return { q, n: reps.length, cells, conversions: ag.reachConversions, baptisms: ag.baptisms,
                avgReach: reps.length ? Math.round((ag.reachMembers + ag.reachVisitors) / Math.max(1, cells)) : 0 };
@@ -2946,7 +2950,21 @@ function renderDashboard(reports) {
   renderDashboardBaptisms(scopedReports);
 }
 
-function aggregateMetrics(reportsList) {
+// `opts.baptismYear` y `opts.baptismQuarter` filtran los bautismos por su
+// propia fecha (baptismDate), no por la fecha del reporte que los contiene.
+// Esto evita que un bautismo del 2026-04-26 (Q1) capturado en un reporte de
+// mayo (Q2) aparezca contabilizado en Q2 / semana de mayo.
+function aggregateMetrics(reportsList, opts = {}) {
+  const baptismYear = opts.baptismYear ? String(opts.baptismYear) : null;
+  const baptismQuarter = opts.baptismQuarter ? String(opts.baptismQuarter) : null;
+  const baptismMatchesScope = (entry) => {
+    if (!baptismYear && !baptismQuarter) return true;
+    const d = String(entry?.baptismDate || "");
+    if (baptismYear && d.slice(0, 4) !== baptismYear) return false;
+    if (baptismQuarter && String(getBaptismQuarter(d)) !== baptismQuarter) return false;
+    return true;
+  };
+
   // Para conteos "únicos" (miembros de la célula, niños de catálogo) usamos sets
   // por celda+persona para no inflar al sumar varias semanas.
   const memberSet = new Set();      // miembros únicos vistos en cualquier reporte
@@ -2975,7 +2993,8 @@ function aggregateMetrics(reportsList) {
     acc.sundayTotal      += Number(s.sundayTotal || 0) || (sm + sf + sk);
     acc.absent           += Number(s.absent    || 0);
     acc.justified        += Number(s.justified || 0);
-    acc.baptisms         += Array.isArray(fd.baptisms) ? fd.baptisms.length : 0;
+    const baptList = Array.isArray(fd.baptisms) ? fd.baptisms : [];
+    acc.baptisms         += baptList.filter(baptismMatchesScope).length;
     acc.offering         += Number(s.reachOffering || fd.reachOffering || 0) + Number(fd.multiplyTotalOfferings || 0);
 
     // ── Splits por kind (amigos vs visitas restauración) y origen de niños ──
@@ -3041,9 +3060,10 @@ function aggregateMetrics(reportsList) {
 }
 
 // Extended aggregation used for quarter/year views: adds averages + consistent-member count
-function aggregateMetricsExtended(reportsList) {
+// `opts` (mismo que aggregateMetrics) propaga el filtro de bautismos por baptismDate.
+function aggregateMetricsExtended(reportsList, opts = {}) {
   const n = reportsList.length;
-  const base = aggregateMetrics(reportsList);
+  const base = aggregateMetrics(reportsList, opts);
   const avg = v => n > 0 ? Math.round((v / n) * 10) / 10 : 0;
 
   // Consistent members: appeared in ≥ 50% of weeks and were present in at least half of those appearances
@@ -3075,10 +3095,11 @@ function aggregateMetricsExtended(reportsList) {
 }
 
 // Quarter breakdown by quarter number: returns array [{q, n, conversions, baptisms}]
+// Cada cuatrimestre filtra sus bautismos por baptismDate (no por la fecha del reporte).
 function aggregateByQuarter(reportsList, year) {
   const quarters = [1, 2, 3].map(q => {
     const reps = reportsList.filter(r => getReportYear(r) === year && String(getReportQuarter(r)) === String(q));
-    const agg  = aggregateMetrics(reps);
+    const agg  = aggregateMetrics(reps, { baptismYear: year, baptismQuarter: q });
     return { q, n: reps.length, conversions: agg.reachConversions, baptisms: agg.baptisms,
              avgReach: reps.length ? Math.round((agg.reachMembers + agg.reachVisitors) / reps.length) : 0 };
   });
