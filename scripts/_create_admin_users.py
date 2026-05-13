@@ -6,7 +6,7 @@ DB = 'data/reporte-celular.db'
 NOW = datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 USERS = [
-    {"name": "FabianAdmin",   "is_coordinator": 1, "is_super_admin": 1},
+    {"name": "Fabian Admin",  "is_coordinator": 1, "is_super_admin": 1},
     {"name": "Savas Pacheco", "is_coordinator": 1, "is_super_admin": 0},
 ]
 

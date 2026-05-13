@@ -21,7 +21,7 @@ TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3Nzg1
 NOW = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 USERS = [
-    {"name": "FabianAdmin",   "is_coordinator": 1, "is_super_admin": 1},
+    {"name": "Fabian Admin",  "is_coordinator": 1, "is_super_admin": 1},
     {"name": "Savas Pacheco", "is_coordinator": 1, "is_super_admin": 0},
 ]
 
