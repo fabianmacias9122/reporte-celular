@@ -2312,7 +2312,14 @@ function renderSegTotalsPanel(weeklyReps) {
   const render = () => { segTotalsBody.innerHTML = renderScope(currentScope); };
   render();
 
-  // Wire tab buttons (remove old listeners by replacing node)
+  // Wire tab buttons — clonamos cada nodo para BORRAR listeners de renders previos.
+  // Sin esto, cada re-render acumula handlers viejos cuyos closures referencian
+  // un `currentScope` desactualizado, provocando que el body y la tab activa
+  // se desincronicen (bug: tab "Todas" activa pero body por célula).
+  segTotalsPanel.querySelectorAll('.seg-totals-tab').forEach(tab => {
+    const fresh = tab.cloneNode(true);
+    tab.parentNode.replaceChild(fresh, tab);
+  });
   const tabs = segTotalsPanel.querySelectorAll('.seg-totals-tab');
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -2323,15 +2330,17 @@ function renderSegTotalsPanel(weeklyReps) {
     });
   });
 
-  // Toggle ofrenda (persistente por usuario)
-  const offeringToggle = segTotalsPanel.querySelector('#seg-totals-show-offering');
-  if (offeringToggle && !offeringToggle.dataset.wired) {
+  // Toggle ofrenda (persistente por usuario). Mismo patron: clonar para reemplazar
+  // listeners viejos que retendrian un `currentScope` / `render` obsoletos.
+  const oldToggle = segTotalsPanel.querySelector('#seg-totals-show-offering');
+  if (oldToggle) {
+    const offeringToggle = oldToggle.cloneNode(true);
+    oldToggle.parentNode.replaceChild(offeringToggle, oldToggle);
     offeringToggle.checked = localStorage.getItem('segTotals.showOffering') === '1';
     offeringToggle.addEventListener('change', () => {
       localStorage.setItem('segTotals.showOffering', offeringToggle.checked ? '1' : '0');
       render();
     });
-    offeringToggle.dataset.wired = '1';
   }
 }
 
