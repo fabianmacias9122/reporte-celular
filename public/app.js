@@ -2125,7 +2125,7 @@ function renderSegTotalsPanel(weeklyReps) {
     const planningTotal   = agg.planningPresent + agg.planningAbsent;
     const planningMissTxt = agg.planningAbsent ? `${agg.planningAbsent} no fue${agg.planningAbsent!==1?'ron':''} a planeación` : '';
     const reachMissParts = [];
-    if (agg.reachPrivileged) reachMissParts.push(`${agg.reachPrivileged} ★`);
+    if (agg.reachPrivileged) reachMissParts.push(`<span title="Hermanos marcados como prioridad de alcance esta semana">★ ${agg.reachPrivileged} priorizado${agg.reachPrivileged!==1?'s':''}</span>`);
     if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} no fue${agg.reachAbsentMembers!==1?'ron':''} al alcance`);
     const sundayMissTxt = agg.sundayAbsentMembers > 0 ? `${agg.sundayAbsentMembers} no fue${agg.sundayAbsentMembers!==1?'ron':''} al culto` : '';
     const rosterHint = roster && roster > 0 ? `de ${roster} miembros activos` : '';
