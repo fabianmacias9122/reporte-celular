@@ -1264,6 +1264,9 @@ tr.people-group-header + tr td { border-top: none; }
 .seg-totals-scope-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .seg-totals-tab { background: none; border: 1.5px solid var(--line); border-radius: 8px; padding: 5px 13px; font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--muted); transition: background 0.1s, color 0.1s; }
 .seg-totals-tab.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.seg-totals-toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-left: 6px; cursor: pointer; user-select: none; }
+.seg-totals-toggle input { margin: 0; cursor: pointer; }
+.tot-row-offering .tot-row-val { color: #1f8a4d; }
 .tot-scope-total { display: grid; }
 .tot-scope-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; }
 .tot-scope-total .tot-group { max-width: none; }
