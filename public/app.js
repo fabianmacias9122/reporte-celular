@@ -1965,7 +1965,18 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
   });
 
   const EVENT_LABELS = { P: "Planeación", A: "Alcance", C: "Culto" };
+  // Mapeo de aplicabilidad de eventos según la última etapa guardada del reporte.
+  // Si el reporte aun esta en "planificacion", el alcance y el culto siguen
+  // pendientes (no han ocurrido); no deben contar como falta ni penalizar.
+  const STAGES_ORDER = ["encabezado", "planificacion", "alcance", "culto", "cierre"];
+  const stageReached = (fd, stageName) => {
+    if (fd && fd._draft !== true && fd._draft !== "true") return true; // reporte cerrado
+    const last = fd?.lastStage;
+    if (!last) return false;
+    return STAGES_ORDER.indexOf(last) >= STAGES_ORDER.indexOf(stageName);
+  };
   let totalP = 0, totalA = 0, totalC = 0, totalFaltas = 0, totalJust = 0, totalWeeks = 0;
+  let appliedP = 0, appliedA = 0, appliedC = 0; // denominadores: eventos aplicables
   const weekRows = [];
 
   sorted.forEach(r => {
@@ -1973,27 +1984,31 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
     const entry = entries.find(e => String(e.personId || e.name || "") === memberKey || e.name === memberName);
     if (!entry) return;
     totalWeeks++;
+    const fd = r.formData || {};
+    const planApp   = stageReached(fd, "planificacion");
+    const reachApp  = stageReached(fd, "alcance");
+    const sundayApp = stageReached(fd, "culto");
     const planning = Boolean(entry.planningAttended);
     const reach    = Boolean(entry.reachAttended);
     const sunday   = Boolean(entry.sundayAttended);
     const isFalta  = entry.status === "absent" || entry.status === "justified";
     const isJust   = entry.status === "justified";
-    if (planning) totalP++;
-    if (reach)    totalA++;
-    if (sunday)   totalC++;
-    if (isFalta)  totalFaltas++;
-    if (isJust)   totalJust++;
+    if (planApp)   { appliedP++; if (planning) totalP++; }
+    if (reachApp)  { appliedA++; if (reach)    totalA++; }
+    if (sundayApp) { appliedC++; if (sunday)   totalC++; }
+    if (isFalta)   totalFaltas++;
+    if (isJust)    totalJust++;
 
     const missed = [];
-    if (!planning) missed.push("P");
-    if (!reach)    missed.push("A");
-    if (!sunday)   missed.push("C");
+    if (planApp   && !planning) missed.push("P");
+    if (reachApp  && !reach)    missed.push("A");
+    if (sundayApp && !sunday)   missed.push("C");
 
     const rd = r.formData?.reportDate || r.reportDate || "";
     const dateLabel = rd ? new Date(rd + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "";
     const weekNum = getReportWeek(r);
 
-    weekRows.push({ weekNum, dateLabel, planning, reach, sunday, missed, isFalta, isJust });
+    weekRows.push({ weekNum, dateLabel, planning, reach, sunday, planApp, reachApp, sundayApp, missed, isFalta, isJust });
   });
 
   if (totalWeeks === 0) {
@@ -2001,7 +2016,10 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
     return;
   }
 
-  const avgPct = Math.round(((totalP + totalA + totalC) / (totalWeeks * 3)) * 100);
+  const totalApplied = appliedP + appliedA + appliedC;
+  const avgPct = totalApplied > 0
+    ? Math.round(((totalP + totalA + totalC) / totalApplied) * 100)
+    : 0;
   const barCls = avgPct >= 80 ? "attend-bar-good" : avgPct >= 50 ? "attend-bar-mid" : "attend-bar-low";
 
   // Header stats
@@ -2023,17 +2041,20 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
       <span class="mdl-stat-label">asistencia promedio</span>
     </div>
     <div class="mdl-stat-events">
-      <span class="mdl-ev-chip mdl-ev-p" title="Planeación">Plan. <strong>${totalP}/${totalWeeks}</strong></span>
-      <span class="mdl-ev-chip mdl-ev-a" title="Alcance">Alc. <strong>${totalA}/${totalWeeks}</strong></span>
-      <span class="mdl-ev-chip mdl-ev-c" title="Culto">Culto <strong>${totalC}/${totalWeeks}</strong></span>
+      <span class="mdl-ev-chip mdl-ev-p" title="Planeación">Plan. <strong>${totalP}/${appliedP}</strong></span>
+      <span class="mdl-ev-chip mdl-ev-a" title="Alcance">Alc. <strong>${totalA}/${appliedA}</strong></span>
+      <span class="mdl-ev-chip mdl-ev-c" title="Culto">Culto <strong>${totalC}/${appliedC}</strong></span>
     </div>
   `;
 
   // Week-by-week table
   const MONTHS = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const eventDot = (attended, label) => attended
-    ? `<span class="mdl-dot mdl-dot-ok" title="${label}">✓</span>`
-    : `<span class="mdl-dot mdl-dot-miss" title="Faltó a ${label}">✗</span>`;
+  const eventDot = (attended, label, applicable = true) => {
+    if (!applicable) return `<span class="mdl-dot mdl-dot-pending" title="${label} aún pendiente (no reportado)">-</span>`;
+    return attended
+      ? `<span class="mdl-dot mdl-dot-ok" title="${label}">✓</span>`
+      : `<span class="mdl-dot mdl-dot-miss" title="Faltó a ${label}">✗</span>`;
+  };
 
   memberModalBody.innerHTML = `
     <table class="mdl-table">
@@ -2047,17 +2068,23 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
       </tr></thead>
       <tbody>${weekRows.map(w => {
         const rowCls = w.isFalta ? (w.isJust ? " mdl-row-just" : " mdl-row-falta") : "";
+        const allPending = !w.planApp && !w.reachApp && !w.sundayApp;
+        const someStagePending = !(w.planApp && w.reachApp && w.sundayApp);
         const statusBadge = w.isFalta
           ? `<span class="mdl-status-badge mdl-status-${w.isJust ? "just" : "absent"}">${w.isJust ? "Justificado" : "Falta"}</span>`
-          : w.missed.length > 0
-            ? `<span class="mdl-status-badge mdl-status-partial">Parcial</span>`
-            : `<span class="mdl-status-badge mdl-status-ok">Completo</span>`;
+          : allPending
+            ? `<span class="mdl-status-badge mdl-status-pending">Pendiente</span>`
+            : w.missed.length > 0
+              ? `<span class="mdl-status-badge mdl-status-partial">Parcial</span>`
+              : someStagePending
+                ? `<span class="mdl-status-badge mdl-status-pending">En curso</span>`
+                : `<span class="mdl-status-badge mdl-status-ok">Completo</span>`;
         return `<tr class="${rowCls}">
           <td class="mdl-week">${w.weekNum}</td>
           <td class="mdl-date">${w.dateLabel}</td>
-          <td class="mdl-ev">${eventDot(w.planning, "Planeación")}</td>
-          <td class="mdl-ev">${eventDot(w.reach, "Alcance")}</td>
-          <td class="mdl-ev">${eventDot(w.sunday, "Culto")}</td>
+          <td class="mdl-ev">${eventDot(w.planning, "Planeación", w.planApp)}</td>
+          <td class="mdl-ev">${eventDot(w.reach, "Alcance", w.reachApp)}</td>
+          <td class="mdl-ev">${eventDot(w.sunday, "Culto", w.sundayApp)}</td>
           <td>${statusBadge}</td>
         </tr>`;
       }).join("")}</tbody>
@@ -2582,17 +2609,28 @@ function renderDashboardForLeader(reports) {
       if (dashboardAbsenceLegend) dashboardAbsenceLegend.hidden = true;
 
       // ── Hermanos ─────────────────────────────────────────────────────────────
-      const memberStats = new Map(); // key → { key, name, weeks, planP, reachP, sundayP, absent, justified }
+      const STAGES_ORDER = ["encabezado", "planificacion", "alcance", "culto", "cierre"];
+      const stageReached = (fd, stageName) => {
+        if (fd && fd._draft !== true && fd._draft !== "true") return true;
+        const last = fd?.lastStage;
+        if (!last) return false;
+        return STAGES_ORDER.indexOf(last) >= STAGES_ORDER.indexOf(stageName);
+      };
+      const memberStats = new Map(); // key → { key, name, weeks, planP, reachP, sundayP, planApp, reachApp, sundayApp, absent, justified }
       scopeReports.forEach(r => {
-        const entries = Array.isArray(r.formData?.memberAttendance) ? r.formData.memberAttendance : [];
+        const fd = r.formData || {};
+        const planApp   = stageReached(fd, "planificacion");
+        const reachApp  = stageReached(fd, "alcance");
+        const sundayApp = stageReached(fd, "culto");
+        const entries = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
         entries.forEach(e => {
           const key = String(e.personId || e.name || "");
           if (!key) return;
-          const prev = memberStats.get(key) || { key, name: e.name || "", weeks: 0, planP: 0, reachP: 0, sundayP: 0, absent: 0, justified: 0 };
+          const prev = memberStats.get(key) || { key, name: e.name || "", weeks: 0, planP: 0, reachP: 0, sundayP: 0, planApp: 0, reachApp: 0, sundayApp: 0, absent: 0, justified: 0 };
           prev.weeks += 1;
-          if (e.planningAttended) prev.planP    += 1;
-          if (e.reachAttended)    prev.reachP   += 1;
-          if (e.sundayAttended)   prev.sundayP  += 1;
+          if (planApp)   { prev.planApp   += 1; if (e.planningAttended) prev.planP   += 1; }
+          if (reachApp)  { prev.reachApp  += 1; if (e.reachAttended)    prev.reachP  += 1; }
+          if (sundayApp) { prev.sundayApp += 1; if (e.sundayAttended)   prev.sundayP += 1; }
           if (e.status === "absent")    prev.absent   += 1;
           if (e.status === "justified") prev.justified += 1;
           memberStats.set(key, prev);
@@ -2619,22 +2657,26 @@ function renderDashboardForLeader(reports) {
       // ── Build member rows ─────────────────────────────────────────────────────
       const buildMemberRows = () => {
         if (memberStats.size === 0) return `<tr><td colspan="3" class="attend-empty">Sin datos de asistencia en este periodo.</td></tr>`;
+        const memberPct = m => {
+          const applied = m.planApp + m.reachApp + m.sundayApp;
+          return applied > 0 ? (m.planP + m.reachP + m.sundayP) / applied : 0;
+        };
         const sorted = [...memberStats.values()].sort((a, b) => {
-          const pctA = a.weeks > 0 ? (a.planP + a.reachP + a.sundayP) / (a.weeks * 3) : 0;
-          const pctB = b.weeks > 0 ? (b.planP + b.reachP + b.sundayP) / (b.weeks * 3) : 0;
-          return pctA - pctB || a.name.localeCompare(b.name);
+          return memberPct(a) - memberPct(b) || a.name.localeCompare(b.name);
         });
         return sorted.map(m => {
-          const avgPct = m.weeks > 0 ? Math.round(((m.planP + m.reachP + m.sundayP) / (m.weeks * 3)) * 100) : 0;
+          const applied = m.planApp + m.reachApp + m.sundayApp;
+          const avgPct = applied > 0 ? Math.round(((m.planP + m.reachP + m.sundayP) / applied) * 100) : 0;
           const barCls = avgPct >= 80 ? "attend-bar-good" : avgPct >= 50 ? "attend-bar-mid" : "attend-bar-low";
           const absTotal = m.absent + m.justified;
           const faltasCell = absTotal === 0
             ? `<span class="attend-ok-badge">✓ Sin faltas</span>`
             : `<span class="attend-abs-badge">${absTotal} sem.</span>${m.justified > 0 ? ` <span class="attend-just-badge">${m.justified} just.</span>` : ""}`;
-          const allSame = m.planP === m.reachP && m.reachP === m.sundayP;
+          const allSame = m.planP === m.reachP && m.reachP === m.sundayP
+            && m.planApp === m.reachApp && m.reachApp === m.sundayApp;
           const evDetail = allSame
-            ? `${m.planP} de ${m.weeks} semanas asistió a los 3 eventos`
-            : `Plan. ${m.planP}/${m.weeks} · Alc. ${m.reachP}/${m.weeks} · Culto ${m.sundayP}/${m.weeks}`;
+            ? `${m.planP} de ${m.planApp} semanas asistió a los 3 eventos`
+            : `Plan. ${m.planP}/${m.planApp} · Alc. ${m.reachP}/${m.reachApp} · Culto ${m.sundayP}/${m.sundayApp}`;
           const rowCls = absTotal === 0 ? "" : avgPct < 50 ? " attend-row-low" : " attend-row-mid";
           return `<tr class="attend-row${rowCls} attend-row-clickable" data-member-key="${escapeHtml(String(m.key || m.name))}" data-member-name="${escapeHtml(m.name)}" title="Ver detalle de ${escapeHtml(m.name)}">
             <td class="attend-name">${escapeHtml(m.name)}<div class="attend-ev-detail">${evDetail}</div></td>
@@ -2747,6 +2789,7 @@ function renderDashboardForLeader(reports) {
 }
 
 function renderDashboard(reports) {
+  reports = filterVisibleReports(reports);
   // Anyone with an assigned cell sees their own cell data (leaders, supervisors/coordinators who lead a cell)
   if (currentUser?.assignedCellNumber) {
     return renderDashboardForLeader(reports);
@@ -4376,6 +4419,13 @@ function renderReports(reports) {
         }).join("");
 
         const progressPct = Math.round((totalDone / totalWeeks) * 100);
+        const baptismCount = reps.reduce((s, r) => {
+          const list = Array.isArray(r.formData?.baptisms) ? r.formData.baptisms : [];
+          return s + list.filter(b => String(getBaptismQuarter(b?.baptismDate)) === String(quarter)).length;
+        }, 0);
+        const baptismChip = baptismCount > 0
+          ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
+          : "";
         return `
           <div class="cycle-card" data-cell-number="${escapeHtml(String(cell))}">
             <div class="cycle-card-head">
@@ -4384,6 +4434,7 @@ function renderReports(reports) {
                 <strong>${quarterName(quarter)}</strong>
                 <span class="cycle-year-tag">${escapeHtml(year)}</span>
                 <span class="cycle-range-tag">${quarterLabel(quarter)}</span>
+                ${baptismChip}
               </div>
               <div class="cycle-card-meta">
                 <span class="cycle-progress-text">${totalDone} / ${totalWeeks} semanas</span>
@@ -4398,14 +4449,48 @@ function renderReports(reports) {
 }
 
 // ── Seguimiento: vista de células para supervisor / coordinador ────────────
-let seguimientoScope = "current";
+let seguimientoScope = (typeof localStorage !== "undefined" && (localStorage.getItem("seguimientoScope") === "all" || localStorage.getItem("seguimientoScope") === "current"))
+  ? localStorage.getItem("seguimientoScope")
+  : "current";
 // Offset de semana para Seguimiento: 0 = esta semana, -1 = semana anterior.
 let seguimientoWeekOffset = -1;
+
+// Oculta los reportes en borrador (_draft) según rol:
+//  - Super-admin: ve todos los borradores.
+//  - Líder de la célula del reporte: ve los suyos.
+//  - Resto (supervisores, coordinadores, miembros): solo ven finalizados.
+function filterVisibleReports(list) {
+  if (!Array.isArray(list)) return list;
+  if (currentUser?.isSuperAdmin) return list;
+  const myCell = String(currentUser?.assignedCellNumber || "");
+  return list.filter(r => {
+    const isDraft = r.formData?._draft === true || r.formData?._draft === "true";
+    if (!isDraft) return true;
+    const cell = String(r.cellNumber || r.formData?.cellNumber || "");
+    return myCell && cell === myCell;
+  });
+}
 
 function renderSeguimiento(reports) {
   const cyclesList = document.querySelector("#seguimiento-cycles-list");
   const countChip  = document.querySelector("#seg-report-count");
   if (!cyclesList) return;
+  reports = filterVisibleReports(reports);
+
+  // Selector de alcance (cuatrimestre actual / todo el historial)
+  const scopeSelect = document.querySelector("#seg-scope-select");
+  if (scopeSelect) {
+    if (scopeSelect.value !== seguimientoScope) scopeSelect.value = seguimientoScope;
+    if (!scopeSelect.dataset.bound) {
+      scopeSelect.dataset.bound = "1";
+      scopeSelect.addEventListener("change", () => {
+        const v = scopeSelect.value === "all" ? "all" : "current";
+        seguimientoScope = v;
+        try { localStorage.setItem("seguimientoScope", v); } catch (_) {}
+        renderSeguimiento(reportsData);
+      });
+    }
+  }
 
   // Filtrar por alcance del usuario
   if (currentUser && !currentUser.isAdmin) {

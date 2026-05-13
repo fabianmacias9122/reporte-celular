@@ -1191,6 +1191,7 @@ tr.people-group-header + tr td { border-top: none; }
 .mdl-ev   { font-size: 1rem; }
 .mdl-dot-ok   { color: var(--success); }
 .mdl-dot-miss { color: #d0d0d8; }
+.mdl-dot-pending { color: #b8b8c4; font-weight: 700; }
 .mdl-row-falta td { background: rgba(192,64,32,0.04); }
 .mdl-row-just  td { background: rgba(26,125,85,0.04); }
 .mdl-status-badge {
@@ -1201,6 +1202,7 @@ tr.people-group-header + tr td { border-top: none; }
 .mdl-status-partial { background: rgba(224,144,48,0.15); color: #9d5700; }
 .mdl-status-absent  { background: rgba(192,64,32,0.12); color: #c04020; }
 .mdl-status-just    { background: rgba(26,125,85,0.12); color: #186a49; }
+.mdl-status-pending { background: rgba(120,120,140,0.12); color: #6b6b78; }
 
 .attend-just-badge {
   display: inline-block;
