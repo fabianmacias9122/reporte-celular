@@ -4620,7 +4620,13 @@ function renderSeguimiento(reports) {
           const wNum = Number(w);
           const minOpen = inGrace ? Math.max(1, realWeek - 1) : realWeek;
           const weekOpen = wNum >= minOpen && wNum <= realWeek;
-          if (weekOpen) {
+          // Solo el lider de la celula (o super-admin) puede capturar el reporte
+          // de esa celula. Supervisores y coordinadores ven la semana pendiente
+          // pero el chip queda deshabilitado para evitar que entren a capturar
+          // un reporte que no les pertenece.
+          const canCapture = currentUser?.isSuperAdmin
+            || String(currentUser?.assignedCellNumber || "") === String(cell);
+          if (weekOpen && canCapture) {
             return `<button type="button" class="cycle-week-chip is-pending is-capturable"
               data-action="new-report-for-cell" data-cell="${escapeHtml(cell)}" data-week="${w}"
               title="Sem ${w} · ${verb} — sin reporte, clic para capturar">
@@ -7102,6 +7108,13 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
   if (btn.dataset.action === "new-report-for-cell") {
     const cell = btn.dataset.cell;
     const week = btn.dataset.week;
+    // Defensive: solo el lider de la celula (o super-admin) puede capturar
+    const canCapture = currentUser?.isSuperAdmin
+      || String(currentUser?.assignedCellNumber || "") === String(cell);
+    if (!canCapture) {
+      setFeedback(`Solo el líder de la célula ${cell} puede capturar este reporte.`, true);
+      return;
+    }
     const realWeek = getQuarterWeekNumber();
     // Block past weeks — should not be reachable (chip is disabled), but defensive
     if (Number(week) < realWeek) {
