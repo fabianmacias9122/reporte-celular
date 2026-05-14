@@ -374,59 +374,48 @@
                   <option value="">— Quién invitó —</option>
                 </select>
               </label>
-              <label class="quick-toggle-field">
-                <span data-i18n="att.reach">Alcance</span>
-                <input id="visitor-quick-reach" name="reachAttended" type="checkbox" checked>
-              </label>
-              <label class="quick-toggle-field">
-                <span data-i18n="stage.service">Culto</span>
-                <input id="visitor-quick-sunday" name="sundayAttended" type="checkbox">
-              </label>
-              <label class="quick-toggle-field">
-                <span data-i18n="vis.firstTime">Primera vez</span>
-                <input id="visitor-quick-first-visit" name="firstVisit" type="checkbox" checked>
-              </label>
-              <label id="visitor-quick-converted-field" class="quick-toggle-field">
-                <span data-i18n="vis.conversion">Conversión</span>
-                <input id="visitor-quick-converted" name="converted" type="checkbox">
-              </label>
-              <label id="visitor-event-toggle-field" class="quick-toggle-field" hidden>
-                <span id="visitor-event-toggle-label">Evento</span>
-                <input id="visitor-quick-event" name="eventAttended" type="checkbox">
-              </label>
+              <div class="visitor-quick-toggles">
+                <label class="quick-toggle-field">
+                  <input id="visitor-quick-reach" name="reachAttended" type="checkbox" checked>
+                  <span data-i18n="att.reach">Alcance</span>
+                </label>
+                <label class="quick-toggle-field">
+                  <input id="visitor-quick-sunday" name="sundayAttended" type="checkbox">
+                  <span data-i18n="stage.service">Culto</span>
+                </label>
+                <label class="quick-toggle-field">
+                  <input id="visitor-quick-first-visit" name="firstVisit" type="checkbox" checked>
+                  <span data-i18n="vis.firstTime">Primera vez</span>
+                </label>
+                <label id="visitor-quick-converted-field" class="quick-toggle-field">
+                  <input id="visitor-quick-converted" name="converted" type="checkbox">
+                  <span data-i18n="vis.conversion">Conversión</span>
+                </label>
+                <label id="visitor-event-toggle-field" class="quick-toggle-field" hidden>
+                  <input id="visitor-quick-event" name="eventAttended" type="checkbox">
+                  <span id="visitor-event-toggle-label">Evento</span>
+                </label>
+              </div>
               <div class="visitor-quick-actions">
                 <button id="add-visitor-quick-button" type="button" class="btn-with-icon">
                   <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                   <span data-i18n="vis.addVisitor">Agregar visita</span>
                 </button>
-                <button id="reset-visitor-quick-button" type="button" class="secondary btn-with-icon">
-                  <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-                  <span data-i18n="vis.clear">Limpiar</span>
+                <button id="reset-visitor-quick-button" type="button" class="secondary btn-with-icon" title="Vacía los campos del formulario rápido (no afecta a la tabla de amigos)">
+                  <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>
+                  <span data-i18n="vis.clear">Vaciar formulario</span>
                 </button>
               </div>
             </div>
-            <div class="helper-actions" aria-label="Atajos de amigos">
-              <button type="button" class="secondary helper-action-button btn-with-icon" id="copy-visitor-reach-to-sunday">
-                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                <span data-i18n="vis.reachToSunday">Alcance → Culto</span>
-              </button>
-              <button type="button" class="secondary helper-action-button btn-with-icon" id="mark-visitor-first-visit">
-                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                <span data-i18n="vis.allFirstTime">Todos primera vez</span>
-              </button>
-              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-visitor-activities">
-                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-                <span data-i18n="vis.clearFriends">Limpiar amigos</span>
-              </button>
-            </div>
+            <div class="helper-actions" aria-label="Atajos de amigos" hidden></div>
             <div class="table-wrap weekly-table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th data-i18n="vis.name">Nombre</th>
                     <th data-i18n="vis.invitedBy">Invitó</th>
-                    <th data-i18n="att.reach">Alcance</th>
-                    <th data-i18n="stage.service">Culto</th>
+                    <th class="col-alcance" data-i18n="att.reach">Alcance</th>
+                    <th class="col-culto" data-i18n="stage.service">Culto</th>
                     <th data-i18n="vis.firstTime">Primera vez</th>
                     <th data-i18n="vis.conversion">Conversión</th>
                     <th id="visitor-event-col-header" hidden data-i18n="att.event">Evento</th>
@@ -506,10 +495,6 @@
                 <label class="metric-field">
                   <span data-i18n="reach.offering">Ofrenda ($)</span>
                   <input name="reachOffering" type="number" min="0" step="0.01" value="0">
-                </label>
-                <label class="metric-field">
-                  <span data-i18n="reach.totalOffering">Total de ofrendas ($)</span>
-                  <input name="multiplyTotalOfferings" type="number" min="0" step="0.01" value="0">
                 </label>
               </div>
             </div>
@@ -1354,6 +1339,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260512-022"></script>
+  <script type="module" src="./app.js?v=20260514-024"></script>
 </body>
 </html>

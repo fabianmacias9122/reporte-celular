@@ -479,15 +479,27 @@ body[data-active-stage="culto"] table:has(#attendance-table-body) thead th:nth-c
 body[data-active-stage="culto"] table:has(#attendance-table-body) thead th:nth-child(4),
 body[data-active-stage="culto"] table:has(#attendance-table-body) thead th:nth-child(5) { display: none; }
 
-/* ── Visitas: Alcance(3) visible en alcance, Culto(4) visible en culto ── */
-/* Visitas cols: 1=Nombre 2=Invitó 3=Alcance 4=Culto 5=Primera vez 6=Conversión ... */
-body[data-active-stage="alcance"] #visitor-table-body tr td:nth-child(4),
-body[data-active-stage="alcance"] table:has(#visitor-table-body) thead th:nth-child(4) { display: none; }
-body[data-active-stage="culto"] #visitor-table-body tr td:nth-child(3),
-body[data-active-stage="culto"] table:has(#visitor-table-body) thead th:nth-child(3) { display: none; }
+/* ── Visitas: ocultar columna que no aplica al stage activo ── */
+body[data-active-stage="alcance"] #visitor-table-body tr td[data-label="Culto"],
+body[data-active-stage="alcance"] table:has(#visitor-table-body) thead th.col-culto { display: none; }
+body[data-active-stage="culto"] #visitor-table-body tr td[data-label="Alcance"],
+body[data-active-stage="culto"] table:has(#visitor-table-body) thead th.col-alcance { display: none; }
+/* Ocultar pill del resumen del stage opuesto */
+body[data-active-stage="alcance"] #visitor-table-body .vsum-flag[data-flag="sunday"] { display: none; }
+body[data-active-stage="culto"] #visitor-table-body .vsum-flag[data-flag="reach"] { display: none; }
 /* Ocultar check sobrante en formulario rápido */
 body[data-active-stage="alcance"] label:has(#visitor-quick-sunday) { display: none !important; }
 body[data-active-stage="culto"]   label:has(#visitor-quick-reach)  { display: none !important; }
+
+/* Resaltado breve de la fila recién agregada en la tabla de visitas */
+@keyframes visitor-just-added-flash {
+  0%   { background-color: rgba(34, 197, 94, 0.35); }
+  100% { background-color: transparent; }
+}
+#visitor-table-body tr.is-just-added,
+#visitor-table-body tr.is-just-added td {
+  animation: visitor-just-added-flash 1.6s ease-out;
+}
 
 /* ── Niños: Alcance(4) visible en alcance, Culto(5) visible en culto ── */
 /* Niños cols: 1=Niño 2=Responsable 3=Origen 4=Alcance 5=Culto 6=Obs 7=Acciones */
@@ -728,10 +740,14 @@ body[data-active-stage="encabezado"] .inicio-team-card {
 }
 
 /* VISITOR QUICK FORM */
-.visitor-quick-form { display: grid; grid-template-columns: minmax(180px, 1.1fr) minmax(200px, 1.4fr) minmax(170px, 1fr) repeat(3, minmax(96px, 0.6fr)) auto; gap: 12px; align-items: end; margin-bottom: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); }
-.quick-toggle-field { align-self: stretch; }
-.quick-toggle-field input[type="checkbox"] { width: 20px; height: 20px; justify-self: start; }
-.visitor-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.visitor-quick-form { display: grid; grid-template-columns: minmax(180px, 1.1fr) minmax(200px, 1.4fr) minmax(170px, 1fr) minmax(170px, 1fr) auto; gap: 12px; align-items: end; margin-bottom: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); }
+.visitor-quick-toggles { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.quick-toggle-field { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 0.85rem; cursor: pointer; user-select: none; transition: background 0.15s, border-color 0.15s; }
+.quick-toggle-field:has(input:checked) { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.55); color: #166534; }
+.quick-toggle-field input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
+.quick-toggle-field span { font-weight: 500; }
+.visitor-quick-actions { display: flex; gap: 8px; flex-wrap: wrap; grid-column: 1 / -1; }
+.visitor-quick-actions > button { flex: 1 1 200px; }
 #visitor-quick-history { color: var(--text); }
 #visitor-quick-history:invalid { color: var(--muted); }
 .helper-action-button { flex: 0 1 auto; }
@@ -1485,8 +1501,9 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   #admin-summary-cards .summary-value { font-size: 1.4rem; }
   #admin-summary-cards .summary-label, #admin-summary-cards .summary-hint { font-size: 0.65rem; }
   .form-actions, .compact-actions, .member-form, .helper-actions { flex-direction: column; }
-  .visitor-quick-form { grid-template-columns: 1fr; }
-  .visitor-quick-actions { flex-direction: column; }
+  .visitor-quick-form { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+  .visitor-quick-form > label:first-child { grid-column: 1 / -1; }
+  .visitor-quick-form > label:nth-child(2) { grid-column: 1 / -1; }
   .catalog-card { padding: 8px; gap: 8px; }
   .catalog-card-head { padding-bottom: 8px; }
   .catalog-card-head { flex-wrap: wrap; gap: 8px; }
@@ -1591,6 +1608,141 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   #attendance-table-body input[name*="bservation"],
   #visitor-table-body input[name*="bservation"],
   #kids-table-body input[name*="bservation"] { min-height: 32px; }
+
+  /* ──── Tarjeta compacta de visitas (móvil) ──────────────────────────────
+     Reorganiza el <tr> en grid: nombre arriba, chips inline,
+     teléfono+observación en 2 columnas, acciones a la derecha. */
+  #visitor-table-body tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 8px;
+    row-gap: 6px;
+    padding: 10px 12px;
+  }
+  /* Nombre ocupa ambas columnas */
+  #visitor-table-body td[data-label="Nombre"] { grid-column: 1 / -1; }
+  #visitor-table-body td[data-label="Nombre"]::before { display: none; }
+  #visitor-table-body .visitor-name-cell { gap: 4px; }
+  #visitor-table-body .visitor-kind-chip { display: none; } /* el select ya muestra el tipo */
+
+  /* Invitó: media fila, sin label estorboso */
+  #visitor-table-body td[data-label="Invitó"] { grid-column: 1 / -1; }
+  #visitor-table-body td[data-label="Invitó"]::before { content: "Invitó"; font-size: 0.6rem; margin-bottom: 1px; }
+
+  /* Checkboxes como chips horizontales en una sola franja */
+  #visitor-table-body td.checkbox-cell {
+    grid-column: span 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel-soft);
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  #visitor-table-body td.checkbox-cell:has(input:checked) {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.55);
+    color: #166534;
+  }
+  #visitor-table-body td.checkbox-cell::before {
+    content: attr(data-label);
+    font-size: 0.78rem;
+    text-transform: none;
+    letter-spacing: 0;
+    color: inherit;
+    font-weight: 500;
+    margin: 0;
+    order: 2;
+  }
+  #visitor-table-body td.checkbox-cell input[type="checkbox"] {
+    width: 16px; height: 16px; margin: 0;
+    order: 1;
+  }
+
+  /* Teléfono y Observación: 2 columnas, label pequeño */
+  #visitor-table-body td[data-label="Teléfono"],
+  #visitor-table-body td[data-label="Observación"] {
+    grid-column: span 1;
+  }
+  #visitor-table-body td[data-label="Teléfono"]::before,
+  #visitor-table-body td[data-label="Observación"]::before {
+    font-size: 0.6rem;
+    margin-bottom: 1px;
+  }
+
+  /* Acciones: ocupar ambas columnas, sin label, botón pequeño */
+  #visitor-table-body td[data-label="Acciones"] {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+  }
+  #visitor-table-body td[data-label="Acciones"]::before { display: none; }
+  #visitor-table-body .visitor-actions-cell {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+  }
+  #visitor-table-body .visitor-actions-cell button {
+    width: auto;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+  }
+  #visitor-table-body .visitor-promote-toggle { font-size: 0.72rem; }
+
+  /* ── Tarjeta colapsable ── */
+  #visitor-table-body .visitor-summary-cell {
+    grid-column: 1 / -1;
+    padding: 0;
+  }
+  #visitor-table-body .visitor-summary-cell::before { display: none; }
+  #visitor-table-body .visitor-summary-toggle {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    background: transparent;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  #visitor-table-body .vsum-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  #visitor-table-body .vsum-name { font-weight: 600; font-size: 0.95rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #visitor-table-body .vsum-meta { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #visitor-table-body .vsum-flags { display: flex; flex-wrap: wrap; gap: 3px; justify-content: flex-end; max-width: 50%; }
+  #visitor-table-body .vsum-flag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: rgba(34, 197, 94, 0.18);
+    color: #166534;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+  }
+  #visitor-table-body .vsum-flag.is-empty {
+    background: transparent;
+    color: var(--muted);
+    border-color: var(--line);
+    font-weight: 500;
+  }
+  #visitor-table-body .vsum-chevron { transition: transform 0.18s ease; color: var(--muted); flex-shrink: 0; }
+  #visitor-table-body tr:not(.is-collapsed) .vsum-chevron { transform: rotate(180deg); }
+
+  /* Cuando está colapsada, ocultar todas las celdas excepto el resumen */
+  #visitor-table-body tr.is-collapsed > td:not(.visitor-summary-cell) { display: none; }
+  #visitor-table-body tr.is-collapsed { row-gap: 0; padding: 8px 12px; }
+}
+
+/* Desktop: el botón de resumen no aplica (la tabla se ve normal) */
+@media (min-width: 821px) {
+  #visitor-table-body .visitor-summary-cell { display: none; }
 }
 
 @media (max-width: 820px) {
@@ -2322,7 +2474,9 @@ th#member-event-col-header::before { content: "★ "; }
 
 
 body.force-mobile-preview .form-actions, body.force-mobile-preview .compact-actions, body.force-mobile-preview .member-form, body.force-mobile-preview .helper-actions { flex-direction: column; }
-body.force-mobile-preview .visitor-quick-form { grid-template-columns: 1fr; }
+body.force-mobile-preview .visitor-quick-form { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+body.force-mobile-preview .visitor-quick-form > label:first-child,
+body.force-mobile-preview .visitor-quick-form > label:nth-child(2) { grid-column: 1 / -1; }
 body.force-mobile-preview .visitor-quick-actions, body.force-mobile-preview .dashboard-period-controls { flex-direction: column; align-items: stretch; }
 body.force-mobile-preview .filter-tabs { width: 100%; }
 body.force-mobile-preview .catalog-card { padding: 13px; }

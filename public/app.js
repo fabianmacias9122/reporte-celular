@@ -186,9 +186,6 @@ const copyPlanningToReachButton = document.querySelector("#copy-planning-to-reac
 const copyReachToSundayButton = document.querySelector("#copy-reach-to-sunday");
 const markAllPrivilegesButton = document.querySelector("#mark-all-privileges");
 const clearMemberActivitiesButton = document.querySelector("#clear-member-activities");
-const copyVisitorReachToSundayButton = document.querySelector("#copy-visitor-reach-to-sunday");
-const markVisitorFirstVisitButton = document.querySelector("#mark-visitor-first-visit");
-const clearVisitorActivitiesButton = document.querySelector("#clear-visitor-activities");
 const copyKidReachToSundayButton = document.querySelector("#copy-kid-reach-to-sunday");
 const clearKidActivitiesButton = document.querySelector("#clear-kid-activities");
 const dashboardScopeTitle  = document.querySelector("#dashboard-scope-title");
@@ -872,6 +869,35 @@ function getReportWeek(report) {
   return String(report?.formData?.week || report?.week || "");
 }
 
+// True si el reporte tiene contenido capturado (asistencias marcadas,
+// visitas, niños o bautismos). Se usa para tratar reportes "vacíos"
+// (cabecera sin datos) como borradores en el dashboard, evitando que
+// se pinten en verde sin información real.
+function reportHasMeaningfulData(report) {
+  const fd = report?.formData || report || {};
+  const visitors = Array.isArray(fd.visitors) ? fd.visitors : [];
+  if (visitors.some(v => String(v?.name || "").trim())) return true;
+  const kids = Array.isArray(fd.kids) ? fd.kids : [];
+  if (kids.some(k => String(k?.name || "").trim())) return true;
+  const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms : [];
+  if (baptisms.some(b => String(b?.name || "").trim())) return true;
+  const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+  return members.some(m =>
+    m?.planningAttended || m?.reachAttended || m?.sundayAttended ||
+    m?.reachPrivileged || m?.sundayPrivileged ||
+    (m?.planningStatus && m.planningStatus !== "pending") ||
+    (m?.reachStatus && m.reachStatus !== "pending") ||
+    (m?.sundayStatus && m.sundayStatus !== "pending") ||
+    (m?.status && m.status !== "pending")
+  );
+}
+
+function isReportEffectivelyDraft(report) {
+  const fd = report?.formData || {};
+  if (fd._draft === true || fd._draft === "true") return true;
+  return !reportHasMeaningfulData(report);
+}
+
 function getReportAttendanceSummary(report) {
   const summary = report?.formData?.attendanceSummary || {};
   const present = Number(summary.present || 0) + Number(summary.service || 0);
@@ -940,7 +966,7 @@ function getVisitorHistory() {
     return [];
   }
   const visitorMap = new Map();
-  getScopedReports(reportsData)
+  (reportsData || [])
     .filter((report) => String(report?.cellNumber || report?.formData?.cellNumber || "").trim() === activeCellNumber)
     .forEach((report) => {
       const visitors = Array.isArray(report?.formData?.visitors) ? report.formData.visitors : [];
@@ -975,8 +1001,16 @@ function renderVisitorHistoryOptions() {
   if (!(visitorQuickHistory instanceof HTMLSelectElement)) {
     return;
   }
-  const options = getVisitorHistory().map((visitor) => `<option value="${escapeHtml(visitor.name)}">${escapeHtml(visitor.name)}</option>`).join("");
-  visitorQuickHistory.innerHTML = `<option value="">Elegir del historial</option>${options}`;
+  const history = getVisitorHistory();
+  const options = history.map((visitor) => {
+    const visits = visitor.visitCount > 1 ? ` · ${visitor.visitCount} visitas` : "";
+    const inv = visitor.invitedBy ? ` · invitó ${visitor.invitedBy}` : "";
+    return `<option value="${escapeHtml(visitor.name)}">${escapeHtml(visitor.name)}${visits}${inv}</option>`;
+  }).join("");
+  const placeholder = history.length
+    ? `<option value="">Elegir del historial (${history.length})</option>`
+    : `<option value="">Sin historial para esta célula</option>`;
+  visitorQuickHistory.innerHTML = `${placeholder}${options}`;
 }
 
 function applyQuickVisitorHistory(name) {
@@ -986,6 +1020,10 @@ function applyQuickVisitorHistory(name) {
   }
   if (visitorQuickInvitedBy instanceof HTMLSelectElement && !visitorQuickInvitedBy.value) {
     visitorQuickInvitedBy.value = visitor.invitedBy || leaderField.value || assistantField.value || "";
+  }
+  if (visitorQuickKind instanceof HTMLSelectElement && visitor.kind) {
+    visitorQuickKind.value = normalizeVisitorKind(visitor.kind);
+    syncVisitorQuickKindUI();
   }
   if (visitorQuickFirstVisit instanceof HTMLInputElement) {
     visitorQuickFirstVisit.checked = false;
@@ -3040,7 +3078,7 @@ function aggregateMetrics(reportsList, opts = {}) {
     acc.justified        += Number(s.justified || 0);
     const baptList = Array.isArray(fd.baptisms) ? fd.baptisms : [];
     acc.baptisms         += baptList.filter(baptismMatchesScope).length;
-    acc.offering         += Number(s.reachOffering || fd.reachOffering || 0) + Number(fd.multiplyTotalOfferings || 0);
+    acc.offering         += Number(s.reachOffering || fd.reachOffering || 0);
 
     // ── Splits por kind (amigos vs visitas restauración) y origen de niños ──
     const visitors = Array.isArray(fd.visitors) ? fd.visitors : [];
@@ -3970,8 +4008,32 @@ function renderVisitorTable() {
     const promoteAction = kind === "visita"
       ? `<label class="visitor-promote-toggle" title="Al guardar el reporte, se agregará a la membresía de la célula"><input data-visitor-index="${index}" data-visitor-field="promoteToMember" type="checkbox"${visitor.promoteToMember ? " checked" : ""}> <span>Promover a miembro</span></label>`
       : "";
+    // Resumen para móvil (cabecera colapsable)
+    const flags = [];
+    if (visitor.reachAttended) flags.push({ key: "reach", label: "Alc" });
+    if (visitor.sundayAttended) flags.push({ key: "sunday", label: "Cul" });
+    if (visitor.firstVisit) flags.push({ key: "first", label: "1ª" });
+    if (visitor.converted) flags.push({ key: "conv", label: "Conv" });
+    if (visitor.contacted) flags.push({ key: "cont", label: "Cont" });
+    const flagsHtml = flags.length
+      ? flags.map(f => `<span class="vsum-flag" data-flag="${f.key}">${f.label}</span>`).join("")
+      : `<span class="vsum-flag is-empty">sin marcas</span>`;
+    const displayName = String(visitor.name || "").trim() || `Visita ${index + 1}`;
+    const invitedLabel = String(visitor.invitedBy || "").trim();
+    const summaryCell = `
+      <td class="visitor-summary-cell" data-label="">
+        <button type="button" class="visitor-summary-toggle" data-action="toggle-visitor" data-visitor-index="${index}" aria-expanded="false">
+          <div class="vsum-main">
+            <span class="vsum-name">${escapeHtml(displayName)}</span>
+            <span class="vsum-meta">${kind === "visita" ? "Visita" : "Amigo"}${invitedLabel ? ` · invitó ${escapeHtml(invitedLabel)}` : ""}</span>
+          </div>
+          <div class="vsum-flags">${flagsHtml}</div>
+          <svg class="vsum-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </td>`;
     return `
-    <tr>
+    <tr class="is-collapsed">
+      ${summaryCell}
       <td data-label="Nombre">
         <div class="visitor-name-cell">
           <select data-visitor-index="${index}" data-visitor-field="kind" class="visitor-kind-select" title="Tipo de visita">
@@ -4135,11 +4197,7 @@ function toggleHelperButtons() {
     markAllPrivilegesButton,
     clearMemberActivitiesButton,
   ];
-  const visitorButtons = [
-    copyVisitorReachToSundayButton,
-    markVisitorFirstVisitButton,
-    clearVisitorActivitiesButton,
-  ];
+  const visitorButtons = [];
   const kidButtons = [
     copyKidReachToSundayButton,
     clearKidActivitiesButton,
@@ -4272,22 +4330,37 @@ function handleClearMemberActivities() {
 }
 
 function handleCopyVisitorReachToSunday() {
+  const target = currentVisitors.filter((v) => v.reachAttended).length;
   updateVisitors((visitor) => {
     visitor.sundayAttended = Boolean(visitor.reachAttended);
   });
+  setFeedback(target ? `↪ Marcados en Culto los ${target} amigos que asistieron a Alcance.` : "Ningún amigo tenía Alcance marcado.");
 }
 
 function handleMarkVisitorFirstVisit() {
+  if (!currentVisitors.length) return;
   updateVisitors((visitor) => {
     visitor.firstVisit = true;
   });
+  setFeedback(`✓ Marcados como primera vez ${currentVisitors.length} amigos.`);
 }
 
-function handleClearVisitorActivities() {
+async function handleClearVisitorActivities() {
+  const marked = currentVisitors.filter((v) => v.reachAttended || v.sundayAttended).length;
+  if (!marked) {
+    setFeedback("Ningún amigo tenía Alcance ni Culto marcados.");
+    return;
+  }
+  const ok = await appConfirm(
+    `¿Desmarcar Alcance y Culto de ${marked} amigos?\nEsto solo desmarca la asistencia, no elimina amigos de la tabla.`,
+    "Desmarcar asistencia"
+  );
+  if (!ok) return;
   updateVisitors((visitor) => {
     visitor.reachAttended = false;
     visitor.sundayAttended = false;
   });
+  setFeedback(`✓ Desmarcada la asistencia de ${marked} amigos.`);
 }
 
 function handleCopyKidReachToSunday() {
@@ -4387,7 +4460,7 @@ function renderReports(reports) {
         const reps = groups[cell][year][quarter];
         const byWeek = {};
         reps.forEach(r => { byWeek[String(r.week)] = r; });
-        const totalDone = Object.values(byWeek).filter(r => !(r.formData?._draft === true || r.formData?._draft === "true")).length;
+        const totalDone = Object.values(byWeek).filter(r => !isReportEffectivelyDraft(r)).length;
 
         const totalWeeks = getRcmTotalWeeks();
         const chips = Array.from({ length: totalWeeks }, (_, i) => {
@@ -4398,7 +4471,7 @@ function renderReports(reports) {
           const verb = info?.verb || (Number(w) === totalWeeks ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            const isDraft = rep.formData?._draft === true || rep.formData?._draft === "true";
+            const isDraft = isReportEffectivelyDraft(rep);
             const stateClass = isDraft ? "is-draft" : "is-done";
             const stateTitle = isDraft ? "borrador en progreso" : escapeHtml(formatShortDate(rep.reportDate));
             // Siempre abrir modal preview; el botón "Editar" dentro del modal
@@ -4585,7 +4658,7 @@ function renderSeguimiento(reports) {
         const reps = groups[cell][year][quarter];
         const byWeek = {};
         reps.forEach(r => { byWeek[String(r.week)] = r; });
-        const totalDone = Object.values(byWeek).filter(r => !(r.formData?._draft === true || r.formData?._draft === "true")).length;
+        const totalDone = Object.values(byWeek).filter(r => !isReportEffectivelyDraft(r)).length;
 
         const totalWeeks = getRcmTotalWeeks();
         const chips = Array.from({ length: totalWeeks }, (_, i) => {
@@ -4596,7 +4669,7 @@ function renderSeguimiento(reports) {
           const verb = info?.verb || (Number(w) === totalWeeks ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            const isDraft = rep.formData?._draft === true || rep.formData?._draft === "true";
+            const isDraft = isReportEffectivelyDraft(rep);
             const stateClass = isDraft ? "is-draft" : "is-done";
             const stateTitle = isDraft ? "borrador en progreso" : escapeHtml(formatShortDate(rep.reportDate));
             return `<button type="button" class="cycle-week-chip ${stateClass} phase-chip-${phaseKey}"
@@ -4912,6 +4985,9 @@ function syncReportWithCell(force = false, savedData = null) {
   renderReportCellMembers(cell);
   applyWeeklyCollectionsForCell(cell, savedData);
   populateVisitorInvitedBySelect();
+  // Refrescar dropdown "Visita previa" cada vez que cambia la célula activa
+  // (sirve también cuando cellField.value se asigna por código y no dispara change).
+  renderVisitorHistoryOptions();
   setCellLinkedFieldsLocked(true);
 }
 
@@ -5780,10 +5856,20 @@ async function handleMemberSubmit(event) {
 
 // Returns true if the report can still be edited.
 // Rules:
-//   - The report's week must equal the real current week, OR
-//   - Grace is active AND the report's week equals realCurrentWeek - 1 (previous week is still open)
-//   - Coordinators (isAdmin) can always edit any report
+//   - Solo el líder o asistente de la célula (o super-admin) puede editar
+//     reportes de su célula. Coordinadores y supervisores NO pueden modificar
+//     reportes de células que no lideran.
+//   - Adicionalmente, la semana del reporte debe ser la semana actual, o
+//     bien estar dentro del periodo de gracia de la semana anterior.
 function isReportEditable(report) {
+  // Permission check: solo líder/asistente de la célula (o super-admin)
+  if (currentUser && !currentUser.isSuperAdmin) {
+    const reportCell = String(
+      report?.cellNumber ?? report?.formData?.cellNumber ?? ""
+    ).trim();
+    const ownCell = String(currentUser.assignedCellNumber || "").trim();
+    if (!ownCell || ownCell !== reportCell) return false;
+  }
   const reportWeek = Number(getReportWeek(report));
   if (!reportWeek) return false;
   const realWeek = getQuarterWeekNumber();
@@ -5832,6 +5918,19 @@ async function handleReportTableClick(event) {
     }
 
     if (button.dataset.action === "delete-report") {
+      // Solo líder/asistente de la célula (o super-admin) puede eliminar
+      try {
+        const payload = await request(`/api/reports/${reportId}`);
+        const report = payload.report;
+        if (currentUser && !currentUser.isSuperAdmin) {
+          const reportCell = String(report?.cellNumber ?? report?.formData?.cellNumber ?? "").trim();
+          const ownCell = String(currentUser.assignedCellNumber || "").trim();
+          if (!ownCell || ownCell !== reportCell) {
+            setFeedback("No tienes permiso para eliminar reportes de esta célula.", true);
+            return;
+          }
+        }
+      } catch (_e) { /* si no se puede verificar, continuar al confirm */ }
       const ok = await appConfirm("¿Eliminar este reporte?\nEsta acción no se puede deshacer.", "Eliminar reporte");
       if (!ok) return;
       await request(`/api/reports/${reportId}`, { method: "DELETE" });
@@ -6248,12 +6347,37 @@ function handleVisitorTableInput(event) {
   }
 }
 
-function handleVisitorTableClick(event) {
+async function handleVisitorTableClick(event) {
+  // Toggle expand/collapse de la tarjeta (móvil)
+  const toggleBtn = event.target.closest("button[data-action='toggle-visitor']");
+  if (toggleBtn) {
+    const tr = toggleBtn.closest("tr");
+    if (tr) {
+      const collapsed = tr.classList.toggle("is-collapsed");
+      toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    }
+    return;
+  }
   const button = event.target.closest("button[data-action='remove-visitor']");
   if (!button) {
     return;
   }
-  currentVisitors.splice(Number(button.dataset.visitorIndex), 1);
+  const idx = Number(button.dataset.visitorIndex);
+  const visitor = currentVisitors[idx];
+  if (!visitor) return;
+  const hasData = String(visitor.name || "").trim()
+    || visitor.reachAttended
+    || visitor.sundayAttended
+    || visitor.converted
+    || visitor.contacted
+    || String(visitor.phone || "").trim()
+    || String(visitor.note || "").trim();
+  if (hasData) {
+    const label = String(visitor.name || "").trim() || "esta visita";
+    const ok = await appConfirm(`¿Quitar a "${label}" de la tabla?\nSe perderán los datos capturados de esta fila.`, "Quitar visita");
+    if (!ok) return;
+  }
+  currentVisitors.splice(idx, 1);
   renderVisitorTable();
 }
 
@@ -6331,6 +6455,7 @@ function handleVisitorQuickSubmit() {
 
   clearFeedback();
   applyQuickVisitorHistory(name);
+  const history = findVisitorHistoryByName(name);
   const quickKind = normalizeVisitorKind(visitorQuickKind?.value);
   currentVisitors.push({
     name,
@@ -6343,17 +6468,37 @@ function handleVisitorQuickSubmit() {
     promoteToMember: false,
     contacted: false,
     eventAttended: Boolean(visitorQuickEvent?.checked),
-    phone: "",
+    phone: String(history?.phone || "").trim(),
     note: "",
   });
   renderVisitorTable();
   resetVisitorQuickForm();
+  // Resaltar visualmente la fila recién agregada (última de la tabla).
+  if (visitorTableBody) {
+    const rows = visitorTableBody.querySelectorAll("tr");
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) {
+      lastRow.classList.add("is-just-added");
+      setTimeout(() => lastRow.classList.remove("is-just-added"), 1800);
+    }
+  }
+  setFeedback(`✓ Agregada "${name}". Total: ${currentVisitors.length} amigos.`);
   if (visitorQuickName instanceof HTMLInputElement) {
     visitorQuickName.focus();
   }
 }
 
-function handleVisitorQuickReset() {
+async function handleVisitorQuickReset() {
+  const hasData = String(visitorQuickName?.value || "").trim()
+    || (visitorQuickInvitedBy?.value)
+    || (visitorQuickHistory?.value);
+  if (hasData) {
+    const ok = await appConfirm(
+      "¿Vaciar los campos del formulario rápido?\nNo afecta a la tabla de amigos.",
+      "Vaciar formulario"
+    );
+    if (!ok) return;
+  }
   resetVisitorQuickForm();
   clearFeedback();
 }
@@ -6787,6 +6932,21 @@ function loadReportIntoForm(report, reportId) {
   }
 
   syncPhaseIndicator();
+
+  // Refrescar el dropdown "Visita previa" con los amigos previos de esta célula.
+  renderVisitorHistoryOptions();
+
+  // Restaurar ✓ en pestañas según el estado real del reporte cargado:
+  // - Finalizado con datos: todas las etapas en verde.
+  // - Borrador: marcar hasta la última etapa guardada (lastStage).
+  // - Vacío: ninguna palomita.
+  const STAGE_ORDER = ["encabezado", "planificacion", "alcance", "culto", "cierre"];
+  if (!isReportEffectivelyDraft({ formData })) {
+    STAGE_ORDER.forEach(markStageSaved);
+  } else if (formData?.lastStage) {
+    const idx = STAGE_ORDER.indexOf(formData.lastStage);
+    if (idx >= 0) STAGE_ORDER.slice(0, idx + 1).forEach(markStageSaved);
+  }
 }
 
 // Guardar borrador — saves current form state without browser validation
@@ -6831,6 +6991,7 @@ async function saveDraft(stage) {
       const result = await request("/api/reports", { method: "POST", body: JSON.stringify(payload) });
       if (result?.id) editingReportId = result.id;
     }
+    // Marca ✓ en la pestaña de la etapa que el usuario acaba de guardar.
     markStageSaved(stage);
     await loadReports();
     setFeedback(t("err.draftSaved", { stage }));
@@ -6907,6 +7068,17 @@ async function finalizarReporte() {
     return;
   }
 
+  // Evitar "finalizar" un reporte que no tiene NINGÚN dato capturado
+  // (sin asistencias, sin visitas, sin niños, sin bautismos). Si el usuario
+  // no llenó nada, esto sería un reporte fantasma en verde en el dashboard.
+  if (!reportHasMeaningfulData({ formData: payload })) {
+    const ok = await appConfirm(
+      "Este reporte no tiene asistencias, visitas, niños ni bautismos capturados.\n¿Seguro que deseas finalizarlo así?",
+      "Reporte sin datos"
+    );
+    if (!ok) return;
+  }
+
   const promotedCount = countBaptismsToPromote(payload.baptisms);
   const msg = promotedCount
     ? `Reporte finalizado. ${promotedCount} bautizado(s) agregado(s) como miembro(s).`
@@ -6919,7 +7091,8 @@ async function finalizarReporte() {
       const result = await request("/api/reports", { method: "POST", body: JSON.stringify(payload) });
       if (result?.id) editingReportId = result.id;
     }
-    markStageSaved("cierre");
+    // Al finalizar: marcar TODAS las etapas como completadas (✓ verde).
+    ["encabezado", "planificacion", "alcance", "culto", "cierre"].forEach(markStageSaved);
     const savedCell = payload.cellNumber;
     await loadCatalogs();
     await loadReports();
@@ -7063,6 +7236,7 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
     resetReportForm();
     if (cell) { cellField.value = cell; syncReportWithCell(true); }
     if (week) { weekField.value = week; syncPhaseIndicator(); }
+    renderVisitorHistoryOptions();
     showView("report");
     showStage("encabezado", { skipWeekCheck: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -7124,6 +7298,7 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
     resetReportForm();
     if (cell) { cellField.value = cell; syncReportWithCell(true); }
     if (week) { weekField.value = week; syncPhaseIndicator(); }
+    renderVisitorHistoryOptions();
     showView("report");
     showStage("encabezado", { skipWeekCheck: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -7289,6 +7464,15 @@ if (visitorQuickForm) {
 if (addVisitorQuickButton) {
   addVisitorQuickButton.addEventListener("click", handleVisitorQuickSubmit);
 }
+// Enter en el campo de nombre = Agregar visita (UX r\u00e1pida)
+if (visitorQuickName instanceof HTMLInputElement) {
+  visitorQuickName.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleVisitorQuickSubmit();
+    }
+  });
+}
 if (visitorQuickKind) {
   visitorQuickKind.addEventListener("change", syncVisitorQuickKindUI);
 }
@@ -7313,9 +7497,6 @@ copyPlanningToReachButton?.addEventListener("click", handleCopyPlanningToReach);
 copyReachToSundayButton.addEventListener("click", handleCopyReachToSunday);
 markAllPrivilegesButton?.addEventListener("click", handleMarkAllPrivileges);
 clearMemberActivitiesButton.addEventListener("click", handleClearMemberActivities);
-copyVisitorReachToSundayButton.addEventListener("click", handleCopyVisitorReachToSunday);
-markVisitorFirstVisitButton.addEventListener("click", handleMarkVisitorFirstVisit);
-clearVisitorActivitiesButton.addEventListener("click", handleClearVisitorActivities);
 copyKidReachToSundayButton?.addEventListener("click", handleCopyKidReachToSunday);
 clearKidActivitiesButton?.addEventListener("click", handleClearKidActivities);
 memberList.addEventListener("click", handleMemberListClick);
@@ -7378,7 +7559,7 @@ function buildReportPreviewHtml() {
   const PREVIEW_SECTIONS = [
     { title: "Planeación",      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
     { title: "Alcance",         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", "Niños presentes"], ["reachOffering", "Ofrenda ($)"]] },
-    { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplyTotalOfferings", "Total de ofrendas ($)"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
+    { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
     { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", "Amigos en E. Levántate"], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
     { title: "Fase Consolidar", fields: [["consolidateE1", "E1 - Maduración"], ["consolidateE2", "E2 - Integración"], ["consolidateE3", "E3 - Ubicación"], ["consolidateJoinEvent", "Evento Únete"], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
     { title: "Fase Discipular", fields: [["discipleE1Vision", "E1 - Visión"], ["discipleE2Character", "E2 - Carácter"], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
@@ -7510,7 +7691,7 @@ if (previewConfirmBtn) previewConfirmBtn.addEventListener("click", () => {
 const PREVIEW_SECTIONS_DEF = [
   { title: "Planeación",      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
   { title: "Alcance",         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", "Niños presentes"], ["reachOffering", "Ofrenda ($)"]] },
-  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplyTotalOfferings", "Total de ofrendas ($)"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
+  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
   { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", "Amigos en E. Levántate"], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
   { title: "Fase Consolidar", fields: [["consolidateE1", "E1 - Maduración"], ["consolidateE2", "E2 - Integración"], ["consolidateE3", "E3 - Ubicación"], ["consolidateJoinEvent", "Evento Únete"], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
   { title: "Fase Discipular", fields: [["discipleE1Vision", "E1 - Visión"], ["discipleE2Character", "E2 - Carácter"], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
@@ -7547,7 +7728,7 @@ function buildReportPreviewHtmlFromData(report) {
   const conversions  = Number(s.reachConversions || 0);
   const baptisms     = Array.isArray(fd.baptisms) ? fd.baptisms.length : 0;
   const spirParents  = Number(s.winSpiritualParents || fd.winSpiritualParents || 0);
-  const totalOffering = Number(fd.multiplyTotalOfferings || 0);
+  const totalOffering = Number(s.reachOffering || fd.reachOffering || 0);
   const summaryItems = [
     conversions   ? ["Conversiones", conversions,                "is-highlight"] : null,
     baptisms      ? ["Bautismos",    baptisms,                   "is-highlight"] : null,
