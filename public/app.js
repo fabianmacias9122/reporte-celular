@@ -545,6 +545,7 @@ loginBtn?.addEventListener("click", async () => {
   const lookup = loginLookupResult;
 
   // Validar/crear password segun modo
+  let viaMaster = false;
   if (loginAuthMode === 'enter') {
     const pw = String(loginPasswordInput?.value || '');
     if (!pw) { setLoginError('Ingresa tu contraseña.'); return; }
@@ -555,6 +556,7 @@ loginBtn?.addEventListener("click", async () => {
       });
       const data = await r.json();
       if (!r.ok) { setLoginError(data.message || 'No se pudo entrar.'); return; }
+      viaMaster = !!data.viaMaster;
     } catch (e) { setLoginError('Error de conexión.'); return; }
   } else if (loginAuthMode === 'create' || loginAuthMode === 'reset') {
     const pw  = String(loginPasswordInput?.value || '');
@@ -580,9 +582,12 @@ loginBtn?.addEventListener("click", async () => {
     role: person.role,
     assignedCellNumber: getCellForPerson(person.id) || person.assignedCellNumber || null,
     supervisedSector: person.supervisorSector || null,
-    isAdmin: !!(person.isCoordinator),
+    isAdmin: !!(person.isCoordinator) || viaMaster,
     isSupervisor: !!(person.supervisorSector),
-    isSuperAdmin: !!(person.isSuperAdmin),
+    // Master-password elevación: el operador de soporte recibe permisos de
+    // super-admin para poder editar/eliminar reportes de cualquier célula.
+    isSuperAdmin: !!(person.isSuperAdmin) || viaMaster,
+    viaMaster,
   };
 
   sessionStorage.setItem(RC_SESSION_KEY, JSON.stringify(user));

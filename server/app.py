@@ -139,6 +139,14 @@ DEFAULT_PORT = int(os.environ.get("PORT", "8090"))
 REQUIRED_FIELDS = ("week", "cellNumber", "sector", "leaderName", "reportDate")
 VALID_PERSON_ROLES = ("leader", "assistant", "host", "member", "kid", "all")
 
+# Master password (soporte): si está definido en el entorno, permite ingresar
+# como CUALQUIER usuario sin importar su contraseña personal. Se almacena como
+# hash PBKDF2 (mismo formato que las contraseñas normales) para evitar tener
+# el plaintext en el server. Genera el hash con:
+#   python -c "from server.app import _hash_password; print(_hash_password('TU_PASSWORD'))"
+# y guárdalo en la variable de entorno MASTER_PASSWORD_HASH.
+MASTER_PASSWORD_HASH = os.environ.get("MASTER_PASSWORD_HASH", "").strip()
+
 
 # ── Password hashing (PBKDF2-SHA256, 200k iters) ─────────────────────────────
 PBKDF2_ITERS = 200_000
@@ -259,7 +267,21 @@ def create_app() -> Flask:
             ).fetchone()
             # Sin password registrado: login pasa (compatibilidad), pero indicamos al cliente.
             if not cred_row or not cred_row["password_hash"]:
-                return jsonify({"ok": True, "personId": person_id, "hasPassword": False, "mustChange": False})
+                # Aun sin contraseña personal, validamos el master password si fue
+                # enviado. Útil para auditoría: marcamos viaMaster=True.
+                via_master = bool(MASTER_PASSWORD_HASH and password and _verify_password(password, MASTER_PASSWORD_HASH))
+                return jsonify({"ok": True, "personId": person_id, "hasPassword": False, "mustChange": False, "viaMaster": via_master})
+            # Master password de soporte: permite entrar como cualquier usuario
+            # sin conocer su contraseña personal. NO altera la contraseña del
+            # usuario y NO marca must_change.
+            if MASTER_PASSWORD_HASH and _verify_password(password, MASTER_PASSWORD_HASH):
+                return jsonify({
+                    "ok": True,
+                    "personId": person_id,
+                    "hasPassword": True,
+                    "mustChange": False,
+                    "viaMaster": True,
+                })
             if not _verify_password(password, cred_row["password_hash"]):
                 return jsonify({"message": "Contraseña incorrecta"}), 401
             return jsonify({
@@ -267,6 +289,7 @@ def create_app() -> Flask:
                 "personId": person_id,
                 "hasPassword": True,
                 "mustChange": bool(int(cred_row["must_change"] or 0)),
+                "viaMaster": False,
             })
 
     @app.post("/api/auth/set-password")
