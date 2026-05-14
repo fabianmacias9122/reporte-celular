@@ -1185,7 +1185,7 @@ function renderDashboardPeriodOptions(reports) {
   const desiredKey = activeDashboardPeriod || currentKey;
   activeDashboardPeriod = periods.some(p => p.key === desiredKey) ? desiredKey : periods[0]?.key || "";
   dashboardPeriodSelect.innerHTML = periods.map(p =>
-    `<option value="${escapeHtml(p.key)}">${escapeHtml(`Sem. ${p.week} · C${p.quarter} ${p.year}`)}</option>`
+    `<option value="${escapeHtml(p.key)}">${escapeHtml(t('opt.weekOption', { w: p.week, q: p.quarter, y: p.year }))}</option>`
   ).join("");
   dashboardPeriodSelect.value = activeDashboardPeriod;
 }
@@ -2304,7 +2304,7 @@ function renderSegTotalsPanel(weeklyReps) {
     const sectionLabel = (txt) => `<div class="tot-section-label">${txt}</div>`;
 
     const planningTotal   = agg.planningPresent + agg.planningAbsent;
-    const planningMissTxt = agg.planningAbsent ? `${agg.planningAbsent} no fue${agg.planningAbsent!==1?'ron':''} a planeación` : '';
+    const planningMissTxt = agg.planningAbsent ? t('dash.planningMissN', { n: agg.planningAbsent }) : '';
     const reachMissParts = [];
     if (agg.reachPrivileged) reachMissParts.push(`<span title="Hermanos con privilegios asignados durante el alcance (ofrenda, lectura, oración, etc.)">★ ${agg.reachPrivileged} con privilegio${agg.reachPrivileged!==1?'s':''}</span>`);
     if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} no fue${agg.reachAbsentMembers!==1?'ron':''} al alcance`);
@@ -2460,7 +2460,7 @@ function renderDashboardForLeader(reports) {
     const q = String(parsedQuarter || getCurrentQuarter());
     scopeReports   = allCellReports.filter(r => getReportYear(r) === selectedYear && String(getReportQuarter(r)) === q);
     scopeChipText  = `C${q} ${selectedYear}`;
-    scopeTitleText = `Cuatrimestre ${q === "1" ? "Ene–Abr" : q === "2" ? "May–Ago" : "Sep–Dic"} ${selectedYear}`;
+    scopeTitleText = t('qfull.title', { range: t(q === "1" ? 'qrange.q1' : q === "2" ? 'qrange.q2' : 'qrange.q3'), year: selectedYear });
   } else if (activeDashboardTimeScope === "year") {
     scopeReports   = allCellReports.filter(r => getReportYear(r) === selectedYear);
     scopeChipText  = t('common.yearN', { n: selectedYear });
@@ -2481,13 +2481,13 @@ function renderDashboardForLeader(reports) {
     dashboardSummaryGrid.innerHTML = [
       { label: t('dash.planningBrothers'), value: agg.planningPresent,    hint: t('dash.planningPresentHint') },
       { label: t('dash.planningAbsent'), value: agg.absent + agg.justified, hint: t('dash.planningAbsentHint') },
-      { label: "Alcance · hermanos",    value: agg.reachMembers,       hint: "Miembros en alcance" },
-      { label: "Alcance · amigos",      value: agg.reachVisitors,      hint: "Visitas en alcance" },
+      { label: t('met.reachBros'),    value: agg.reachMembers,       hint: t('dash.reachMembersHint') },
+      { label: t('met.reachFriends'),      value: agg.reachVisitors,      hint: t('dash.reachVisitorsHint') },
       { label: t('dash.reachKids'),       value: agg.reachKids,          hint: t('dash.reachKidsHint') },
-      { label: t('met.cultoBros'),      value: agg.sundayMembers,      hint: "Miembros en culto dominical" },
-      { label: t('met.cultoFriends'),        value: agg.sundayVisitors,     hint: "Visitas en culto dominical" },
+      { label: t('met.cultoBros'),      value: agg.sundayMembers,      hint: t('dash.cultoBrosHint') },
+      { label: t('met.cultoFriends'),        value: agg.sundayVisitors,     hint: t('dash.cultoFriendsHint') },
       { label: t('dash.sundayKids'),         value: agg.sundayKids,         hint: t('dash.sundayKidsHint') },
-      ...(agg.reachConversions ? [{ label: "Conversiones", value: agg.reachConversions, hint: "Decisiones de fe" }] : []),
+      ...(agg.reachConversions ? [{ label: t('met.conversions'), value: agg.reachConversions, hint: t('dash.faithHint') }] : []),
     ].map(({ label, value, hint }) => `
       <article class="summary-card summary-card-dashboard">
         <span class="summary-label">${escapeHtml(label)}</span>
@@ -2501,14 +2501,14 @@ function renderDashboardForLeader(reports) {
     const qLabel = activeDashboardTimeScope === "quarter" ? scopeTitleText : "";
     dashboardSummaryGrid.innerHTML = [
       { label: t('dash.weeksReported'),       value: ext.n,                    hint: t('dash.weeksReportedHint'), cls: "accent-neutral" },
-      { label: "Hermanos consistentes", value: ext.consistentMembers,    hint: "Presentes en ≥ 50% de semanas",          cls: "accent-success" },
+      { label: t('dash.consistentBros'), value: ext.consistentMembers,    hint: t('dash.consistentHint'),          cls: "accent-success" },
       { label: t('dash.avgPlanning'),      value: ext.avgPlanning,          hint: t('dash.avgPlanningHint'),           cls: "" },
-      { label: "Prom. alcance",         value: ext.avgReachMembers,      hint: "Promedio semanal de hermanos en alcance", cls: "" },
-      { label: "Prom. amigos · alcance",value: ext.avgReachVisitors,     hint: "Promedio semanal de amigos en alcance",  cls: "" },
-      { label: "Prom. culto",           value: ext.avgSundayMembers,     hint: "Promedio semanal de hermanos en culto",  cls: "" },
-      { label: "Prom. amigos · culto",  value: ext.avgSundayVisitors,    hint: "Promedio semanal de amigos en culto",    cls: "" },
-      { label: "Conversiones",          value: ext.reachConversions,     hint: "Decisiones de fe en el cuatrimestre",   cls: "accent-faith" },
-      { label: "Bautismos",             value: ext.baptisms,             hint: "Bautismos en el cuatrimestre",           cls: "accent-faith" },
+      { label: t('dash.avgReach'),         value: ext.avgReachMembers,      hint: t('dash.avgReachHint'), cls: "" },
+      { label: t('dash.avgFriendsReach'),value: ext.avgReachVisitors,     hint: t('dash.avgFriendsReachHint'),  cls: "" },
+      { label: t('dash.avgCulto'),           value: ext.avgSundayMembers,     hint: t('dash.avgCultoHint'),  cls: "" },
+      { label: t('dash.avgFriendsCulto'),  value: ext.avgSundayVisitors,    hint: t('dash.avgFriendsCultoHint'),    cls: "" },
+      { label: t('met.conversions'),          value: ext.reachConversions,     hint: t('dash.faithHintQ'),   cls: "accent-faith" },
+      { label: t('dash.bautismos'),             value: ext.baptisms,             hint: t('dash.baptismsHintQ'),           cls: "accent-faith" },
     ].map(({ label, value, hint, cls }) => `
       <article class="summary-card summary-card-dashboard ${cls || ""}">
         <span class="summary-label">${escapeHtml(label)}</span>
@@ -2530,43 +2530,43 @@ function renderDashboardForLeader(reports) {
         <td class="scope-q-num">${q.baptisms}</td>
         <td class="scope-q-num">${q.avgReach}</td>
       </tr>
-    `).join("") || `<tr><td colspan="5" class="scope-q-empty">Sin reportes</td></tr>`;
+    `).join("") || `<tr><td colspan="5" class="scope-q-empty">${t('dash.noReports')}</td></tr>`;
 
     dashboardSummaryGrid.innerHTML = `
       <article class="summary-card summary-card-dashboard accent-neutral">
-        <span class="summary-label">Sem. reportadas</span>
+        <span class="summary-label">${t('dash.weeksReportedShort')}</span>
         <strong class="summary-value">${ext.n}</strong>
-        <span class="summary-hint">Semanas con reporte en el año</span>
+        <span class="summary-hint">${t('dash.weeksReportedYearHint')}</span>
       </article>
       <article class="summary-card summary-card-dashboard accent-success">
-        <span class="summary-label">Hermanos consistentes</span>
+        <span class="summary-label">${t('dash.consistentBros')}</span>
         <strong class="summary-value">${ext.consistentMembers}</strong>
-        <span class="summary-hint">Presentes en ≥ 50% de semanas</span>
+        <span class="summary-hint">${t('dash.consistentHint')}</span>
       </article>
       <article class="summary-card summary-card-dashboard accent-faith">
-        <span class="summary-label">Conversiones</span>
+        <span class="summary-label">${t('met.conversions')}</span>
         <strong class="summary-value">${ext.reachConversions}</strong>
-        <span class="summary-hint">Decisiones de fe en el año</span>
+        <span class="summary-hint">${t('dash.faithHintY')}</span>
       </article>
       <article class="summary-card summary-card-dashboard accent-faith">
-        <span class="summary-label">Bautismos</span>
+        <span class="summary-label">${t('dash.bautismos')}</span>
         <strong class="summary-value">${ext.baptisms}</strong>
-        <span class="summary-hint">Bautismos en el año</span>
+        <span class="summary-hint">${t('dash.baptismsHintY')}</span>
       </article>
       <article class="summary-card summary-card-dashboard">
-        <span class="summary-label">Prom. planeación</span>
+        <span class="summary-label">${t('dash.avgPlanningShort')}</span>
         <strong class="summary-value">${ext.avgPlanning}</strong>
-        <span class="summary-hint">Promedio semanal de hermanos</span>
+        <span class="summary-hint">${t('dash.avgPlanningHintY')}</span>
       </article>
       <article class="summary-card summary-card-dashboard">
-        <span class="summary-label">Prom. alcance</span>
+        <span class="summary-label">${t('dash.avgReach')}</span>
         <strong class="summary-value">${ext.avgReachMembers}</strong>
-        <span class="summary-hint">Promedio semanal de hermanos en alcance</span>
+        <span class="summary-hint">${t('dash.avgReachHint')}</span>
       </article>
       <article class="summary-card summary-card-dashboard scope-table-card">
-        <span class="summary-label">Comparativo por cuatrimestre</span>
+        <span class="summary-label">${t('dash.compareByQuarter')}</span>
         <table class="scope-q-table">
-          <thead><tr><th></th><th>Sem.</th><th>Conv.</th><th>Baut.</th><th>Prom.alcance</th></tr></thead>
+          <thead><tr><th></th><th>${t('dash.weekShort2')}</th><th>${t('dash.convShort')}</th><th>${t('dash.bautShort')}</th><th>${t('dash.avgReachShort')}</th></tr></thead>
           <tbody>${qTableRows}</tbody>
         </table>
       </article>
@@ -2578,7 +2578,7 @@ function renderDashboardForLeader(reports) {
   if (dashboardAbsenceAlerts) {
     if (activeDashboardTimeScope === "week") {
       // ── Vista semana: faltas por evento + racha ──────────────────────────────
-      if (dashboardAbsenceTitle) dashboardAbsenceTitle.textContent = "Alertas de faltas";
+      if (dashboardAbsenceTitle) dashboardAbsenceTitle.textContent = t('dash.absenceAlerts');
       if (dashboardAbsenceLegend) dashboardAbsenceLegend.hidden = false;
 
       const weekEntries = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
@@ -2873,8 +2873,8 @@ function renderDashboard(reports) {
       String(getReportQuarter(r)) === selectedQuarter
     );
     scopeChipText  = `Q${selectedQuarter} ${selectedYear}`;
-    scopeTitleText = `Cuatrimestre ${selectedQuarter === "1" ? "Ene–Abr" : selectedQuarter === "2" ? "May–Ago" : "Sep–Dic"} ${selectedYear}`;
-    hintSuffix     = "en el cuatrimestre";
+    scopeTitleText = t('qfull.title', { range: t(selectedQuarter === "1" ? 'qrange.q1' : selectedQuarter === "2" ? 'qrange.q2' : 'qrange.q3'), year: selectedYear });
+    hintSuffix     = t('qfull.hintSuffix');
   } else if (activeDashboardTimeScope === "year") {
     scopeTimeReports = scopedReports.filter(r => getReportYear(r) === selectedYear);
     scopeChipText  = t('common.yearN', { n: selectedYear });
@@ -2882,9 +2882,9 @@ function renderDashboard(reports) {
     hintSuffix     = t('dash.inTheYear');
   } else {
     scopeTimeReports = weeklyReports;
-    scopeChipText  = `Semana ${selectedWeek}`;
-    scopeTitleText = "Semana en curso";
-    hintSuffix     = "esta semana";
+    scopeChipText  = t('common.weekShort', { n: selectedWeek });
+    scopeTitleText = t('dash.weekInProgress');
+    hintSuffix     = t('dash.thisWeek');
   }
 
   const reportedCells = new Set(weeklyReports.map((report) => String(report.cellNumber || report.formData?.cellNumber || "")));
@@ -2913,14 +2913,14 @@ function renderDashboard(reports) {
 
   if (activeDashboardTimeScope === "week") {
     dashboardSummaryGrid.innerHTML = [
-      ["Reportes",    scopeTimeReports.length,                                                    hintSuffix === "esta semana" ? "Capturados esta semana" : `Capturados ${hintSuffix}`],
+      [t('dash.reports'),    scopeTimeReports.length,                                                    hintSuffix === t('dash.thisWeek') ? t('dash.capturedThisWeek') : t('dash.capturedSuffix', { suffix: hintSuffix })],
       [t('admin.cells2'),     reportedCellsCount,                                                         t('dash.withReport')],
       [t('dash.pendingShort'),  pendingCells.length,                                                        t('dash.noReportThisWeek')],
       [t('dash.planning'),  agg.planningPresent,                                                        t('dash.brothersInPlanning')],
       [t('dash.reach'),     agg.reachMembers + agg.reachVisitors + agg.reachKids,                       t('dash.totalReach')],
       [t('dash.sunday'),       agg.sundayMembers + agg.sundayVisitors + agg.sundayKids,                    t('dash.totalSunday')],
-      ["Faltas",      agg.absent + agg.justified,                                                 "Ausentes y justificados"],
-      ["Visitas",     agg.reachVisitors + agg.sundayVisitors,                                     "Amigos en alcance y culto"],
+      [t('dash.faltas'),      agg.absent + agg.justified,                                                 t('dash.absentJustifiedHint')],
+      [t('dash.visits'),     agg.reachVisitors + agg.sundayVisitors,                                     t('dash.visitsHint')],
     ].map(([label, value, hint]) => `
       <article class="summary-card summary-card-dashboard">
         <span class="summary-label">${escapeHtml(label)}</span>
@@ -2935,12 +2935,12 @@ function renderDashboard(reports) {
       { label: t('dash.weeksReported'),        value: reportedCellsCount ? `${scopeTimeReports.length}` : "0", hint: t('dash.reportsInQuarter'),         cls: "accent-neutral" },
       { label: t('dash.activeCells'),        value: reportedCellsCount,                                       hint: t('dash.activeCellsHint'),             cls: "accent-neutral" },
       { label: t('dash.avgReachPerCell'), value: ext.n > 0 ? Math.round((ext.reachMembers + ext.reachVisitors) / Math.max(1, reportedCellsCount)) : 0,
-                                                                                                           hint: "Promedio de personas en alcance",     cls: "" },
+                                                                                                           hint: t('dash.avgReachPerCellHint'),     cls: "" },
       { label: t('dash.avgSundayPerCell'),   value: ext.n > 0 ? Math.round((ext.sundayMembers + ext.sundayVisitors) / Math.max(1, reportedCellsCount)) : 0,
-                                                                                                           hint: "Promedio de personas en culto",       cls: "" },
-      { label: "Conversiones",           value: ext.reachConversions,                                      hint: "Decisiones de fe en el cuatrimestre", cls: "accent-faith" },
-      { label: "Bautismos",              value: ext.baptisms,                                              hint: "Bautismos en el cuatrimestre",        cls: "accent-faith" },
-      { label: "Faltas totales",         value: ext.absent + ext.justified,                                hint: "Ausentes + justificados (suma)",      cls: "" },
+                                                                                                           hint: t('dash.avgSundayPerCellHint'),       cls: "" },
+      { label: t('met.conversions'),           value: ext.reachConversions,                                      hint: t('dash.faithHintQ'), cls: "accent-faith" },
+      { label: t('dash.bautismos'),              value: ext.baptisms,                                              hint: t('dash.baptismsHintQ'),        cls: "accent-faith" },
+      { label: t('dash.totalFaults'),         value: ext.absent + ext.justified,                                hint: t('dash.totalFaultsHint'),      cls: "" },
       { label: t('dash.pendingThisWk'),   value: pendingCells.length,                                       hint: t('dash.pendingHint'), cls: "" },
     ].map(({ label, value, hint, cls }) => `
       <article class="summary-card summary-card-dashboard ${cls || ""}">
@@ -2961,7 +2961,7 @@ function renderDashboard(reports) {
       return { q, n: reps.length, cells, conversions: ag.reachConversions, baptisms: ag.baptisms,
                avgReach: reps.length ? Math.round((ag.reachMembers + ag.reachVisitors) / Math.max(1, cells)) : 0 };
     });
-    const QNAMES = ["", "Ene–Abr", "May–Ago", "Sep–Dic"];
+    const QNAMES = ["", t('qrange.q1'), t('qrange.q2'), t('qrange.q3')];
     const qTableRows = byQ.filter(b => b.n > 0).map(b => `
       <tr>
         <td>C${b.q} <span class="scope-q-range">${QNAMES[b.q]}</span></td>
@@ -2971,33 +2971,33 @@ function renderDashboard(reports) {
         <td class="scope-q-num">${b.baptisms}</td>
         <td class="scope-q-num">${b.avgReach}</td>
       </tr>
-    `).join("") || `<tr><td colspan="6" class="scope-q-empty">Sin reportes</td></tr>`;
+    `).join("") || `<tr><td colspan="6" class="scope-q-empty">${t('dash.noReports')}</td></tr>`;
 
     dashboardSummaryGrid.innerHTML = `
       <article class="summary-card summary-card-dashboard accent-neutral">
-        <span class="summary-label">Reportes en el año</span>
+        <span class="summary-label">${t('dash.reportsInYear')}</span>
         <strong class="summary-value">${scopeTimeReports.length}</strong>
-        <span class="summary-hint">Total de reportes capturados</span>
+        <span class="summary-hint">${t('dash.totalReportsHint')}</span>
       </article>
       <article class="summary-card summary-card-dashboard accent-neutral">
-        <span class="summary-label">Células activas</span>
+        <span class="summary-label">${t('dash.activeCells')}</span>
         <strong class="summary-value">${reportedCellsCount}</strong>
-        <span class="summary-hint">Con al menos un reporte en el año</span>
+        <span class="summary-hint">${t('dash.activeCellsYearHint')}</span>
       </article>
       <article class="summary-card summary-card-dashboard accent-faith">
-        <span class="summary-label">Conversiones</span>
+        <span class="summary-label">${t('met.conversions')}</span>
         <strong class="summary-value">${ext.reachConversions}</strong>
-        <span class="summary-hint">Decisiones de fe en el año</span>
+        <span class="summary-hint">${t('dash.faithHintY')}</span>
       </article>
       <article class="summary-card summary-card-dashboard accent-faith">
-        <span class="summary-label">Bautismos</span>
+        <span class="summary-label">${t('dash.bautismos')}</span>
         <strong class="summary-value">${ext.baptisms}</strong>
-        <span class="summary-hint">Bautismos en el año</span>
+        <span class="summary-hint">${t('dash.baptismsHintY')}</span>
       </article>
       <article class="summary-card summary-card-dashboard scope-table-card">
-        <span class="summary-label">Comparativo por cuatrimestre</span>
+        <span class="summary-label">${t('dash.compareByQuarter')}</span>
         <table class="scope-q-table">
-          <thead><tr><th></th><th>Rep.</th><th>Céls.</th><th>Conv.</th><th>Baut.</th><th>Prom.alcance</th></tr></thead>
+          <thead><tr><th></th><th>${t('dash.repShort')}</th><th>${t('dash.cellsShort')}</th><th>${t('dash.convShort')}</th><th>${t('dash.bautShort')}</th><th>${t('dash.avgReachShort')}</th></tr></thead>
           <tbody>${qTableRows}</tbody>
         </table>
       </article>
@@ -3039,7 +3039,7 @@ function renderDashboard(reports) {
     ? alerts.map((entry) => {
         const severity = getAbsenceAlertSeverity(entry);
         const severityLabel = entry.streak >= 4 ? "Crítica" : entry.streak >= 3 ? "Alta" : "Seguimiento";
-        return `<article class="dashboard-list-item dashboard-alert-item dashboard-alert-${severity}"><div class="dashboard-alert-head"><strong>${escapeHtml(entry.name)}</strong><span class="dashboard-alert-badge">${escapeHtml(severityLabel)}</span></div><span>${escapeHtml(String(entry.streak))} semanas seguidas${entry.status === "justified" ? " justificadas" : " con falta"}</span></article>`;
+        return `<article class="dashboard-list-item dashboard-alert-item dashboard-alert-${severity}"><div class="dashboard-alert-head"><strong>${escapeHtml(entry.name)}</strong><span class="dashboard-alert-badge">${escapeHtml(severityLabel)}</span></div><span>${escapeHtml(t(entry.status === 'justified' ? 'alert.streakJustified' : 'alert.streakAbsent', { n: entry.streak }))}</span></article>`;
       }).join("")
     : `<div class="quick-list-empty">${t('dash.noConsecAlerts')}</div>`;
 
@@ -3470,7 +3470,7 @@ function renderDashboardBaptisms(scopedReports) {
     setMax(year, "3", cell, Number(fd.baptismThirdQuarter  || 0));
   });
 
-  const qName = q => q === "1" ? "1er Cuatrimestre" : q === "2" ? "2do Cuatrimestre" : "3er Cuatrimestre";
+  const qName = q => q === "1" ? t('qname.q1') : q === "2" ? t('qname.q2') : t('qname.q3');
   const years = Object.keys(byYearQ).sort((a, b) => b - a);
 
   if (!years.length) {
@@ -3490,7 +3490,7 @@ function renderDashboardBaptisms(scopedReports) {
       <div class="baptism-year-block">
         <div class="baptism-year-head">
           <strong class="baptism-year-label">${escapeHtml(year)}</strong>
-          <span class="baptism-year-total">${yearTotal} bautismo${yearTotal !== 1 ? "s" : ""}</span>
+          <span class="baptism-year-total">${t(yearTotal === 1 ? 'baptism.yearTotal' : 'baptism.yearTotalPlural', { n: yearTotal })}</span>
         </div>
         <div class="baptism-quarters-grid">
           ${quarters.map(q => {
@@ -3500,7 +3500,7 @@ function renderDashboardBaptisms(scopedReports) {
               .sort(([a], [b]) => Number(a) - Number(b))
               .map(([cell, count]) => `
                 <div class="baptism-cell-row">
-                  <span class="baptism-cell-num">Célula ${escapeHtml(cell)}</span>
+                  <span class="baptism-cell-num">${t('baptism.cellRow', { n: escapeHtml(cell) })}</span>
                   <span class="baptism-cell-count">${count}</span>
                 </div>`).join("");
             return `
@@ -3854,7 +3854,7 @@ function renderAttendanceTable() {
           <option value="pending"${stageStatus === "pending" ? " selected" : ""}>Sin marcar</option>
           <option value="present"${stageStatus === "present" ? " selected" : ""}>Presente</option>
           <option value="absent"${stageStatus === "absent" ? " selected" : ""}>Faltó</option>
-          <option value="justified"${stageStatus === "justified" ? " selected" : ""}>Justificado</option>
+          <option value="justified"${stageStatus === "justified" ? " selected" : ""}>${t('opt.justified')}</option>
           <option value="service"${stageStatus === "service" ? " selected" : ""}>Sirviendo</option>
         </select>
       </td>
@@ -4446,8 +4446,8 @@ function renderReports(reports) {
     return;
   }
 
-  const quarterLabel = q => q === "1" ? "Ene – Abr" : q === "2" ? "May – Ago" : "Sep – Dic";
-  const quarterName  = q => q === "1" ? "1er Cuatrimestre" : q === "2" ? "2do Cuatrimestre" : "3er Cuatrimestre";
+  const quarterLabel = q => q === "1" ? t('qrange.q1') : q === "2" ? t('qrange.q2') : t('qrange.q3');
+  const quarterName  = q => q === "1" ? t('qname.q1') : q === "2" ? t('qname.q2') : t('qname.q3');
   const phaseColors  = { GANAR: "ganar", CONSOLIDAR: "consolidar", DISCIPULAR: "discipular", CIERRE: "cierre" };
 
   const groups = {};
@@ -4510,7 +4510,7 @@ function renderReports(reports) {
           return s + list.filter(b => String(getBaptismQuarter(b?.baptismDate)) === String(quarter)).length;
         }, 0);
         const baptismChip = baptismCount > 0
-          ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
+          ? `<span class="cycle-baptism-chip" title="${t('baptism.cycleChipTitle')}">${t(baptismCount === 1 ? 'baptism.cycleChip' : 'baptism.cycleChipPlural', { n: baptismCount })}</span>`
           : "";
         return `
           <div class="cycle-card" data-cell-number="${escapeHtml(String(cell))}">
@@ -4614,8 +4614,8 @@ function renderSeguimiento(reports) {
 
   if (countChip) countChip.textContent = String(reports.length);
 
-  const quarterLabel = q => q === "1" ? "Ene – Abr" : q === "2" ? "May – Ago" : "Sep – Dic";
-  const quarterName  = q => q === "1" ? "1er Cuatrimestre" : q === "2" ? "2do Cuatrimestre" : "3er Cuatrimestre";
+  const quarterLabel = q => q === "1" ? t('qrange.q1') : q === "2" ? t('qrange.q2') : t('qrange.q3');
+  const quarterName  = q => q === "1" ? t('qname.q1') : q === "2" ? t('qname.q2') : t('qname.q3');
   const phaseColors  = { GANAR: "ganar", CONSOLIDAR: "consolidar", DISCIPULAR: "discipular", CIERRE: "cierre" };
 
   const groups = {};
@@ -4736,7 +4736,7 @@ function renderSeguimiento(reports) {
           return s + list.filter(b => String(getBaptismQuarter(b?.baptismDate)) === String(quarter)).length;
         }, 0);
         const baptismChip  = baptismCount > 0
-          ? `<span class="cycle-baptism-chip" title="Bautismos en este cuatrimestre">⬡ ${baptismCount} bautismo${baptismCount !== 1 ? "s" : ""}</span>`
+          ? `<span class="cycle-baptism-chip" title="${t('baptism.cycleChipTitle')}">${t(baptismCount === 1 ? 'baptism.cycleChip' : 'baptism.cycleChipPlural', { n: baptismCount })}</span>`
           : "";
         const progressPct = Math.round((totalDone / totalWeeks) * 100);
         return `
@@ -5162,7 +5162,7 @@ function enterReadOnlyMode(report) {
   const banner = document.getElementById("form-readonly-banner");
   if (banner) {
     const week = formData.week || report.week || "?";
-    banner.innerHTML = `🔒 <strong>Semana ${week} — cerrada.</strong> Solo lectura. <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">Nuevo reporte</button>`;
+    banner.innerHTML = `${t('form.weekClosedBanner', { w: week })} <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">${t('form.newReport')}</button>`;
     banner.hidden = false;
     document.getElementById("form-readonly-exit-btn")?.addEventListener("click", () => {
       resetReportForm();
@@ -5289,9 +5289,9 @@ function updateSettingsWeekPreview() {
   const month = now.getMonth();
   const year  = now.getFullYear();
   const quarters = [
-    { q: 1, label: "1er Cuatrimestre", months: "Enero – Abril",          start: 0, end: 3  },
-    { q: 2, label: "2do Cuatrimestre", months: "Mayo – Agosto",          start: 4, end: 7  },
-    { q: 3, label: "3er Cuatrimestre", months: "Septiembre – Diciembre", start: 8, end: 11 },
+    { q: 1, label: t('qname.q1'), months: t('qmonths.q1'),          start: 0, end: 3  },
+    { q: 2, label: t('qname.q2'), months: t('qmonths.q2'),          start: 4, end: 7  },
+    { q: 3, label: t('qname.q3'), months: t('qmonths.q3'),          start: 8, end: 11 },
   ];
   const currentQ = quarters.find(q => month >= q.start && month <= q.end);
   if (quarterBody && currentQ) {
@@ -5336,7 +5336,7 @@ function updateSettingsWeekPreview() {
     ? `Termina el <strong>${fmtFull(endDate)}</strong> (${daysToEnd} días restantes)`
     : `<span style="color:var(--muted)">Ciclo finalizado hace ${Math.abs(daysToEnd)} días</span>`;
   preview.innerHTML = `
-    <div class="sq-row" style="margin-bottom:4px"><span class="sq-badge" style="font-size:0.7rem">Sem ${week}</span><strong>Semana ${week}${phaseLabel}</strong></div>
+    <div class="sq-row" style="margin-bottom:4px"><span class="sq-badge" style="font-size:0.7rem">${t('common.weekShort', { n: week })}</span><strong>${t('form.weekN', { w: week })}${phaseLabel}</strong></div>
     <div style="font-size:0.78rem;color:var(--muted);line-height:1.5">
       Inicio: ${fmtShort(cycleStart)} &nbsp;·&nbsp; Fin estimado (sem ${totalWeeks - 1}): ${fmtShort(endDate)}<br>${endMsg}
     </div>
