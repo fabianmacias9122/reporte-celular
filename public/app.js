@@ -4951,6 +4951,7 @@ function syncReportWithCell(force = false, savedData = null) {
     renderReportCellMembers(null);
     applyWeeklyCollectionsForCell(null, null);
     populateVisitorInvitedBySelect();
+    applyReportFormPermissions();
     return;
   }
 
@@ -4988,7 +4989,43 @@ function syncReportWithCell(force = false, savedData = null) {
   // Refrescar dropdown "Visita previa" cada vez que cambia la célula activa
   // (sirve también cuando cellField.value se asigna por código y no dispara change).
   renderVisitorHistoryOptions();
+  applyReportFormPermissions();
   setCellLinkedFieldsLocked(true);
+}
+
+// Determina si el usuario actual puede MODIFICAR el reporte de la célula
+// activa en el formulario. Solo el líder de esa célula (vía
+// assignedCellNumber) o un super-admin pueden guardar/finalizar. Pastores,
+// coordinadores y supervisores ven el reporte en modo solo-lectura para
+// evitar que modifiquen reportes de células ajenas por error.
+function canEditCurrentReport() {
+  if (!currentUser) return false;
+  if (currentUser.isSuperAdmin) return true;
+  const activeCell = String(cellField?.value || "").trim();
+  if (!activeCell) return true; // no cell selected yet → no restricción aún
+  const ownCell = String(currentUser.assignedCellNumber || "").trim();
+  return !!ownCell && ownCell === activeCell;
+}
+
+function applyReportFormPermissions() {
+  const allowed = canEditCurrentReport();
+  const SAVE_BUTTON_IDS = [
+    "save-next-encabezado",
+    "save-next-planificacion",
+    "save-next-alcance",
+    "save-next-culto",
+    "finalizar-reporte",
+  ];
+  SAVE_BUTTON_IDS.forEach((id) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = !allowed;
+    btn.title = allowed
+      ? ""
+      : "Solo el líder de esta célula puede guardar o finalizar el reporte.";
+  });
+  const banner = document.getElementById("report-readonly-banner");
+  if (banner) banner.hidden = allowed;
 }
 
 function populatePeopleForm(person = null) {
