@@ -286,17 +286,20 @@ const RCM_MILESTONES = [
   { key: "escSupervisores",   label: "Esc. Supervisores",   section: "escuelas",   sectionLabel: "Escuelas",         type: "clase"  },
 ];
 
-// All report sections matching the original PDF exactly
-const METRIC_SECTION_DEFINITIONS = [
-  { title: t('dash.planning'),      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
-  { title: t('dash.reach'),         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", t('rcm.kidsPresent')]] },
-  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
-  { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
-  { title: "Fase Consolidar", fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
-  { title: "Fase Discipular", fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
-  { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", "Esc. Supervisores"]] },
-  { title: "Bautismos",       fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
-];
+// All report sections matching the original PDF exactly.
+// IMPORTANT: keep as a function so labels re-evaluate when the user toggles language.
+function getMetricSectionDefinitions() {
+  return [
+    { title: t('dash.planning'),      fields: [["planningMembersPresent", t('met.membersAttending')], ["planningMembersAbsent", t('met.membersAbsent')]] },
+    { title: t('dash.reach'),         fields: [["reachMembersPresent", t('met.membersAttending')], ["reachPrivilegedMembers", t('met.membersPrivileged')], ["reachFriendsPresent", t('met.friendsPresentLong')], ["reachConversions", t('met.conversions')], ["reachKidsPresent", t('rcm.kidsPresent')]] },
+    { title: t('met.sectMultiplication'),  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", t('met.sundayInspAttended')]] },
+    { title: t('met.phaseWin'),      fields: [["winSpiritualParents", t('met.spiritualParents')], ["winFriendsContacted", t('met.friendsContacted')], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", t('met.friendsEDR')], ["winBaptizedFriends", t('met.friendsBaptized')]] },
+    { title: t('met.phaseConsolidate'), fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", t('met.evtReencuentro')], ["consolidateMinistries", t('met.evtMinistries')]] },
+    { title: t('met.phaseDisciple'), fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", t('met.e3Perfil')], ["discipleLaunchMultiply", t('met.launchMult')]] },
+    { title: t('met.sectSchools'),   fields: [["schoolFormative", t('met.eduFormative')], ["schoolParents", t('met.eduSpiritualParents')], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", t('met.eduSupervisors')]] },
+    { title: t('met.sectBaptisms'),  fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
+  ];
+}
 
 // Auto-computed (readonly) field names
 const AUTO_FIELDS = new Set([
@@ -1574,7 +1577,7 @@ function initGraceBanner() {
 }
 
 function renderMetricSections() {
-  metricSections.innerHTML = METRIC_SECTION_DEFINITIONS.map((section) => {
+  metricSections.innerHTML = getMetricSectionDefinitions().map((section) => {
     const isAllAuto = section.fields.every(([name]) => AUTO_FIELDS.has(name));
     const eyebrow = isAllAuto ? "Auto" : "Manual";
     return `
@@ -2216,7 +2219,7 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
         <th>Sem.</th>
         <th>Fecha</th>
         <th title=t('dash.reach')>Alc.</th>
-        <th title="Culto dominical">Culto</th>
+        <th title="${t('met.sectSunday')}">${t('dash.sunday')}</th>
         <th>Asistencia</th>
       </tr></thead>
       <tbody>${weekRows.map(w => {
@@ -2481,8 +2484,8 @@ function renderDashboardForLeader(reports) {
       { label: "Alcance · hermanos",    value: agg.reachMembers,       hint: "Miembros en alcance" },
       { label: "Alcance · amigos",      value: agg.reachVisitors,      hint: "Visitas en alcance" },
       { label: t('dash.reachKids'),       value: agg.reachKids,          hint: t('dash.reachKidsHint') },
-      { label: "Culto · hermanos",      value: agg.sundayMembers,      hint: "Miembros en culto dominical" },
-      { label: "Culto · amigos",        value: agg.sundayVisitors,     hint: "Visitas en culto dominical" },
+      { label: t('met.cultoBros'),      value: agg.sundayMembers,      hint: "Miembros en culto dominical" },
+      { label: t('met.cultoFriends'),        value: agg.sundayVisitors,     hint: "Visitas en culto dominical" },
       { label: t('dash.sundayKids'),         value: agg.sundayKids,         hint: t('dash.sundayKidsHint') },
       ...(agg.reachConversions ? [{ label: "Conversiones", value: agg.reachConversions, hint: "Decisiones de fe" }] : []),
     ].map(({ label, value, hint }) => `
@@ -3256,7 +3259,7 @@ function renderMetricsTrend(reports) {
           <th class="trend-th-ev">Plan. hermanos</th>
           <th class="trend-th-ev">Alc. hermanos</th>
           <th class="trend-th-ev">Amigos</th>
-          <th class="trend-th-ev">Culto hermanos</th>
+          <th class="trend-th-ev">${t('met.cultoBrosShort')}</th>
         </tr></thead>
         <tbody>${rows.map(r => `
           <tr class="trend-row">
@@ -3312,9 +3315,9 @@ function renderMetricsYearSummary(reports) {
           <div class="year-q-row"><span>Plan. hermanos</span><strong>${avg(agg.planningPresent)}</strong><small>/sem</small></div>
           <div class="year-q-row"><span>Alc. hermanos</span><strong>${avg(agg.reachMembers)}</strong><small>/sem</small></div>
           <div class="year-q-row"><span>Amigos alcance</span><strong>${avg(agg.reachVisitors)}</strong><small>/sem</small></div>
-          <div class="year-q-row"><span>Culto hermanos</span><strong>${avg(agg.sundayMembers)}</strong><small>/sem</small></div>
-          <div class="year-q-row"><span>Amigos culto</span><strong>${avg(agg.sundayVisitors)}</strong><small>/sem</small></div>
-          <div class="year-q-row year-q-conv"><span>Conversiones</span><strong>${agg.reachConversions}</strong><small>total</small></div>
+          <div class="year-q-row"><span>${t('met.cultoBrosShort')}</span><strong>${avg(agg.sundayMembers)}</strong><small>/sem</small></div>
+          <div class="year-q-row"><span>${t('met.cultoFriendsShort')}</span><strong>${avg(agg.sundayVisitors)}</strong><small>/sem</small></div>
+          <div class="year-q-row year-q-conv"><span>${t('met.conversions')}</span><strong>${agg.reachConversions}</strong><small>total</small></div>
         </div>
       </div>`;
   });
@@ -3328,36 +3331,36 @@ function renderMetricsBlock(label, metrics) {
     {
       title: t('dash.planning'), cls: "planning",
       rows: [
-        ["Hermanos presentes", m.planningPresent],
-        ["Hermanos ausentes",  m.planningAbsent],
+        [t('met.brothersPresent'), m.planningPresent],
+        [t('met.brothersAbsent'),  m.planningAbsent],
       ],
     },
     {
       title: t('dash.reach'), cls: "reach",
       rows: [
-        ["Hermanos presentes", m.reachMembers],
-        ["Con privilegios",    m.reachPrivileged],
-        ["Amigos presentes",   m.reachVisitors],
+        [t('met.brothersPresent'), m.reachMembers],
+        [t('met.privileged'),    m.reachPrivileged],
+        [t('met.friendsPresent'),   m.reachVisitors],
         [t('rcm.kidsPresent'),    m.reachKids],
-        ["Conversiones",       m.reachConversions],
+        [t('met.conversions'),       m.reachConversions],
       ],
     },
     {
-      title: "Culto dominical", cls: "sunday",
+      title: t('met.sectSunday'), cls: "sunday",
       rows: [
         [t('rcm.totalAttendees'), m.sundayTotal],
-        ["Hermanos",         m.sundayMembers],
+        [t('met.brothers'),         m.sundayMembers],
         [t('dash.friends'),           m.sundayVisitors],
-        ["Niños",            m.sundayKids],
+        [t('met.kids'),            m.sundayKids],
       ],
     },
   ];
   const absRow = (m.absent + m.justified) > 0 ? `
     <div class="metrics-event-block">
-      <div class="metrics-event-title metrics-event--absent">Ausencias</div>
+      <div class="metrics-event-title metrics-event--absent">${t('met.absences')}</div>
       <div class="metrics-event-rows">
-        <div class="metrics-event-row"><span>Ausentes</span><strong>${m.absent}</strong></div>
-        <div class="metrics-event-row"><span>Justificados</span><strong>${m.justified}</strong></div>
+        <div class="metrics-event-row"><span>${t('met.absent')}</span><strong>${m.absent}</strong></div>
+        <div class="metrics-event-row"><span>${t('met.justified')}</span><strong>${m.justified}</strong></div>
       </div>
     </div>` : "";
   return `
@@ -3386,7 +3389,7 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   if (dashboardMetricsToggle) dashboardMetricsToggle.hidden = !isAdmin || activeDashboardTimeScope !== "week";
   if (dashboardMetricsEyebrow) {
     dashboardMetricsEyebrow.textContent = scopeLabel
-      ? `Métricas · ${scopeLabel}`
+      ? t('met.scopeTitle', { scope: scopeLabel })
       : t('dash.metricsConsolidated');
   }
 
@@ -7617,9 +7620,9 @@ function buildReportPreviewHtml() {
       ${[
         [t('admin.members2'), summary.planningMembersPresent],
         [t('dash.friends'), summary.visitors],
-        ["Niños", currentKids.filter(k => String(k.name || "").trim()).length],
-        ["Culto insp.", summary.sundayTotal],
-        ["Conversiones", summary.reachConversions],
+        [t('met.kids'), currentKids.filter(k => String(k.name || "").trim()).length],
+        [t('met.sundayInsp'), summary.sundayTotal],
+        [t('met.conversions'), summary.reachConversions],
       ].map(([lbl, val]) => `
         <div class="preview-stat-card">
           <span class="preview-stat-val">${escapeHtml(String(val))}</span>
@@ -7630,15 +7633,15 @@ function buildReportPreviewHtml() {
   // Preview section definitions — match original PDF exactly
   // (reads from all form inputs including standalone Ofrendas and Supervisión panels)
   const PREVIEW_SECTIONS = [
-    { title: t('dash.planning'),      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
-    { title: t('dash.reach'),         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", t('rcm.kidsPresent')], ["reachOffering", "Ofrenda ($)"]] },
-    { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
-    { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
-    { title: "Fase Consolidar", fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
-    { title: "Fase Discipular", fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
-    { title: "Supervisión",     fields: [["supervisionNetwork", "Sup. Red"], ["supervisionSector", "Sup. Sector"], ["supervisionZone", "Sup. Zona"], ["supervisionRegion", t('met.supRegion')], ["supervisionArea", t('met.supArea')]] },
-    { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", "Esc. Supervisores"]] },
-    { title: "Bautismos",       fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
+    { title: t('dash.planning'),      fields: [["planningMembersPresent", t('met.membersAttending')], ["planningMembersAbsent", t('met.membersAbsent')]] },
+    { title: t('dash.reach'),         fields: [["reachMembersPresent", t('met.membersAttending')], ["reachPrivilegedMembers", t('met.membersPrivileged')], ["reachFriendsPresent", t('met.friendsPresentLong')], ["reachConversions", t('met.conversions')], ["reachKidsPresent", t('rcm.kidsPresent')], ["reachOffering", t('met.offering')]] },
+    { title: t('met.sectMultiplication'),  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", t('met.sundayInspAttended')]] },
+    { title: t('met.phaseWin'),       fields: [["winSpiritualParents", t('met.spiritualParents')], ["winFriendsContacted", t('met.friendsContacted')], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", t('met.friendsEDR')], ["winBaptizedFriends", t('met.friendsBaptized')]] },
+    { title: t('met.phaseConsolidate'), fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", t('met.evtReencuentro')], ["consolidateMinistries", t('met.evtMinistries')]] },
+    { title: t('met.phaseDisciple'),  fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", t('met.e3Perfil')], ["discipleLaunchMultiply", t('met.launchMult')]] },
+    { title: t('met.sectSupervision'), fields: [["supervisionNetwork", t('met.supRed')], ["supervisionSector", t('met.supSector')], ["supervisionZone", t('met.supZona')], ["supervisionRegion", t('met.supRegion')], ["supervisionArea", t('met.supArea')]] },
+    { title: t('met.sectSchools'),    fields: [["schoolFormative", t('met.eduFormative')], ["schoolParents", t('met.eduSpiritualParents')], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", t('met.eduSupervisors')]] },
+    { title: t('met.sectBaptisms'),   fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
   ];
 
   // Metric sections
@@ -7690,13 +7693,13 @@ function buildReportPreviewHtml() {
       t('share.header', { c: escapeHtml(data.cellNumber || '—'), w: escapeHtml(data.week || '—') }),
       `📅 Fecha: ${escapeHtml(data.reportDate || "—")}`,
       t('share.leader', { name: escapeHtml(data.leaderName || '—') }),
-      `🏠 Red: ${escapeHtml(data.networkName || "—")} · Sector: ${escapeHtml(data.sector || "—")}`,
+      `${t('share.network', { net: escapeHtml(data.networkName || '—'), sec: escapeHtml(data.sector || '—') })}`,
       ``,
-      `*Asistencia*`,
-      `• Miembros: ${summary.planningMembersPresent}`,
-      `• Amigos: ${summary.visitors}`,
-      `• Culto insp.: ${summary.sundayTotal}`,
-      `• Conversiones: ${summary.reachConversions}`,
+      t('share.attendance'),
+      t('share.members', { n: summary.planningMembersPresent }),
+      t('share.friendsLine', { n: summary.visitors }),
+      t('share.cultoInsp', { n: summary.sundayTotal }),
+      t('share.conversionsLine', { n: summary.reachConversions }),
     ];
     PREVIEW_SECTIONS.forEach(sec => {
       const nonZero = sec.fields.filter(([name]) => {
@@ -7727,7 +7730,7 @@ function buildReportPreviewHtml() {
   const waUrl = `https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`;
 
   return headerHtml + attendanceHtml +
-    `<div class="preview-section-title">Métricas del reporte</div><div class="preview-metrics-grid">${metricsHtml}</div>` +
+    `<div class="preview-section-title">${t('met.reportMetrics')}</div><div class="preview-metrics-grid">${metricsHtml}</div>` +
     membersHtml + notesHtml +
     `<div class="preview-wa-row"><a href="${waUrl}" target="_blank" rel="noopener" class="btn-wa">📱 Enviar por WhatsApp</a></div>`;
 }
@@ -7761,17 +7764,6 @@ if (previewConfirmBtn) previewConfirmBtn.addEventListener("click", () => {
 });
 
 // ── Preview read-only desde dashboard ───────────────────────────────────────
-const PREVIEW_SECTIONS_DEF = [
-  { title: t('dash.planning'),      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
-  { title: t('dash.reach'),         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", t('rcm.kidsPresent')], ["reachOffering", "Ofrenda ($)"]] },
-  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
-  { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
-  { title: "Fase Consolidar", fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
-  { title: "Fase Discipular", fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
-  { title: "Supervisión",     fields: [["supervisionNetwork", "Sup. Red"], ["supervisionSector", "Sup. Sector"], ["supervisionZone", "Sup. Zona"], ["supervisionRegion", t('met.supRegion')], ["supervisionArea", t('met.supArea')]] },
-  { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", "Esc. Supervisores"]] },
-  { title: "Bautismos",       fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
-];
 
 function buildReportPreviewHtmlFromData(report) {
   const fd = report?.formData || {};
@@ -7893,8 +7885,8 @@ function buildReportPreviewHtmlFromData(report) {
   const cultoSection = `
     <div class="ev-section">
       <div class="ev-head ev-head--sunday">
-        <span class="ev-title">⛪ Culto Dominical</span>
-        <span class="ev-count">${sundayTotal} total · ${sundayMembersCount} hmnos · ${sundayVisitorsCount} amigos · ${sundayKidsCount} niños</span>
+        <span class="ev-title">${t('preview.cultoTitle')}</span>
+        <span class="ev-count">${t('preview.cultoCount', { tot: sundayTotal, b: sundayMembersCount, f: sundayVisitorsCount, k: sundayKidsCount })}</span>
       </div>
       <div class="ev-body">
         ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.sundayAttended, null)).join("")}</div>` : "<p class='preview-empty-note'>Sin registro de asistencia</p>"}
@@ -8206,6 +8198,10 @@ try {
       renderReports(reportsData);
       renderSeguimiento(reportsData);
       renderDashboard(reportsData);
+    }
+    // Re-render the report form's metric sections so labels follow the new language
+    if (typeof metricSections !== "undefined" && metricSections) {
+      renderMetricSections();
     }
   });
 })();
