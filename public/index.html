@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reporte Celular</title>
+  <title data-i18n="login.title">Reporte Celular</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -20,8 +20,8 @@
     </div>
     <div class="iafcj-topbar-inner">
       <div class="iafcj-topbar-left">
-        <span class="iafcj-topbar-kicker">IAFCJ · Ministerio Celular</span>
-        <strong class="iafcj-topbar-title" id="topbar-route-label">Reporte</strong>
+        <span class="iafcj-topbar-kicker" data-i18n="nav.kicker">IAFCJ · Ministerio Celular</span>
+        <strong class="iafcj-topbar-title" id="topbar-route-label" data-i18n="nav.report">Reporte</strong>
       </div>
       <div class="iafcj-topbar-right">
         <!-- Language switcher -->
@@ -68,8 +68,8 @@
   <div id="app-splash" class="app-splash">
     <div class="app-splash-card">
       <div class="app-splash-spinner" aria-hidden="true"></div>
-      <strong class="app-splash-title">Cargando…</strong>
-      <span class="app-splash-sub" id="app-splash-sub">Despertando el servidor, un momento.</span>
+      <strong class="app-splash-title" data-i18n="err.loading">Cargando…</strong>
+      <span class="app-splash-sub" id="app-splash-sub" data-i18n="splash.waking">Despertando el servidor, un momento.</span>
     </div>
   </div>
 
@@ -88,15 +88,15 @@
           <p class="login-card-sub" data-i18n="login.subtitle">Selecciona tu nombre para acceder</p>
         </div>
         <div class="form-field">
-          <label class="field-label" for="login-username">Usuario</label>
+          <label class="field-label" for="login-username" data-i18n="login.user">Usuario</label>
           <input id="login-username" class="field-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ej. fabian.macias">
         </div>
         <div class="form-field" id="login-password-field" hidden>
-          <label class="field-label" for="login-password" id="login-password-label">Contraseña</label>
+          <label class="field-label" for="login-password" id="login-password-label" data-i18n="login.password">Contraseña</label>
           <input id="login-password" class="field-input" type="password" autocomplete="current-password" placeholder="Tu contraseña">
         </div>
         <div class="form-field" id="login-password-confirm-field" hidden>
-          <label class="field-label" for="login-password-confirm">Confirma tu contraseña</label>
+          <label class="field-label" for="login-password-confirm" data-i18n="login.confirmPassword">Confirma tu contraseña</label>
           <input id="login-password-confirm" class="field-input" type="password" autocomplete="new-password" placeholder="Repite la contraseña">
         </div>
         <p id="login-help" class="login-help" hidden></p>
@@ -228,7 +228,7 @@
             <div class="panel-head">
               <div>
                 <p class="eyebrow">Equipo</p>
-                <h2>Liderazgo y reunión</h2>
+                <h2 data-i18n="form.leadership">Liderazgo y reunión</h2>
               </div>
               <span id="member-count-chip" class="count-chip">0 miembros</span>
             </div>
@@ -291,11 +291,11 @@
               </button>
               <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-members">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>Todos a Alcance</span>
+                <span data-i18n="att.allReach">Todos a Alcance</span>
               </button>
               <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-privileges">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                <span>Todos a Alcance + Privilegios</span>
+                <span data-i18n="att.allReachPrivileges">Todos a Alcance + Privilegios</span>
               </button>
               <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="copy-reach-to-sunday">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -322,7 +322,7 @@
                 </thead>
                 <tbody id="attendance-table-body">
                   <tr>
-                    <td colspan="7" class="empty-state">Selecciona una célula para marcar asistencia.</td>
+                    <td colspan="7" class="empty-state" data-i18n="att.selectCell">Selecciona una célula para marcar asistencia.</td>
                   </tr>
                 </tbody>
               </table>
@@ -374,7 +374,7 @@
               <label>
                 <span data-i18n="vis.invitedBy">Invitó</span>
                 <select id="visitor-quick-invited-by" name="invitedBy">
-                  <option value="">— Quién invitó —</option>
+                  <option value="" data-i18n="vis.whoInvited">— Quién invitó —</option>
                 </select>
               </label>
               <div class="visitor-quick-toggles">
@@ -430,7 +430,7 @@
                 </thead>
                 <tbody id="visitor-table-body">
                   <tr>
-                    <td colspan="10" class="empty-state">Todavía no hay visitas registradas para esta semana.</td>
+                    <td colspan="10" class="empty-state" data-i18n="vis.empty">Todavía no hay visitas registradas para esta semana.</td>
                   </tr>
                 </tbody>
               </table>
@@ -477,7 +477,7 @@
                 </thead>
                 <tbody id="kids-table-body">
                   <tr>
-                    <td colspan="7" class="empty-state">No hay niños cargados para esta célula.</td>
+                    <td colspan="7" class="empty-state" data-i18n="kids.empty">No hay niños cargados para esta célula.</td>
                   </tr>
                 </tbody>
               </table>
@@ -488,7 +488,7 @@
             <div class="panel-head">
               <div>
                 <p class="eyebrow" data-i18n="reach.extras">Extras de alcance</p>
-                <h2>Ofrendas y supervisión</h2>
+                <h2 data-i18n="reach.offeringSupervision">Ofrendas y supervisión</h2>
               </div>
             </div>
 
@@ -506,23 +506,23 @@
               <p class="metric-subgroup-title" data-i18n="reach.supervision">Supervisión</p>
               <div class="metric-fields">
                 <label class="metric-field">
-                  <span>Sup. Red</span>
+                  <span data-i18n="reach.supNetwork">Sup. Red</span>
                   <input name="supervisionNetwork" type="number" min="0" step="1" value="0">
                 </label>
                 <label class="metric-field">
-                  <span>Sup. Sector</span>
+                  <span data-i18n="reach.supSector">Sup. Sector</span>
                   <input name="supervisionSector" type="number" min="0" step="1" value="0">
                 </label>
                 <label class="metric-field">
-                  <span>Sup. Zona</span>
+                  <span data-i18n="reach.supZone">Sup. Zona</span>
                   <input name="supervisionZone" type="number" min="0" step="1" value="0">
                 </label>
                 <label class="metric-field">
-                  <span>Sup. Región</span>
+                  <span data-i18n="reach.supRegion">Sup. Región</span>
                   <input name="supervisionRegion" type="number" min="0" step="1" value="0">
                 </label>
                 <label class="metric-field">
-                  <span>Sup. Área</span>
+                  <span data-i18n="reach.supArea">Sup. Área</span>
                   <input name="supervisionArea" type="number" min="0" step="1" value="0">
                 </label>
               </div>
@@ -567,7 +567,7 @@
                 </thead>
                 <tbody id="baptism-table-body">
                   <tr>
-                    <td colspan="6" class="empty-state">Selecciona la fecha del reporte para registrar bautismos y decidir si también se agregan como miembros.</td>
+                    <td colspan="6" class="empty-state" data-i18n="bap.selectDate">Selecciona la fecha del reporte para registrar bautismos y decidir si también se agregan como miembros.</td>
                   </tr>
                 </tbody>
               </table>
@@ -660,7 +660,7 @@
               <p class="eyebrow">Panorama</p>
               <h2>Resumen operativo</h2>
             </div>
-            <span class="panel-tag">Catálogos vivos</span>
+            <span class="panel-tag" data-i18n="admin.liveCatalogs">Catálogos vivos</span>
           </div>
           <div id="admin-summary-cards" class="summary-grid"></div>
         </section>
@@ -668,48 +668,48 @@
         <section id="admin-people-section" class="panel panel-strong admin-section-anchor">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Administración</p>
-              <h2>Miembros</h2>
+              <p class="eyebrow" data-i18n="admin.administration">Administración</p>
+              <h2 data-i18n="admin.members">Miembros</h2>
             </div>
-            <span class="panel-tag">Líderes y miembros</span>
+            <span class="panel-tag" data-i18n="admin.leadersMembers">Líderes y miembros</span>
           </div>
-          <p class="admin-section-copy">Consulta, agrega y edita personas desde la tabla. Usa los filtros para navegar rápido.</p>
+          <p class="admin-section-copy" data-i18n="admin.peopleInstructions">Consulta, agrega y edita personas desde la tabla. Usa los filtros para navegar rápido.</p>
           <div class="admin-catalog-grid admin-catalog-grid-people">
 
             <section class="catalog-card catalog-card-list catalog-card-full">
               <div class="catalog-card-head">
                 <div>
-                  <p class="eyebrow">Listado</p>
-                  <h3>Estado del catálogo</h3>
+                  <p class="eyebrow" data-i18n="admin.listing">Listado</p>
+                  <h3 data-i18n="admin.catalogStatus">Estado del catálogo</h3>
                 </div>
                 <div class="catalog-head-actions">
-                  <button id="people-new-btn" type="button" class="btn btn-sm btn-primary" data-tooltip="Agregar una nueva persona al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> Nueva persona</button>
-                  <button id="convocar-open-btn" type="button" class="btn btn-sm btn-outline-brand" data-tooltip="Registrar convocatoria a clase RCM para miembros seleccionados"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Convocar a clase</button>
+                  <button id="people-new-btn" type="button" class="btn btn-sm btn-primary" data-tooltip="Agregar una nueva persona al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span data-i18n="admin.newPerson">Nueva persona</span></button>
+                  <button id="convocar-open-btn" type="button" class="btn btn-sm btn-outline-brand" data-tooltip="Registrar convocatoria a clase RCM para miembros seleccionados"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span data-i18n="admin.inviteClass">Convocar a clase</span></button>
                 </div>
               </div>
               <div class="catalog-list-controls">
                 <div id="people-filter-tabs" class="filter-tabs" role="tablist" aria-label="Filtros de personas">
-                  <button type="button" class="filter-tab is-active" data-role-filter="all">Todos</button>
-                  <button type="button" class="filter-tab" data-role-filter="coordinator">Coordinadores</button>
-                  <button type="button" class="filter-tab" data-role-filter="supervisor">Supervisores</button>
-                  <button type="button" class="filter-tab" data-role-filter="leader">Líderes</button>
-                  <button type="button" class="filter-tab" data-role-filter="assistant">Asistentes</button>
-                  <button type="button" class="filter-tab" data-role-filter="host">Anfitrión</button>
-                  <button type="button" class="filter-tab" data-role-filter="member">Miembros</button>
-                  <button type="button" class="filter-tab" data-role-filter="kid">Niños</button>
+                  <button type="button" class="filter-tab is-active" data-role-filter="all" data-i18n="admin.filterAll">Todos</button>
+                  <button type="button" class="filter-tab" data-role-filter="coordinator" data-i18n="admin.filterCoord">Coordinadores</button>
+                  <button type="button" class="filter-tab" data-role-filter="supervisor" data-i18n="admin.filterSuper">Supervisores</button>
+                  <button type="button" class="filter-tab" data-role-filter="leader" data-i18n="admin.filterLeader">Líderes</button>
+                  <button type="button" class="filter-tab" data-role-filter="assistant" data-i18n="admin.filterAssist">Asistentes</button>
+                  <button type="button" class="filter-tab" data-role-filter="host" data-i18n="admin.filterHost">Anfitrión</button>
+                  <button type="button" class="filter-tab" data-role-filter="member" data-i18n="admin.filterMember">Miembros</button>
+                  <button type="button" class="filter-tab" data-role-filter="kid" data-i18n="admin.filterKid">Niños</button>
                 </div>
                 <select id="people-filter-select" class="people-filter-select">
-                  <option value="all">Todos</option>
-                  <option value="coordinator">Coordinadores</option>
-                  <option value="supervisor">Supervisores</option>
-                  <option value="leader">Líderes</option>
-                  <option value="assistant">Asistentes</option>
-                  <option value="host">Anfitrión</option>
-                  <option value="member">Miembros</option>
-                  <option value="kid">Niños</option>
+                  <option value="all" data-i18n="admin.filterAll">Todos</option>
+                  <option value="coordinator" data-i18n="admin.filterCoord">Coordinadores</option>
+                  <option value="supervisor" data-i18n="admin.filterSuper">Supervisores</option>
+                  <option value="leader" data-i18n="admin.filterLeader">Líderes</option>
+                  <option value="assistant" data-i18n="admin.filterAssist">Asistentes</option>
+                  <option value="host" data-i18n="admin.filterHost">Anfitrión</option>
+                  <option value="member" data-i18n="admin.filterMember">Miembros</option>
+                  <option value="kid" data-i18n="admin.filterKid">Niños</option>
                 </select>
                 <label class="search-field">
-                  <span>Buscar persona</span>
+                  <span data-i18n="admin.searchPerson">Buscar persona</span>
                   <input id="people-search" type="search" placeholder="Nombre, correo, teléfono o célula">
                 </label>
               </div>
@@ -717,16 +717,16 @@
                 <table class="catalog-table">
                   <thead>
                     <tr>
-                      <th>Nombre</th>
-                      <th>Función</th>
-                      <th>Asignación</th>
-                      <th class="col-rcm">Progreso RCM</th>
-                      <th>Acciones</th>
+                      <th data-i18n="admin.name">Nombre</th>
+                      <th data-i18n="admin.function">Función</th>
+                      <th data-i18n="admin.assignment">Asignación</th>
+                      <th class="col-rcm" data-i18n="admin.rcmProgress">Progreso RCM</th>
+                      <th data-i18n="admin.actions">Acciones</th>
                     </tr>
                   </thead>
                   <tbody id="people-table-body">
                     <tr>
-                      <td colspan="5" class="empty-state">Sin personas registradas.</td>
+                      <td colspan="5" class="empty-state" data-i18n="admin.noPeople">Sin personas registradas.</td>
                     </tr>
                   </tbody>
                 </table>
@@ -739,25 +739,25 @@
         <section id="admin-cells-section" class="panel panel-strong admin-section-anchor">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Administración</p>
-              <h2>Células</h2>
+              <p class="eyebrow" data-i18n="admin.administration">Administración</p>
+              <h2 data-i18n="admin.cells">Células</h2>
             </div>
           </div>
           <div class="admin-catalog-grid admin-catalog-grid-people">
             <section class="catalog-card catalog-card-list catalog-card-full">
               <div class="catalog-card-head">
                 <div>
-                  <p class="eyebrow">Listado</p>
-                  <h3>Estado del catálogo</h3>
+                  <p class="eyebrow" data-i18n="admin.listing">Listado</p>
+                  <h3 data-i18n="admin.catalogStatus">Estado del catálogo</h3>
                 </div>
                 <div class="catalog-head-actions">
-                  <button id="cell-renumber-btn" type="button" class="btn-secondary" data-tooltip="Reorganiza los números en orden consecutivo para cerrar huecos tras eliminar una célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:-8px"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> Reorganizar</button>
-                  <button id="cell-new-btn" type="button" data-tooltip="Agregar una nueva célula al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Nueva célula</button>
+                  <button id="cell-renumber-btn" type="button" class="btn-secondary" data-tooltip="Reorganiza los números en orden consecutivo para cerrar huecos tras eliminar una célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:-8px"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> <span data-i18n="admin.reorganize">Reorganizar</span></button>
+                  <button id="cell-new-btn" type="button" data-tooltip="Agregar una nueva célula al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> <span data-i18n="admin.newCell">Nueva célula</span></button>
                 </div>
               </div>
               <div class="catalog-list-controls">
                 <label class="search-field" style="flex:0 0 260px;margin:0">
-                  <span>Buscar célula</span>
+                  <span data-i18n="admin.searchCell">Buscar célula</span>
                   <input id="cell-search" type="search" placeholder="Número, red, sector…">
                 </label>
               </div>
@@ -765,10 +765,10 @@
               <table class="catalog-table">
                 <thead>
                   <tr>
-                    <th>Célula</th>
-                    <th>Red · Sector</th>
-                    <th>Líder</th>
-                    <th>Miembros</th>
+                    <th data-i18n="form.cell">Célula</th>
+                    <th data-i18n="admin.network">Red · Sector</th>
+                    <th data-i18n="admin.leader">Líder</th>
+                    <th data-i18n="admin.membersCol">Miembros</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -795,18 +795,18 @@
         <div id="seg-tab-seguimiento" class="seg-tab-panel">
           <!-- Week offset toggle (oculto en semana 1 del cuatrimestre) -->
           <div id="seg-week-offset-tabs" class="filter-tabs" style="margin-bottom:12px" hidden>
-            <button type="button" class="filter-tab is-active" data-weekoff="-1">Semana anterior · Orar</button>
-            <button type="button" class="filter-tab" data-weekoff="0">Esta semana · Anotar</button>
+            <button type="button" class="filter-tab is-active" data-weekoff="-1" data-i18n="seg.prevWeekPray">Semana anterior · Orar</button>
+            <button type="button" class="filter-tab" data-weekoff="0" data-i18n="seg.thisWeekNote">Esta semana · Anotar</button>
           </div>
           <!-- Compact weekly context strip -->
           <div id="report-context-strip" class="report-context-strip" hidden>
             <div class="rcs-col">
-              <span class="rcs-label" id="dashboard-pending-eyebrow">Pendientes esta semana</span>
+              <span class="rcs-label" id="dashboard-pending-eyebrow" data-i18n="dash.pendingThisWeek">Pendientes esta semana</span>
               <div class="rcs-chips" id="rcs-pending"></div>
             </div>
             <div class="rcs-divider"></div>
             <div class="rcs-col">
-              <span class="rcs-label" id="rcs-activity-eyebrow">Reportaron esta semana</span>
+              <span class="rcs-label" id="rcs-activity-eyebrow" data-i18n="dash.reportedThisWeek">Reportaron esta semana</span>
               <div class="rcs-chips" id="rcs-activity"></div>
             </div>
           </div>
@@ -818,13 +818,13 @@
           <section class="panel panel-soft" id="seg-totals-panel" hidden>
             <div class="panel-head">
               <div>
-                <p class="eyebrow" id="seg-totals-eyebrow">Esta semana</p>
-                <h2>Totales de asistencia</h2>
+                <p class="eyebrow" id="seg-totals-eyebrow" data-i18n="dash.currentWeek">Esta semana</p>
+                <h2 data-i18n="seg.attendanceTotals">Totales de asistencia</h2>
               </div>
               <div class="seg-totals-scope-tabs">
-                <button type="button" class="seg-totals-tab is-active" data-tscope="total">Total</button>
-                <button type="button" class="seg-totals-tab" data-tscope="sector">Por sector</button>
-                <button type="button" class="seg-totals-tab" data-tscope="cell">Por célula</button>
+                <button type="button" class="seg-totals-tab is-active" data-tscope="total" data-i18n="dash.total">Total</button>
+                <button type="button" class="seg-totals-tab" data-tscope="sector" data-i18n="seg.bySectorScope">Por sector</button>
+                <button type="button" class="seg-totals-tab" data-tscope="cell" data-i18n="seg.byCellScope">Por célula</button>
                 <label class="seg-totals-toggle" title="Mostrar montos de ofrenda">
                   <input type="checkbox" id="seg-totals-show-offering"> Mostrar ofrenda
                 </label>
@@ -866,7 +866,7 @@
             <div class="panel-head">
               <div>
                 <p class="eyebrow" data-i18n="dash.dashboard">Dashboard</p>
-                <h2 id="dashboard-scope-title">Semana en curso</h2>
+                <h2 id="dashboard-scope-title" data-i18n="dash.currentWeek">Semana en curso</h2>
               </div>
               <div class="dashboard-period-controls">
                 <label class="dashboard-period-field">
@@ -878,9 +878,9 @@
               </div>
             </div>
             <div class="dashboard-time-tabs" id="dashboard-time-tabs">
-              <button type="button" class="dashboard-time-tab is-active" data-timescope="week">Semana</button>
-              <button type="button" class="dashboard-time-tab" data-timescope="quarter">Cuatrimestre</button>
-              <button type="button" class="dashboard-time-tab" data-timescope="year">Año</button>
+              <button type="button" class="dashboard-time-tab is-active" data-timescope="week" data-i18n="form.week">Semana</button>
+              <button type="button" class="dashboard-time-tab" data-timescope="quarter" data-i18n="dash.quarter">Cuatrimestre</button>
+              <button type="button" class="dashboard-time-tab" data-timescope="year" data-i18n="dash.year">Año</button>
             </div>
             <div id="dashboard-summary-grid" class="summary-grid"></div>
           </section>
@@ -907,12 +907,12 @@
           <section class="panel panel-soft" id="dashboard-metrics-section">
             <div class="panel-head">
               <div>
-                <p class="eyebrow" id="dashboard-metrics-eyebrow">Métricas consolidadas</p>
+                <p class="eyebrow" id="dashboard-metrics-eyebrow" data-i18n="dash.consolidatedMetrics">Métricas consolidadas</p>
                 <h2 data-i18n="dash.meetingSummary">Resumen de reuniones</h2>
               </div>
               <div id="dashboard-metrics-toggle" class="dashboard-metrics-toggle" hidden>
-                <button type="button" class="metrics-toggle-btn is-active" data-metrics-scope="total">Total</button>
-                <button type="button" class="metrics-toggle-btn" data-metrics-scope="sector">Por sector</button>
+                <button type="button" class="metrics-toggle-btn is-active" data-metrics-scope="total" data-i18n="dash.total">Total</button>
+                <button type="button" class="metrics-toggle-btn" data-metrics-scope="sector" data-i18n="dash.bySector">Por sector</button>
               </div>
             </div>
             <div id="dashboard-metrics-body"></div>
@@ -938,7 +938,7 @@
           <div class="panel-head" style="margin-bottom:20px">
             <div>
               <p class="eyebrow">Sistema</p>
-              <h2>Configuración</h2>
+              <h2 data-i18n="set.settings">Configuración</h2>
             </div>
           </div>
           <div class="settings-grid">
@@ -962,17 +962,17 @@
                   <option value="5" data-i18n="set.friday">Viernes</option>
                   <option value="6" data-i18n="set.saturday">Sábado</option>
                 </select>
-                <label class="settings-label" for="setting-grace-hours" style="margin-top:12px">Horas de gracia al inicio de semana</label>
+                <label class="settings-label" for="setting-grace-hours" style="margin-top:12px" data-i18n="set.graceHours">Horas de gracia al inicio de semana</label>
                 <div style="display:flex;align-items:center;gap:8px">
                   <input id="setting-grace-hours" type="number" min="0" max="48" step="1" class="settings-input" style="width:80px" placeholder="0" />
-                  <span style="font-size:0.8rem;color:var(--muted)">horas — el sistema sugiere la semana anterior durante este tiempo</span>
+                  <span style="font-size:0.8rem;color:var(--muted)" data-i18n="set.graceHoursDesc">horas — el sistema sugiere la semana anterior durante este tiempo</span>
                 </div>
                 <div id="settings-week-preview" class="settings-week-preview" style="margin-top:10px"></div>
               </div>
               <div class="settings-card-footer">
                 <button id="settings-save-btn" type="button" class="btn">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  Guardar
+                  <span data-i18n="set.save">Guardar</span>
                 </button>
                 <span id="settings-save-status" class="settings-save-status"></span>
               </div>
@@ -1029,11 +1029,11 @@
                 <div class="settings-toggle-group">
                   <label class="settings-toggle-option">
                     <input type="radio" name="settings_lang" id="settings-lang-es" value="es" />
-                    <span>Español</span>
+                    <span data-i18n="set.spanish">Español</span>
                   </label>
                   <label class="settings-toggle-option">
                     <input type="radio" name="settings_lang" id="settings-lang-en" value="en" />
-                    <span>English</span>
+                    <span data-i18n="set.english">English</span>
                   </label>
                 </div>
               </div>
@@ -1043,19 +1043,19 @@
               <div class="settings-card-header">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                 <div>
-                  <strong class="settings-card-title">Verbos RCM por semana</strong>
-                  <p class="settings-card-desc">Personaliza los verbos, descripciones y nombres de eventos catalizadores de cada semana del ciclo.</p>
+                  <strong class="settings-card-title" data-i18n="set.rcmVerbs">Verbos RCM por semana</strong>
+                  <p class="settings-card-desc" data-i18n="set.rcmVerbsDesc">Personaliza los verbos, descripciones y nombres de eventos catalizadores de cada semana del ciclo.</p>
                 </div>
               </div>
               <div class="settings-card-body" style="overflow-x:auto">
                 <table class="rcm-verbs-table" id="rcm-verbs-table">
                   <thead>
                     <tr>
-                      <th style="width:44px">Sem.</th>
-                      <th style="width:120px">Etapa</th>
-                      <th style="width:130px">Verbo</th>
-                      <th>Descripción</th>
-                      <th style="width:150px">Evento catalizador</th>
+                      <th style="width:44px" data-i18n="seg.week">Sem.</th>
+                      <th style="width:120px" data-i18n="set.stage">Etapa</th>
+                      <th style="width:130px" data-i18n="set.verb">Verbo</th>
+                      <th data-i18n="set.description">Descripción</th>
+                      <th style="width:150px" data-i18n="set.catalystEvent">Evento catalizador</th>
                       <th style="width:44px" aria-label="Acciones"></th>
                     </tr>
                   </thead>
@@ -1066,18 +1066,18 @@
                 <div style="margin-top:10px">
                   <button id="rcm-verbs-add-btn" type="button" class="btn btn--ghost" style="font-size:0.82rem">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Agregar semana
+                    <span data-i18n="set.addWeek">Agregar semana</span>
                   </button>
                 </div>
               </div>
               <div class="settings-card-footer">
                 <button id="settings-rcm-verbs-save-btn" type="button" class="btn">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                  Guardar verbos
+                  <span data-i18n="set.saveVerbs">Guardar verbos</span>
                 </button>
                 <button id="settings-rcm-verbs-reset-btn" type="button" class="btn btn--ghost" style="margin-left:8px">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
-                  Restablecer predeterminados
+                  <span data-i18n="set.resetDefaults">Restablecer predeterminados</span>
                 </button>
                 <span id="settings-rcm-verbs-status" class="settings-save-status"></span>
               </div>
@@ -1095,92 +1095,92 @@
   <dialog id="people-edit-dialog" class="app-dialog">
     <div class="dialog-head">
       <div>
-        <p class="eyebrow">Catálogo</p>
-        <h3 id="people-dialog-title">Nueva persona</h3>
+        <p class="eyebrow" data-i18n="pdlg.catalog">Catálogo</p>
+        <h3 id="people-dialog-title" data-i18n="pdlg.newPerson">Nueva persona</h3>
       </div>
       <button id="people-dialog-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
     </div>
     <div class="dialog-body">
       <div id="people-dialog-info-row" class="people-dialog-info-row" hidden>
         <div class="people-dialog-info-item">
-          <span class="info-label">Funciones actuales</span>
+          <span class="info-label" data-i18n="pdlg.currentFuncs">Funciones actuales</span>
           <div id="people-dialog-function-badges" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
         </div>
         <div class="people-dialog-info-item">
-          <span class="info-label">Célula actual</span>
+          <span class="info-label" data-i18n="pdlg.currentCell">Célula actual</span>
           <span id="people-dialog-cell-badge" class="catalog-assignment-chip"></span>
         </div>
       </div>
       <form id="people-form" class="stack-grid compact-stack">
         <input id="people-edit-id" type="hidden">
         <label>
-          <span>Nombre</span>
+          <span data-i18n="pdlg.nameLabel">Nombre</span>
           <input name="name" type="text" required>
         </label>
         <div class="split-grid">
           <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
             <input id="people-is-kid" name="isKid" type="checkbox" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
-            <span>Es menor de edad <small style="font-weight:400;opacity:.6">(niño/a)</small></span>
+            <span data-i18n="pdlg.isKid">Es menor de edad <small style="font-weight:400;opacity:.6">(niño/a)</small></span>
           </label>
           <label>
-            <span>Teléfono</span>
+            <span data-i18n="pdlg.phone">Teléfono</span>
             <input name="phone" type="text">
           </label>
         </div>
         <div id="people-guardian-fields" class="split-grid guardian-grid" hidden>
           <label>
-            <span>Responsable en catálogo</span>
+            <span data-i18n="pdlg.guardianCatalog">Responsable en catálogo</span>
             <select id="people-guardian-person" name="guardianPersonId"></select>
           </label>
           <label>
-            <span>Responsable de referencia</span>
+            <span data-i18n="pdlg.guardianRef">Responsable de referencia</span>
             <input id="people-guardian-name" name="guardianName" type="text" placeholder="Ej. mamá de la visita">
           </label>
         </div>
         <label>
-          <span>Correo</span>
+          <span data-i18n="pdlg.email">Correo</span>
           <input name="email" type="email">
         </label>
       </form>
 
       <!-- ── Sección de célula ──────────────────────────────── -->
       <div class="dialog-section-divider">
-        <span>Célula</span>
+        <span data-i18n="pdlg.cellSection">Célula</span>
       </div>
       <label>
-        <span>Asignar a célula <small style="font-weight:400;opacity:.6">(mover retira de la anterior)</small></span>
+        <span data-i18n="pdlg.assignCell">Asignar a célula <small style="font-weight:400;opacity:.6">(mover retira de la anterior)</small></span>
         <select id="people-dialog-cell-select">
-          <option value="">— Sin célula —</option>
+          <option value="" data-i18n="pdlg.noCell">— Sin célula —</option>
         </select>
       </label>
       <div id="people-dialog-leader-warn" class="dialog-warn-box" hidden></div>
 
       <!-- ── Sección de rol / acceso ────────────────────────── -->
       <div class="dialog-section-divider">
-        <span>Función en la célula</span>
+        <span data-i18n="pdlg.roleSection">Función en la célula</span>
       </div>
       <div id="people-dialog-role-fields" class="stack-grid compact-stack">
         <label id="people-dialog-cell-role-field">
-          <span>Función <small style="font-weight:400;opacity:.6">(dentro de su célula asignada)</small></span>
+          <span data-i18n="pdlg.roleLabel">Función <small style="font-weight:400;opacity:.6">(dentro de su célula asignada)</small></span>
           <select id="people-dialog-cell-role-select">
-            <option value="">— Solo miembro —</option>
-            <option value="leader">Líder</option>
-            <option value="assistant">Asistente</option>
-            <option value="host">Anfitrión</option>
+            <option value="" data-i18n="pdlg.roleOnly">— Solo miembro —</option>
+            <option value="leader" data-i18n="role.leader">Líder</option>
+            <option value="assistant" data-i18n="role.assistant">Asistente</option>
+            <option value="host" data-i18n="role.host">Anfitrión</option>
           </select>
         </label>
         <label id="people-supervisor-field">
-          <span>Supervisa sector <small style="font-weight:400;opacity:.6">(dejar vacío si no aplica)</small></span>
+          <span data-i18n="pdlg.supervisorSect">Supervisa sector <small style="font-weight:400;opacity:.6">(dejar vacío si no aplica)</small></span>
           <select name="supervisorSector" form="people-form">
-            <option value="">— No es supervisor —</option>
+            <option value="" data-i18n="pdlg.noSupervisor">— No es supervisor —</option>
           </select>
         </label>
         <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
           <input id="people-is-coordinator" name="isCoordinator" type="checkbox" form="people-form" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
-          <span>Es coordinador <small style="font-weight:400;opacity:.6">(acceso total)</small></span>
+          <span data-i18n="pdlg.isCoordinator">Es coordinador <small style="font-weight:400;opacity:.6">(acceso total)</small></span>
         </label>
         <label id="people-username-field" hidden>
-          <span>Usuario para login <small style="font-weight:400;opacity:.6">(letras, números, '.', '_' o '-')</small></span>
+          <span data-i18n="pdlg.usernameLabel">Usuario para login <small style="font-weight:400;opacity:.6">(letras, números, '.', '_' o '-')</small></span>
           <input id="people-username" name="username" type="text" form="people-form" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ej. fabian.macias">
         </label>
       </div>
@@ -1195,7 +1195,7 @@
   <dialog id="people-rcm-dialog" class="app-dialog app-dialog-wide">
     <div class="dialog-head">
       <div>
-        <p class="eyebrow">Progreso RCM</p>
+        <p class="eyebrow" data-i18n="admin.rcmProgress">Progreso RCM</p>
         <h3 id="rcm-dialog-title">Persona</h3>
       </div>
       <button id="rcm-dialog-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
@@ -1210,8 +1210,8 @@
   <dialog id="cell-edit-dialog" class="app-dialog app-dialog-wide">
     <div class="dialog-head">
       <div>
-        <p class="eyebrow">Catálogo</p>
-        <h3 id="cell-dialog-title">Nueva célula</h3>
+        <p class="eyebrow" data-i18n="pdlg.catalog">Catálogo</p>
+        <h3 id="cell-dialog-title" data-i18n="admin.newCell">Nueva célula</h3>
       </div>
       <button id="cell-dialog-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
     </div>
@@ -1221,29 +1221,29 @@
         <input id="cell-admin-select" type="hidden">
         <div class="split-grid split-grid-4">
           <label>
-            <span>Célula #</span>
+            <span data-i18n="form.cell">Célula #</span>
             <input name="cellNumber" type="text" required placeholder="Ej. 12">
           </label>
           <label>
-            <span>Red</span>
+            <span data-i18n="form.network">Red</span>
             <input name="networkName" type="text" placeholder="Ej. Rosarito">
           </label>
           <label>
-            <span>Sector</span>
+            <span data-i18n="form.sector">Sector</span>
             <select id="cell-sector-select" name="sector" required></select>
           </label>
           <label>
-            <span>Zona</span>
+            <span data-i18n="form.zone">Zona</span>
             <input name="zoneName" type="text">
           </label>
         </div>
         <div class="split-grid split-grid-2">
           <label>
-            <span>Distrito</span>
+            <span data-i18n="form.district">Distrito</span>
             <input name="districtName" type="text">
           </label>
           <label style="flex:2">
-            <span>Domicilio</span>
+            <span data-i18n="form.address">Domicilio</span>
             <input name="address" type="text" placeholder="Calle, número, colonia…">
           </label>
         </div>
@@ -1252,12 +1252,12 @@
         <input id="cell-assistant-select" name="assistantPersonId" type="hidden">
         <input id="cell-host-select" name="hostPersonId" type="hidden">
       </form>
-      <div class="dialog-section-divider"><span>Miembros y roles</span></div>
-      <p class="member-admin-caption" style="margin:0 0 8px">Asigna roles a los miembros de esta célula. Solo personas sin célula asignada pueden agregarse.</p>
+      <div class="dialog-section-divider"><span data-i18n="cdlg.membersAndRoles">Miembros y roles</span></div>
+      <p class="member-admin-caption" style="margin:0 0 8px" data-i18n="cdlg.memberAdminDesc">Asigna roles a los miembros de esta célula. Solo personas sin célula asignada pueden agregarse.</p>
       <form id="member-form" class="member-form">
         <select id="member-person-select" style="flex:1"></select>
-        <button type="submit" data-tooltip="Agregar la persona seleccionada como miembro de esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar</button>
-        <button type="button" id="cell-dialog-new-person-btn" class="btn-secondary" data-tooltip="Crear una nueva persona y asignarla a esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> Nueva persona</button>
+        <button type="submit" data-tooltip="Agregar la persona seleccionada como miembro de esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span data-i18n="cdlg.addMember">Agregar</span></button>
+        <button type="button" id="cell-dialog-new-person-btn" class="btn-secondary" data-tooltip="Crear una nueva persona y asignarla a esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span data-i18n="admin.newPerson">Nueva persona</span></button>
       </form>
       <div id="cell-dialog-msg" class="cell-dialog-msg" hidden></div>
       <div id="cell-member-role-table" style="margin-top:10px"></div>
@@ -1275,15 +1275,15 @@
     <div class="dialog-head">
       <div>
         <p class="eyebrow">Vista previa</p>
-        <h3 id="preview-dialog-title">Reporte — Semana</h3>
+        <h3 id="preview-dialog-title" data-i18n="prev.reportWeek">Reporte — Semana</h3>
       </div>
       <button id="preview-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
     </div>
     <div id="preview-dialog-body" class="dialog-body preview-dialog-body"></div>
     <div class="dialog-footer" id="preview-dialog-footer">
-      <button id="preview-cancel-btn" type="button" class="btn btn-ghost">Seguir editando</button>
-      <button id="preview-edit-from-seg-btn" type="button" class="btn btn-ghost" hidden>Editar reporte</button>
-      <button id="preview-confirm-btn" type="button" class="btn btn-primary" data-tooltip="Confirmar y enviar el reporte"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Confirmar y guardar</button>
+      <button id="preview-cancel-btn" type="button" class="btn btn-ghost" data-i18n="prev.keepEditing">Seguir editando</button>
+      <button id="preview-edit-from-seg-btn" type="button" class="btn btn-ghost" data-i18n="prev.editReport" hidden>Editar reporte</button>
+      <button id="preview-confirm-btn" type="button" class="btn btn-primary" data-tooltip="Confirmar y enviar el reporte"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span data-i18n="prev.confirmSave">Confirmar y guardar</span></button>
     </div>
   </dialog>
 
@@ -1293,14 +1293,14 @@
   <!-- ── Generic confirm dialog ───────────────────────────── -->
   <dialog id="app-confirm-dialog" class="app-dialog app-confirm-dialog">
     <div class="dialog-head">
-      <h3 id="app-confirm-title">Confirmar</h3>
+      <h3 id="app-confirm-title" data-i18n="confirm.title">Confirmar</h3>
     </div>
     <div class="dialog-body">
       <p id="app-confirm-message" style="margin:0;white-space:pre-line;line-height:1.6;"></p>
     </div>
     <div class="dialog-footer">
-      <button id="app-confirm-cancel" class="btn-secondary" data-tooltip="Cancelar esta acción"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancelar</button>
-      <button id="app-confirm-ok" class="btn-primary" data-tooltip="Confirmar y ejecutar la acción"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Confirmar</button>
+      <button id="app-confirm-cancel" class="btn-secondary" data-tooltip="Cancelar esta acción"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> <span data-i18n="confirm.cancel">Cancelar</span></button>
+      <button id="app-confirm-ok" class="btn-primary" data-tooltip="Confirmar y ejecutar la acción"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> <span data-i18n="confirm.ok">Confirmar</span></button>
     </div>
   </dialog>
 
@@ -1308,22 +1308,22 @@
   <dialog id="convocar-dialog" class="app-dialog">
     <div class="dialog-head">
       <div>
-        <p class="eyebrow">Convocatoria</p>
-        <h3>Registrar inicio de clase</h3>
+        <p class="eyebrow" data-i18n="convocar.eyebrow">Convocatoria</p>
+        <h3 data-i18n="convocar.title">Registrar inicio de clase</h3>
       </div>
       <button id="convocar-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
     </div>
     <div class="dialog-body">
       <div class="field-row">
-        <label for="convocar-clase-select">Clase</label>
+        <label for="convocar-clase-select" data-i18n="convocar.class">Clase</label>
         <select id="convocar-clase-select"></select>
       </div>
-      <p class="eyebrow" style="margin-top:12px">Miembros que inician esta clase hoy</p>
+      <p class="eyebrow" style="margin-top:12px" data-i18n="convocar.startToday">Miembros que inician esta clase hoy</p>
       <div id="convocar-member-list" class="convocar-member-list"></div>
     </div>
     <div class="dialog-footer">
-      <button id="convocar-cancel-btn" type="button" class="btn btn-ghost">Cancelar</button>
-      <button id="convocar-confirm-btn" type="button" class="btn btn-primary">Registrar convocatoria</button>
+      <button id="convocar-cancel-btn" type="button" class="btn btn-ghost" data-i18n="confirm.cancel">Cancelar</button>
+      <button id="convocar-confirm-btn" type="button" class="btn btn-primary" data-i18n="convocar.register">Registrar convocatoria</button>
     </div>
   </dialog>
 

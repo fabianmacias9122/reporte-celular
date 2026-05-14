@@ -16,7 +16,7 @@ const RCM_WEEKS = [
   { week: 8,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "INTEGRAR",   verbDesc: "Incorporar al amigo a la célula, cultos y fraternidades.",                 event: null,              eventType: null,                                 purpose: null },
   { week: 9,  phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "CONSOLIDAR", verbDesc: "Afirmar la fe del nuevo creyente.",                                        event: null,              eventType: null,                                 purpose: null },
   { week: 10, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "PREPARAR",   verbDesc: "Preparación para el encuentro con Dios.",                                  event: null,              eventType: null,                                 purpose: null },
-  { week: 11, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "SANTIFICAR", verbDesc: "Consagración para el Evento de Restauración (Encuentro).",                 event: "Restauración",    eventType: "Sanidad interior y liberación espiritual", purpose: "Sanar áreas internas y fortalecer la fe.", rcmKey: "restauracion" },
+  { week: 11, phase: "CONSOLIDAR", phaseLabel: "Consolidar", verb: "SANTIFICAR", verbDesc: "Consagración para el Evento de Restauración (Encuentro).",                 event: t('dash.restoration'),    eventType: "Sanidad interior y liberación espiritual", purpose: "Sanar áreas internas y fortalecer la fe.", rcmKey: "restauracion" },
   // ETAPA 3 – DISCIPULAR (semanas 12–16) · Evento catalizador: Cielos Abiertos / Pesca Milagrosa
   { week: 12, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "MATRICULAR", verbDesc: "Inscripción al discipulado.",                                              event: null,              eventType: null,                                 purpose: null },
   { week: 13, phase: "DISCIPULAR", phaseLabel: "Discipular", verb: "CONSERVAR",  verbDesc: "Cuidado del nuevo convertido.",                                            event: null,              eventType: null,                                 purpose: null },
@@ -265,37 +265,37 @@ const RCM_MILESTONES = [
   // ── Fase Ganar ──────────────────────────────────────────────
   { key: "levantate",         label: "Levántate",           section: "ganar",      sectionLabel: "Fase Ganar",       type: "evento" },
   // ── Fase Consolidar ─────────────────────────────────────────
-  { key: "e1Maduracion",      label: "E1 - Maduración",     section: "consolidar", sectionLabel: "Fase Consolidar",  type: "clase"  },
-  { key: "e2Integracion",     label: "E2 - Integración",    section: "consolidar", sectionLabel: "Fase Consolidar",  type: "clase"  },
-  { key: "e3Ubicacion",       label: "E3 - Ubicación",      section: "consolidar", sectionLabel: "Fase Consolidar",  type: "clase"  },
-  { key: "eventoUnete",       label: "Evento Únete",        section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
-  { key: "restauracion",      label: "Restauración",        section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
+  { key: "e1Maduracion",      label: t('met.e1Mat'),     section: "consolidar", sectionLabel: "Fase Consolidar",  type: "clase"  },
+  { key: "e2Integracion",     label: t('met.e2Int'),    section: "consolidar", sectionLabel: "Fase Consolidar",  type: "clase"  },
+  { key: "e3Ubicacion",       label: t('met.e3Ubi'),      section: "consolidar", sectionLabel: "Fase Consolidar",  type: "clase"  },
+  { key: "eventoUnete",       label: t('met.evtUnete'),        section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
+  { key: "restauracion",      label: t('dash.restoration'),        section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
   { key: "eventoReencuentro", label: "Evento Re-encuentro", section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
   { key: "eventoMinisterios", label: "Evento Ministerios",  section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
   { key: "reencuentro",       label: "Reencuentro",         section: "consolidar", sectionLabel: "Fase Consolidar",  type: "evento" },
   // ── Fase Discipular ─────────────────────────────────────────
-  { key: "e1Vision",          label: "E1 - Visión",         section: "discipular", sectionLabel: "Fase Discipular",  type: "clase"  },
-  { key: "e2Caracter",        label: "E2 - Carácter",       section: "discipular", sectionLabel: "Fase Discipular",  type: "clase"  },
+  { key: "e1Vision",          label: t('met.e1Vis'),         section: "discipular", sectionLabel: "Fase Discipular",  type: "clase"  },
+  { key: "e2Caracter",        label: t('met.e2Car'),       section: "discipular", sectionLabel: "Fase Discipular",  type: "clase"  },
   { key: "e3Perfil",          label: "E3 - Perfil",         section: "discipular", sectionLabel: "Fase Discipular",  type: "clase"  },
   { key: "lanzamiento",       label: "Lanzamiento/Multip.", section: "discipular", sectionLabel: "Fase Discipular",  type: "evento" },
   { key: "cielosAbiertos",    label: "Cielos Abiertos",     section: "discipular", sectionLabel: "Fase Discipular",  type: "evento" },
   // ── Escuelas ─────────────────────────────────────────────────
   { key: "escFormativa",      label: "Esc. Formativa",      section: "escuelas",   sectionLabel: "Escuelas",         type: "clase"  },
   { key: "escPadresEsp",      label: "Esc. Padres Esp.",    section: "escuelas",   sectionLabel: "Escuelas",         type: "clase"  },
-  { key: "escLideres",        label: "Esc. Líderes",        section: "escuelas",   sectionLabel: "Escuelas",         type: "clase"  },
+  { key: "escLideres",        label: t('met.eduLeaders'),        section: "escuelas",   sectionLabel: "Escuelas",         type: "clase"  },
   { key: "escSupervisores",   label: "Esc. Supervisores",   section: "escuelas",   sectionLabel: "Escuelas",         type: "clase"  },
 ];
 
 // All report sections matching the original PDF exactly
 const METRIC_SECTION_DEFINITIONS = [
-  { title: "Planeación",      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
-  { title: "Alcance",         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", "Niños presentes"]] },
-  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
-  { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", "Amigos en E. Levántate"], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
-  { title: "Fase Consolidar", fields: [["consolidateE1", "E1 - Maduración"], ["consolidateE2", "E2 - Integración"], ["consolidateE3", "E3 - Ubicación"], ["consolidateJoinEvent", "Evento Únete"], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
-  { title: "Fase Discipular", fields: [["discipleE1Vision", "E1 - Visión"], ["discipleE2Character", "E2 - Carácter"], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
-  { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", "Esc. Líderes"], ["schoolSupervisors", "Esc. Supervisores"]] },
-  { title: "Bautismos",       fields: [["baptismFirstQuarter", "1er. Cuatr."], ["baptismSecondQuarter", "2do. Cuatr."], ["baptismThirdQuarter", "3er. Cuatr."], ["baptismYearTotal", "Total Año"]] },
+  { title: t('dash.planning'),      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
+  { title: t('dash.reach'),         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", t('rcm.kidsPresent')]] },
+  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
+  { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
+  { title: "Fase Consolidar", fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
+  { title: "Fase Discipular", fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
+  { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", "Esc. Supervisores"]] },
+  { title: "Bautismos",       fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
 ];
 
 // Auto-computed (readonly) field names
@@ -499,35 +499,35 @@ async function refreshLoginPasswordUI() {
       if (loginPasswordField) loginPasswordField.hidden = true;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
       setLoginHelp('');
-      setLoginError('Usuario no encontrado.');
+      setLoginError(t('login.userNotFound'));
       if (loginBtn) loginBtn.disabled = true;
       return;
     }
     const data = await r.json();
-    if (!r.ok) { setLoginError(data.message || 'Error.'); return; }
+    if (!r.ok) { setLoginError(data.message || t('err.generic')); return; }
     loginLookupResult = data;
     if (data.hasPassword && !data.mustChange) {
       loginAuthMode = 'enter';
-      if (loginPasswordLabel) loginPasswordLabel.textContent = `Contraseña de ${data.name}`;
+      if (loginPasswordLabel) loginPasswordLabel.textContent = t('login.passwordOf', { name: data.name });
       if (loginPasswordField) loginPasswordField.hidden = false;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = true;
       setLoginHelp('');
     } else if (data.mustChange) {
       loginAuthMode = 'reset';
-      if (loginPasswordLabel) loginPasswordLabel.textContent = `Crea una nueva contraseña (${data.name})`;
+      if (loginPasswordLabel) loginPasswordLabel.textContent = t('login.createNewPassword', { name: data.name });
       if (loginPasswordField) loginPasswordField.hidden = false;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = false;
-      setLoginHelp('Tu contraseña fue reseteada. Crea una nueva (mínimo 6 caracteres).');
+      setLoginHelp(t('login.passwordReset'));
     } else {
       loginAuthMode = 'create';
-      if (loginPasswordLabel) loginPasswordLabel.textContent = `Crea tu contraseña (${data.name})`;
+      if (loginPasswordLabel) loginPasswordLabel.textContent = t('login.createPassword', { name: data.name });
       if (loginPasswordField) loginPasswordField.hidden = false;
       if (loginPasswordConfirmField) loginPasswordConfirmField.hidden = false;
-      setLoginHelp('Es tu primera vez. Crea una contraseña (mínimo 6 caracteres) — la usarás siempre.');
+      setLoginHelp(t('login.firstTime'));
     }
     if (loginBtn) loginBtn.disabled = false;
   } catch (err) {
-    setLoginError('Error de conexión.');
+    setLoginError(t('err.connection'));
     if (loginBtn) loginBtn.disabled = true;
   }
 }
@@ -548,34 +548,34 @@ loginBtn?.addEventListener("click", async () => {
   let viaMaster = false;
   if (loginAuthMode === 'enter') {
     const pw = String(loginPasswordInput?.value || '');
-    if (!pw) { setLoginError('Ingresa tu contraseña.'); return; }
+    if (!pw) { setLoginError(t('login.enterPassword')); return; }
     try {
       const r = await fetch('/api/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password: pw }),
       });
       const data = await r.json();
-      if (!r.ok) { setLoginError(data.message || 'No se pudo entrar.'); return; }
+      if (!r.ok) { setLoginError(data.message || t('login.cantEnter')); return; }
       viaMaster = !!data.viaMaster;
-    } catch (e) { setLoginError('Error de conexión.'); return; }
+    } catch (e) { setLoginError(t('err.connection')); return; }
   } else if (loginAuthMode === 'create' || loginAuthMode === 'reset') {
     const pw  = String(loginPasswordInput?.value || '');
     const pw2 = String(loginPasswordConfirm?.value || '');
-    if (pw.length < 6) { setLoginError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    if (pw !== pw2) { setLoginError('Las contraseñas no coinciden.'); return; }
+    if (pw.length < 6) { setLoginError(t('login.passwordShort')); return; }
+    if (pw !== pw2) { setLoginError(t('login.passwordsMismatch')); return; }
     try {
       const r = await fetch('/api/auth/set-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personId: lookup.personId, newPassword: pw }),
       });
       const data = await r.json();
-      if (!r.ok) { setLoginError(data.message || 'No se pudo crear la contraseña.'); return; }
-    } catch (e) { setLoginError('Error de conexión.'); return; }
+      if (!r.ok) { setLoginError(data.message || t('login.cantCreatePassword')); return; }
+    } catch (e) { setLoginError(t('err.connection')); return; }
   }
   // 'none' = compat (sin password todavia, no se exigio)
 
   const person = (catalogs.people || []).find(p => String(p.id) === String(lookup.personId));
-  if (!person) { setLoginError('Persona no encontrada en catalogo.'); return; }
+  if (!person) { setLoginError(t('login.personNotFound')); return; }
   const user = {
     personId: person.id,
     name: person.name,
@@ -593,14 +593,22 @@ loginBtn?.addEventListener("click", async () => {
   sessionStorage.setItem(RC_SESSION_KEY, JSON.stringify(user));
   // Mantener overlay visible mientras se carga toda la sesión. Antes lo
   // ocultábamos al instante y en Render (cold-start) el usuario alcanzaba
-  // a navegar a "Planeación" antes de que llegara la respuesta del reporte,
+  // a navegar a t('dash.planning') antes de que llegara la respuesta del reporte,
   // así que el formulario aparecía vacío hasta que refrescaba la página.
   if (loginOverlay) {
     const loginCard = loginOverlay.querySelector(".login-card");
     if (loginCard) loginCard.setAttribute("aria-busy", "true");
-    if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = "Cargando…"; }
+    if (loginBtn) { loginBtn.disabled = true; loginBtn.textContent = t('common.loading'); }
   }
   applyUserSession(user);
+  // Limpiar cualquier reporte que el bootstrap (sin usuario) haya auto-cargado
+  // de otra célula antes del login. Si no se limpia, `editingReportId` queda
+  // apuntando al reporte equivocado y `autoLoadExistingReportIfAny` (más abajo)
+  // sale temprano por la guarda `if (editingReportId) return;`, dejando las
+  // palomitas/datos de ese otro reporte en pantalla.
+  if (editingReportId) {
+    resetReportForm();
+  }
   restrictCellFieldToUser(user);
   // For admins/coordinators: ensure cellField is enabled (a prior non-admin session
   // may have disabled it) and pre-select their own cell if they lead one.
@@ -721,7 +729,7 @@ function showView(viewName) {
       .find(b => b?.classList.contains("is-active"));
     topbarRouteLabel.textContent = activeBtn?.querySelector("span[data-i18n]")?.textContent
       ?? activeBtn?.dataset.label
-      ?? "Reporte de Célula";
+      ?? t('rep.cellReport');
   }
   if (isAdminView) {
     setActiveAdminSectionButton("admin-overview-section");
@@ -757,8 +765,8 @@ async function request(path, options = {}) {
       });
 
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({ message: "Error inesperado" }));
-        throw new Error(payload.message || "Error inesperado");
+        const payload = await response.json().catch(() => ({ message: t('err.unexpected') }));
+        throw new Error(payload.message || t('err.unexpected'));
       }
 
       if (response.status === 204) {
@@ -779,7 +787,7 @@ async function request(path, options = {}) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
-  throw lastErr || new Error("Error inesperado");
+  throw lastErr || new Error(t('err.unexpected'));
 }
 
 function setFeedback(message, isError = false) {
@@ -1094,7 +1102,7 @@ function getDashboardScopeLabel() {
   if (currentUser.isSupervisor && currentUser.supervisedSector) {
     return `Sector ${currentUser.supervisedSector}`;
   }
-  if (currentUser.assignedCellNumber) return `Célula ${currentUser.assignedCellNumber}`;
+  if (currentUser.assignedCellNumber) return t('cell.numbered', { n: currentUser.assignedCellNumber });
   return null;
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1373,7 +1381,7 @@ function renderGuardianSelect(selectedPersonId = "") {
   renderSelect(
     peopleGuardianPerson,
     getGuardianCandidates(selectedPersonId).map((person) => ({ value: String(person.id), label: `${person.name} · ${formatRole(getDerivedFunction(person))}` })),
-    "Selecciona responsable"
+    t('sel.responsible')
   );
 }
 
@@ -1742,12 +1750,12 @@ function getVisiblePeople() {
 
 function getPersonAssignmentLabel(person) {
   if (Number(person?.assignedCellCount || 0) > 1) {
-    return `Duplicado en ${person.assignedCellCount} células`;
+    return t('person.duplicatedIn', { n: person.assignedCellCount });
   }
   if (person?.assignedCellNumber) {
-    return `Célula ${person.assignedCellNumber}`;
+    return t('cell.numbered', { n: person.assignedCellNumber });
   }
-  return "Sin célula";
+  return t('cell.none');
 }
 
 function getVisibleCells() {
@@ -1762,15 +1770,15 @@ function renderSelect(selectElement, options, placeholder) {
 }
 
 function renderReportPersonSelects() {
-  renderSelect(leaderField, getPeopleByRole("leader").map((person) => ({ value: person.name, label: person.name })), "Selecciona líder");
-  renderSelect(assistantField, getPeopleByRole("assistant").map((person) => ({ value: person.name, label: person.name })), "Selecciona asistente");
-  renderSelect(hostField, getPeopleByRole("host").map((person) => ({ value: person.name, label: person.name })), "Selecciona anfitrión");
+  renderSelect(leaderField, getPeopleByRole("leader").map((person) => ({ value: person.name, label: person.name })), t('sel.leader'));
+  renderSelect(assistantField, getPeopleByRole("assistant").map((person) => ({ value: person.name, label: person.name })), t('sel.assistant'));
+  renderSelect(hostField, getPeopleByRole("host").map((person) => ({ value: person.name, label: person.name })), t('sel.host'));
 }
 
 function renderCellRoleSelects() {
-  renderSelect(cellLeaderSelect, getPeopleByRole("leader").map((person) => ({ value: String(person.id), label: person.name })), "Sin líder");
-  renderSelect(cellAssistantSelect, getPeopleByRole("assistant").map((person) => ({ value: String(person.id), label: person.name })), "Sin asistente");
-  renderSelect(cellHostSelect, getPeopleByRole("host").map((person) => ({ value: String(person.id), label: person.name })), "Sin anfitrión");
+  renderSelect(cellLeaderSelect, getPeopleByRole("leader").map((person) => ({ value: String(person.id), label: person.name })), t('cell.noLeader'));
+  renderSelect(cellAssistantSelect, getPeopleByRole("assistant").map((person) => ({ value: String(person.id), label: person.name })), t('cell.noAssistant'));
+  renderSelect(cellHostSelect, getPeopleByRole("host").map((person) => ({ value: String(person.id), label: person.name })), t('cell.noHost'));
 }
 
 function renderCellOptions() {
@@ -1779,20 +1787,20 @@ function renderCellOptions() {
     const kidCount = getCellKids(cell).length;
     const memberLabel = `${memberCount} miembro${memberCount === 1 ? "" : "s"}`;
     const kidLabel = `${kidCount} niño${kidCount === 1 ? "" : "s"}`;
-    return { value: cell.cellNumber, label: `${cell.cellNumber} · ${cell.networkName || "Sin red"} · ${memberLabel} · ${kidLabel}` };
+    return { value: cell.cellNumber, label: `${cell.cellNumber} · ${cell.networkName || t('cell.noNetwork')} · ${memberLabel} · ${kidLabel}` };
   });
-  renderSelect(cellField, options, "Selecciona célula");
+  renderSelect(cellField, options, t('sel.cell'));
 
-  const adminOptions = catalogs.cells.map((cell) => ({ value: String(cell.id), label: `Célula ${cell.cellNumber}` }));
-  renderSelect(cellAdminSelect, adminOptions, "Crear nueva célula");
+  const adminOptions = catalogs.cells.map((cell) => ({ value: String(cell.id), label: t('cell.numbered', { n: cell.cellNumber }) }));
+  renderSelect(cellAdminSelect, adminOptions, t('cell.createNew'));
 }
 
 function renderPeopleRows() {
   const visiblePeople = getVisiblePeople();
   if (!visiblePeople.length) {
-    peopleTableBody.innerHTML = '<tr><td colspan="5" class="empty-state">Sin personas registradas.</td></tr>';
+    peopleTableBody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('empty.noPeople')}</td></tr>`;
     const pg = document.getElementById("people-card-grid");
-    if (pg) pg.innerHTML = '<p class="pc-empty">Sin personas registradas.</p>';
+    if (pg) pg.innerHTML = `<p class="pc-empty">${t('empty.noPeople')}</p>`;
     return;
   }
 
@@ -1801,10 +1809,10 @@ function renderPeopleRows() {
   const GROUP_LABELS = {
     coordinator: "Coordinadores",
     supervisor:  "Supervisores",
-    leader:      "Líderes",
+    leader:      t('admin.leaders'),
     assistant:   "Asistentes",
     host:        "Anfitriones",
-    member:      "Miembros",
+    member:      t('admin.members2'),
     kid:         "Niños",
   };
 
@@ -1834,7 +1842,7 @@ function renderPeopleRows() {
     <tr>
       <td data-label="Nombre">
         <strong>${escapeHtml(person.name)}</strong><br>
-        <span class="member-admin-caption">${escapeHtml(getGuardianDisplay(person) || person.phone || person.email || "Sin contacto")}</span>
+        <span class="member-admin-caption">${escapeHtml(getGuardianDisplay(person) || person.phone || person.email || t('person.noContact'))}</span>
       </td>
       <td data-label="Función">${getDerivedFunctions(person).map(fn => `<span class="fn-tag fn-tag--${fn}">${escapeHtml(formatRole(fn))}</span>`).join(" ")}</td>
       <td data-label="Asignación"><span class="catalog-assignment-chip${person.assignedCellNumber ? "" : " is-unassigned"}">${escapeHtml(getPersonAssignmentLabel(person))}</span></td>
@@ -1913,16 +1921,16 @@ function renderAdminSummary() {
   const cellsWithoutLeader = catalogs.cells.filter(c => !c.leaderPersonId).length;
 
   const cards = [
-    ["Células",       catalogs.cells.length, "Total registradas"],
-    ["Líderes",       leaderIds.size,         "Asignados como líder"],
+    [t('admin.cells2'),       catalogs.cells.length, t('admin.totalReg')],
+    [t('admin.leaders'),       leaderIds.size,         t('admin.asLeader')],
     ["Asistentes",    assistantIds.size,       "Asignados como asistente"],
     ["Anfitriones",   hostIds.size,            "Casas anfitrionas"],
     ["Coordinadores", coordinators,            "Con rol de coordinador"],
     ["Supervisores",  supervisors,             "Con sector asignado"],
-    ["Miembros",      members,                 "Total adultos registrados"],
-    ["Sin célula",    unassignedMembers,        "Adultos no asignados"],
+    [t('admin.members2'),      members,                 t('admin.totalAdults')],
+    [t('cell.none'),    unassignedMembers,        t('admin.unassignedAdults')],
     ["Niños",         kids,                    "Cargados por responsable"],
-    ["Sin líder",     cellsWithoutLeader,       "Células por cubrir"],
+    [t('cell.noLeader'),     cellsWithoutLeader,       t('admin.cellsToCover')],
   ];
 
   adminSummaryCards.innerHTML = cards.map(([label, value, hint]) => `
@@ -1942,16 +1950,16 @@ function renderCellsTable() {
   if (!cellsTableBody) return;
   const visibleCells = getVisibleCells();
   if (!visibleCells.length) {
-    cellsTableBody.innerHTML = '<tr><td colspan="5" class="empty-state">Sin células registradas.</td></tr>';
+    cellsTableBody.innerHTML = `<tr><td colspan="5" class="empty-state">${t('empty.noCells')}</td></tr>`;
     const cg = document.getElementById("cells-card-grid");
-    if (cg) cg.innerHTML = '<p class="pc-empty">Sin células registradas.</p>';
+    if (cg) cg.innerHTML = `<p class="pc-empty">${t('empty.noCells')}</p>`;
     return;
   }
   const buildCellCard = (cell) => {
     const leader = catalogs.people.find(p => String(p.id) === String(cell.leaderPersonId));
     const memberCount = getCellMembers(cell).length;
     const kidCount = getCellKids(cell).length;
-    const leaderName = leader ? escapeHtml(leader.name) : '<span class="pc-muted">Sin líder</span>';
+    const leaderName = leader ? escapeHtml(leader.name) : `<span class="pc-muted">${t('cell.noLeader')}</span>`;
     const membersText = `${memberCount} miembro${memberCount !== 1 ? "s" : ""}${kidCount ? ` · ${kidCount} niño${kidCount !== 1 ? "s" : ""}` : ""}`;
     return `<details class="pc-card">
       <summary class="pc-sum">
@@ -1975,8 +1983,8 @@ function renderCellsTable() {
     return `<tr>
       <td data-label="Célula"><strong>Célula ${escapeHtml(String(cell.cellNumber))}</strong></td>
       <td data-label="Red · Sector"><span class="member-admin-caption">${escapeHtml(cell.networkName || "—")} · Sector ${escapeHtml(cell.sector || "—")}</span></td>
-      <td data-label="Líder">${leader ? escapeHtml(leader.name) : '<span class="member-admin-caption">Sin líder</span>'}</td>
-      <td data-label="Miembros"><span class="member-admin-caption">${memberCount} miembro${memberCount !== 1 ? "s" : ""}${kidCount ? ` · ${kidCount} niño${kidCount !== 1 ? "s" : ""}` : ""}</span></td>
+      <td data-label="Líder">${leader ? escapeHtml(leader.name) : `<span class="member-admin-caption">${t('cell.noLeader')}</span>`}</td>
+      <td data-label=t('admin.members2')><span class="member-admin-caption">${memberCount} miembro${memberCount !== 1 ? "s" : ""}${kidCount ? ` · ${kidCount} niño${kidCount !== 1 ? "s" : ""}` : ""}</span></td>
       <td data-label="Acciones">
         <div class="row-actions">
           <button type="button" data-action="edit-cell" data-id="${cell.id}" data-tooltip="Editar datos y miembros de Célula ${escapeHtml(cell.cellNumber)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Editar</button>
@@ -1992,7 +2000,7 @@ function renderCellsTable() {
 function openCellEditDialog(cell = null) {
   populateCellsForm(cell);
   const titleEl = document.querySelector("#cell-dialog-title");
-  if (titleEl) titleEl.textContent = cell ? `Editar: Célula ${cell.cellNumber}` : "Nueva célula";
+  if (titleEl) titleEl.textContent = cell ? t('cell.editTitle', { n: cell.cellNumber }) : t('cell.new');
   if (cellEditDialog) cellEditDialog.showModal();
 }
 
@@ -2007,7 +2015,7 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
     return ak.localeCompare(bk);
   });
 
-  const EVENT_LABELS = { P: "Planeación", A: "Alcance", C: "Culto" };
+  const EVENT_LABELS = { P: t('dash.planning'), A: t('dash.reach'), C: t('dash.sunday') };
   // Mapeo de aplicabilidad de eventos según la última etapa guardada del reporte.
   // Si el reporte aun esta en "planificacion", el alcance y el culto siguen
   // pendientes (no han ocurrido); no deben contar como falta ni penalizar.
@@ -2084,9 +2092,9 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
       <span class="mdl-stat-label">asistencia promedio</span>
     </div>
     <div class="mdl-stat-events">
-      <span class="mdl-ev-chip mdl-ev-p" title="Planeación">Plan. <strong>${totalP}/${appliedP}</strong></span>
-      <span class="mdl-ev-chip mdl-ev-a" title="Alcance">Alc. <strong>${totalA}/${appliedA}</strong></span>
-      <span class="mdl-ev-chip mdl-ev-c" title="Culto">Culto <strong>${totalC}/${appliedC}</strong></span>
+      <span class="mdl-ev-chip mdl-ev-p" title=t('dash.planning')>Plan. <strong>${totalP}/${appliedP}</strong></span>
+      <span class="mdl-ev-chip mdl-ev-a" title=t('dash.reach')>Alc. <strong>${totalA}/${appliedA}</strong></span>
+      <span class="mdl-ev-chip mdl-ev-c" title=t('dash.sunday')>Culto <strong>${totalC}/${appliedC}</strong></span>
     </div>
   `;
 
@@ -2104,9 +2112,9 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
       <thead><tr>
         <th>Sem.</th>
         <th>Fecha</th>
-        <th title="Planeación">Plan.</th>
-        <th title="Alcance">Alc.</th>
-        <th title="Culto">Culto</th>
+        <th title=t('dash.planning')>Plan.</th>
+        <th title=t('dash.reach')>Alc.</th>
+        <th title=t('dash.sunday')>Culto</th>
         <th>Estado</th>
       </tr></thead>
       <tbody>${weekRows.map(w => {
@@ -2114,7 +2122,7 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
         const allPending = !w.planApp && !w.reachApp && !w.sundayApp;
         const someStagePending = !(w.planApp && w.reachApp && w.sundayApp);
         const statusBadge = w.isFalta
-          ? `<span class="mdl-status-badge mdl-status-${w.isJust ? "just" : "absent"}">${w.isJust ? "Justificado" : "Falta"}</span>`
+          ? `<span class="mdl-status-badge mdl-status-${w.isJust ? "just" : "absent"}">${w.isJust ? t('att.justified') : "Falta"}</span>`
           : allPending
             ? `<span class="mdl-status-badge mdl-status-pending">Pendiente</span>`
             : w.missed.length > 0
@@ -2125,9 +2133,9 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
         return `<tr class="${rowCls}">
           <td class="mdl-week">${w.weekNum}</td>
           <td class="mdl-date">${w.dateLabel}</td>
-          <td class="mdl-ev">${eventDot(w.planning, "Planeación", w.planApp)}</td>
-          <td class="mdl-ev">${eventDot(w.reach, "Alcance", w.reachApp)}</td>
-          <td class="mdl-ev">${eventDot(w.sunday, "Culto", w.sundayApp)}</td>
+          <td class="mdl-ev">${eventDot(w.planning, t('dash.planning'), w.planApp)}</td>
+          <td class="mdl-ev">${eventDot(w.reach, t('dash.reach'), w.reachApp)}</td>
+          <td class="mdl-ev">${eventDot(w.sunday, t('dash.sunday'), w.sundayApp)}</td>
           <td>${statusBadge}</td>
         </tr>`;
       }).join("")}</tbody>
@@ -2193,8 +2201,8 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
       <span class="mdl-stat-label">asistencia promedio</span>
     </div>
     <div class="mdl-stat-events">
-      <span class="mdl-ev-chip mdl-ev-a" title="Alcance">Alc. <strong>${totalReach}/${totalVisits}</strong> (${reachPct}%)</span>
-      <span class="mdl-ev-chip mdl-ev-c" title="Culto">Culto <strong>${totalSunday}/${totalVisits}</strong> (${sundayPct}%)</span>
+      <span class="mdl-ev-chip mdl-ev-a" title=t('dash.reach')>Alc. <strong>${totalReach}/${totalVisits}</strong> (${reachPct}%)</span>
+      <span class="mdl-ev-chip mdl-ev-c" title=t('dash.sunday')>Culto <strong>${totalSunday}/${totalVisits}</strong> (${sundayPct}%)</span>
     </div>
   `;
 
@@ -2207,7 +2215,7 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
       <thead><tr>
         <th>Sem.</th>
         <th>Fecha</th>
-        <th title="Alcance">Alc.</th>
+        <th title=t('dash.reach')>Alc.</th>
         <th title="Culto dominical">Culto</th>
         <th>Asistencia</th>
       </tr></thead>
@@ -2225,8 +2233,8 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
         return `<tr class="${rowCls}">
           <td class="mdl-week">${w.weekNum}</td>
           <td class="mdl-date">${w.dateLabel}</td>
-          <td class="mdl-ev">${eventDot(w.reach,  "Alcance")}</td>
-          <td class="mdl-ev">${eventDot(w.sunday, "Culto")}</td>
+          <td class="mdl-ev">${eventDot(w.reach,  t('dash.reach'))}</td>
+          <td class="mdl-ev">${eventDot(w.sunday, t('dash.sunday'))}</td>
           <td>${statusBadge}</td>
         </tr>`;
       }).join("")}</tbody>
@@ -2303,27 +2311,27 @@ function renderSegTotalsPanel(weeklyReps) {
     return `<div class="tot-group">
       <p class="tot-group-label">${escapeHtml(label)}${rosterHint ? ` · <span class="tot-roster-hint">${rosterHint}</span>` : ''}</p>
       <div class="tot-rows">
-        ${sectionLabel('Hermanos de la célula')}
-        ${row('Miembros (únicos)', agg.cellMembersUnique || 0, '#5063b8', planningTotal ? `${planningTotal} en planeación` : '', roster)}
+        ${sectionLabel(t('dash.cellBrothers'))}
+        ${row(t('dash.membersUnique'), agg.cellMembersUnique || 0, '#5063b8', '', roster)}
 
-        ${sectionLabel('Planeación')}
+        ${sectionLabel(t('dash.planning'))}
         ${row('Asistieron',       agg.planningPresent,  'var(--brand)', planningMissTxt, roster)}
 
-        ${sectionLabel('Alcance')}
+        ${sectionLabel(t('dash.reach'))}
         ${row('Hermanos',     agg.reachMembers,    '#2d8a55', reachMissParts.join(' · '), roster)}
-        ${row('Amigos',       agg.reachFriends,    '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
-        ${row('Restauración', agg.reachRestor,     '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
-        ${row('Niños célula', agg.reachKidsCell,   '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
-        ${row('Niños visit.', agg.reachKidsVisit,  '#a367d9', agg.kidsVisitUnique ? `${agg.kidsVisitUnique} únic.` : '')}
+        ${row(t('dash.friends'),       agg.reachFriends,    '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
+        ${row(t('dash.restoration'), agg.reachRestor,     '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
+        ${row(t('dash.kidsCell'), agg.reachKidsCell,   '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
+        ${row(t('dash.kidsVisit'), agg.reachKidsVisit,  '#a367d9', agg.kidsVisitUnique ? `${agg.kidsVisitUnique} únic.` : '')}
         ${agg.reachConversions ? row('Conversiones', agg.reachConversions, '#e0872a', '') : ''}
 
-        ${sectionLabel('Culto')}
+        ${sectionLabel(t('dash.sunday'))}
         ${row('Hermanos',     agg.sundayMembers,   '#3a7bd5', sundayMissTxt, roster)}
-        ${row('Amigos',       agg.sundayFriends,   '#1565c0', '')}
-        ${row('Restauración', agg.sundayRestor,    '#6a1b9a', '')}
-        ${row('Niños célula', agg.sundayKidsCell,  '#8e44ad', '')}
-        ${row('Niños visit.', agg.sundayKidsVisit, '#a367d9', '')}
-        ${row('Total culto',  agg.sundayTotal,     '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
+        ${row(t('dash.friends'),       agg.sundayFriends,   '#1565c0', '')}
+        ${row(t('dash.restoration'), agg.sundayRestor,    '#6a1b9a', '')}
+        ${row(t('dash.kidsCell'), agg.sundayKidsCell,  '#8e44ad', '')}
+        ${row(t('dash.kidsVisit'), agg.sundayKidsVisit, '#a367d9', '')}
+        ${row(t('dash.totalService'),  agg.sundayTotal,     '#0f3a91', `${agg.sundayMembers} hmnos · ${agg.sundayVisitors} visit. · ${agg.sundayKids} niños`)}
         ${showOffering ? `<div class="tot-row-wrap"><div class="tot-row tot-row-offering"><span class="tot-row-label">Ofrenda</span><div class="tot-bar-track"><div class="tot-bar" style="width:${agg.offering > 0 ? 100 : 0}%;background:#1f8a4d"></div></div><strong class="tot-row-val">$${Math.round(agg.offering || 0).toLocaleString('es-MX')}</strong></div></div>` : ''}
       </div>
     </div>`;
@@ -2353,7 +2361,7 @@ function renderSegTotalsPanel(weeklyReps) {
       const agg  = aggregateMetrics(reps);
       const leader = reps[0]?.leaderName || reps[0]?.formData?.leaderName || leaderForCell(cellNum);
       const roster = rosterForCell(cellNum);
-      const noRep = reps.length === 0 ? ' · sin reporte' : '';
+      const noRep = reps.length === 0 ? t('dash.noReportSuffix') : '';
       return buildRows(agg, `Célula ${cellNum}${leader ? ` · ${leader}` : ''}${noRep}`, roster);
     }).join('')}</div>`;
   }
@@ -2452,11 +2460,11 @@ function renderDashboardForLeader(reports) {
     scopeTitleText = `Cuatrimestre ${q === "1" ? "Ene–Abr" : q === "2" ? "May–Ago" : "Sep–Dic"} ${selectedYear}`;
   } else if (activeDashboardTimeScope === "year") {
     scopeReports   = allCellReports.filter(r => getReportYear(r) === selectedYear);
-    scopeChipText  = `Año ${selectedYear}`;
-    scopeTitleText = `Año ${selectedYear}`;
+    scopeChipText  = t('common.yearN', { n: selectedYear });
+    scopeTitleText = t('common.yearN', { n: selectedYear });
   } else {
     scopeReports   = weekReport ? [weekReport] : [];
-    scopeChipText  = `Sem. ${selectedWeek}`;
+    scopeChipText  = t('common.weekShort', { n: selectedWeek });
     scopeTitleText = `Semana ${selectedWeek}`;
   }
 
@@ -2468,14 +2476,14 @@ function renderDashboardForLeader(reports) {
   if (activeDashboardTimeScope === "week") {
     const agg = aggregateMetrics(scopeReports, { baptismYear: selectedYear, baptismQuarter: selectedQuarter });
     dashboardSummaryGrid.innerHTML = [
-      { label: "Planeación · hermanos", value: agg.planningPresent,    hint: "Presentes en planeación" },
-      { label: "Planeación · ausentes", value: agg.absent + agg.justified, hint: "Faltas (justificadas incluidas)" },
+      { label: t('dash.planningBrothers'), value: agg.planningPresent,    hint: t('dash.planningPresentHint') },
+      { label: t('dash.planningAbsent'), value: agg.absent + agg.justified, hint: t('dash.planningAbsentHint') },
       { label: "Alcance · hermanos",    value: agg.reachMembers,       hint: "Miembros en alcance" },
       { label: "Alcance · amigos",      value: agg.reachVisitors,      hint: "Visitas en alcance" },
-      { label: "Alcance · niños",       value: agg.reachKids,          hint: "Niños en alcance" },
+      { label: t('dash.reachKids'),       value: agg.reachKids,          hint: t('dash.reachKidsHint') },
       { label: "Culto · hermanos",      value: agg.sundayMembers,      hint: "Miembros en culto dominical" },
       { label: "Culto · amigos",        value: agg.sundayVisitors,     hint: "Visitas en culto dominical" },
-      { label: "Culto · niños",         value: agg.sundayKids,         hint: "Niños en culto" },
+      { label: t('dash.sundayKids'),         value: agg.sundayKids,         hint: t('dash.sundayKidsHint') },
       ...(agg.reachConversions ? [{ label: "Conversiones", value: agg.reachConversions, hint: "Decisiones de fe" }] : []),
     ].map(({ label, value, hint }) => `
       <article class="summary-card summary-card-dashboard">
@@ -2489,9 +2497,9 @@ function renderDashboardForLeader(reports) {
     const ext = aggregateMetricsExtended(scopeReports, { baptismYear: selectedYear, baptismQuarter: parsedQuarter || getCurrentQuarter() });
     const qLabel = activeDashboardTimeScope === "quarter" ? scopeTitleText : "";
     dashboardSummaryGrid.innerHTML = [
-      { label: "Sem. reportadas",       value: ext.n,                    hint: "Semanas con reporte en el cuatrimestre", cls: "accent-neutral" },
+      { label: t('dash.weeksReported'),       value: ext.n,                    hint: t('dash.weeksReportedHint'), cls: "accent-neutral" },
       { label: "Hermanos consistentes", value: ext.consistentMembers,    hint: "Presentes en ≥ 50% de semanas",          cls: "accent-success" },
-      { label: "Prom. planeación",      value: ext.avgPlanning,          hint: "Promedio semanal de hermanos",           cls: "" },
+      { label: t('dash.avgPlanning'),      value: ext.avgPlanning,          hint: t('dash.avgPlanningHint'),           cls: "" },
       { label: "Prom. alcance",         value: ext.avgReachMembers,      hint: "Promedio semanal de hermanos en alcance", cls: "" },
       { label: "Prom. amigos · alcance",value: ext.avgReachVisitors,     hint: "Promedio semanal de amigos en alcance",  cls: "" },
       { label: "Prom. culto",           value: ext.avgSundayMembers,     hint: "Promedio semanal de hermanos en culto",  cls: "" },
@@ -2614,7 +2622,7 @@ function renderDashboardForLeader(reports) {
 
       let html = "";
       if (rows.length) {
-        const EVENT_LABELS = { P: "Planeación", A: "Alcance", C: "Culto" };
+        const EVENT_LABELS = { P: t('dash.planning'), A: t('dash.reach'), C: t('dash.sunday') };
         html += rows.map(row => {
           const chipsCls = row.justified ? "alert-chip alert-chip-justified" : "alert-chip alert-chip-absent";
           const chips    = row.missed.map(ev => `<span class="${chipsCls}" title="${EVENT_LABELS[ev]}">${ev}</span>`).join("");
@@ -2628,12 +2636,12 @@ function renderDashboardForLeader(reports) {
           </div>`;
         }).join("");
       } else if (weekReport) {
-        html += `<div class="quick-list-empty">Sin faltas esta semana. ✓</div>`;
+        html += `<div class="quick-list-empty">${t('dash.noAbsThisWeek')}</div>`;
       } else {
-        html += `<div class="quick-list-empty">Sin reporte registrado esta semana.</div>`;
+        html += `<div class="quick-list-empty">${t('dash.noReportRegistered')}</div>`;
       }
       if (onlyStreak.length) {
-        if (html) html += `<div class="alert-group-label" style="margin-top:10px">También en semanas anteriores</div>`;
+        if (html) html += `<div class="alert-group-label" style="margin-top:10px">${t('dash.alsoInPrevWeeks')}</div>`;
         html += onlyStreak.slice(0, 5).map(e => {
           const cls = e.streak >= 4 ? "critical" : e.streak >= 3 ? "high" : "medium";
           return `<div class="absence-row">
@@ -2643,11 +2651,11 @@ function renderDashboardForLeader(reports) {
           </div>`;
         }).join("");
       }
-      dashboardAbsenceAlerts.innerHTML = html || `<div class="quick-list-empty">Sin alertas.</div>`;
+      dashboardAbsenceAlerts.innerHTML = html || `<div class="quick-list-empty">${t('dash.noAlerts')}</div>`;
 
     } else {
       // ── Vista cuatrimestre / año: asistencia acumulada por miembro y amigos ──
-      const periodLabel = activeDashboardTimeScope === "quarter" ? scopeTitleText : `Año ${selectedYear}`;
+      const periodLabel = activeDashboardTimeScope === "quarter" ? scopeTitleText : t('common.yearN', { n: selectedYear });
       if (dashboardAbsenceTitle) dashboardAbsenceTitle.textContent = `Seguimiento · ${periodLabel}`;
       if (dashboardAbsenceLegend) dashboardAbsenceLegend.hidden = true;
 
@@ -2699,7 +2707,7 @@ function renderDashboardForLeader(reports) {
 
       // ── Build member rows ─────────────────────────────────────────────────────
       const buildMemberRows = () => {
-        if (memberStats.size === 0) return `<tr><td colspan="3" class="attend-empty">Sin datos de asistencia en este periodo.</td></tr>`;
+        if (memberStats.size === 0) return `<tr><td colspan="3" class="attend-empty">${t('att.noAttendanceData')}</td></tr>`;
         const memberPct = m => {
           const applied = m.planApp + m.reachApp + m.sundayApp;
           return applied > 0 ? (m.planP + m.reachP + m.sundayP) / applied : 0;
@@ -2713,7 +2721,7 @@ function renderDashboardForLeader(reports) {
           const barCls = avgPct >= 80 ? "attend-bar-good" : avgPct >= 50 ? "attend-bar-mid" : "attend-bar-low";
           const absTotal = m.absent + m.justified;
           const faltasCell = absTotal === 0
-            ? `<span class="attend-ok-badge">✓ Sin faltas</span>`
+            ? `<span class="attend-ok-badge">✓ ${t('att.noAbsences')}</span>`
             : `<span class="attend-abs-badge">${absTotal} sem.</span>${m.justified > 0 ? ` <span class="attend-just-badge">${m.justified} just.</span>` : ""}`;
           const allSame = m.planP === m.reachP && m.reachP === m.sundayP
             && m.planApp === m.reachApp && m.reachApp === m.sundayApp;
@@ -2734,7 +2742,7 @@ function renderDashboardForLeader(reports) {
 
       // ── Build visitor rows ─────────────────────────────────────────────────────
       const buildVisitorRows = () => {
-        if (visitorStats.size === 0) return `<tr><td colspan="3" class="attend-empty">Sin amigos registrados en este periodo.</td></tr>`;
+        if (visitorStats.size === 0) return `<tr><td colspan="3" class="attend-empty">${t('att.noFriendsRegistered')}</td></tr>`;
         const sorted = [...visitorStats.values()].sort((a, b) => b.visits - a.visits || a.name.localeCompare(b.name));
         return sorted.map(v => {
           const normKey = normalizeVisitorName(v.name);
@@ -2748,7 +2756,7 @@ function renderDashboardForLeader(reports) {
               ${invitadoBadge}
             </td>
             <td class="attend-falta-cell">
-              <span class="attend-ev-chip attend-ev-a" title="Alcance">${v.reachCount}/${v.visits}</span>
+              <span class="attend-ev-chip attend-ev-a" title=t('dash.reach')>${v.reachCount}/${v.visits}</span>
               <span class="attend-ev-chip attend-ev-c" title="Culto dom.">${v.sundayCount}/${v.visits}</span>
             </td>
             <td class="attend-bar-cell">
@@ -2807,7 +2815,7 @@ function renderDashboardForLeader(reports) {
             row.dataset.memberKey,
             row.dataset.memberName,
             scopeReports,
-            `${activeDashboardTimeScope === "quarter" ? "Cuatrimestre" : "Año"} · ${periodLabel}`
+            `${activeDashboardTimeScope === "quarter" ? t('common.quarter') : t('common.year')} · ${periodLabel}`
           );
         });
       });
@@ -2819,7 +2827,7 @@ function renderDashboardForLeader(reports) {
             row.dataset.visitorKey,
             row.dataset.visitorName,
             scopeReports,
-            `${activeDashboardTimeScope === "quarter" ? "Cuatrimestre" : "Año"} · ${periodLabel}`
+            `${activeDashboardTimeScope === "quarter" ? t('common.quarter') : t('common.year')} · ${periodLabel}`
           );
         });
       });
@@ -2827,7 +2835,7 @@ function renderDashboardForLeader(reports) {
   }
 
   // Metrics: scoped to this cell, selected time scope
-  renderDashboardMetrics(scopeReports, `Célula ${cellNum}`);
+  renderDashboardMetrics(scopeReports, t('cell.numbered', { n: cellNum }));
   renderDashboardBaptisms(allCellReports);
 }
 
@@ -2866,9 +2874,9 @@ function renderDashboard(reports) {
     hintSuffix     = "en el cuatrimestre";
   } else if (activeDashboardTimeScope === "year") {
     scopeTimeReports = scopedReports.filter(r => getReportYear(r) === selectedYear);
-    scopeChipText  = `Año ${selectedYear}`;
-    scopeTitleText = `Año ${selectedYear}`;
-    hintSuffix     = "en el año";
+    scopeChipText  = t('common.yearN', { n: selectedYear });
+    scopeTitleText = t('common.yearN', { n: selectedYear });
+    hintSuffix     = t('dash.inTheYear');
   } else {
     scopeTimeReports = weeklyReports;
     scopeChipText  = `Semana ${selectedWeek}`;
@@ -2903,11 +2911,11 @@ function renderDashboard(reports) {
   if (activeDashboardTimeScope === "week") {
     dashboardSummaryGrid.innerHTML = [
       ["Reportes",    scopeTimeReports.length,                                                    hintSuffix === "esta semana" ? "Capturados esta semana" : `Capturados ${hintSuffix}`],
-      ["Células",     reportedCellsCount,                                                         "Con reporte"],
-      ["Pendientes",  pendingCells.length,                                                        "Sin reporte esta semana"],
-      ["Planeación",  agg.planningPresent,                                                        "Hermanos en planeación"],
-      ["Alcance",     agg.reachMembers + agg.reachVisitors + agg.reachKids,                       "Total en reunión de alcance"],
-      ["Culto",       agg.sundayMembers + agg.sundayVisitors + agg.sundayKids,                    "Total en culto dominical"],
+      [t('admin.cells2'),     reportedCellsCount,                                                         t('dash.withReport')],
+      [t('dash.pendingShort'),  pendingCells.length,                                                        t('dash.noReportThisWeek')],
+      [t('dash.planning'),  agg.planningPresent,                                                        t('dash.brothersInPlanning')],
+      [t('dash.reach'),     agg.reachMembers + agg.reachVisitors + agg.reachKids,                       t('dash.totalReach')],
+      [t('dash.sunday'),       agg.sundayMembers + agg.sundayVisitors + agg.sundayKids,                    t('dash.totalSunday')],
       ["Faltas",      agg.absent + agg.justified,                                                 "Ausentes y justificados"],
       ["Visitas",     agg.reachVisitors + agg.sundayVisitors,                                     "Amigos en alcance y culto"],
     ].map(([label, value, hint]) => `
@@ -2921,16 +2929,16 @@ function renderDashboard(reports) {
   } else if (activeDashboardTimeScope === "quarter") {
     const ext = aggregateMetricsExtended(scopeTimeReports, baptismScopeOpts);
     dashboardSummaryGrid.innerHTML = [
-      { label: "Sem. reportadas",        value: reportedCellsCount ? `${scopeTimeReports.length}` : "0", hint: "Reportes en el cuatrimestre",         cls: "accent-neutral" },
-      { label: "Células activas",        value: reportedCellsCount,                                       hint: "Con al menos un reporte",             cls: "accent-neutral" },
-      { label: "Prom. alcance / célula", value: ext.n > 0 ? Math.round((ext.reachMembers + ext.reachVisitors) / Math.max(1, reportedCellsCount)) : 0,
+      { label: t('dash.weeksReported'),        value: reportedCellsCount ? `${scopeTimeReports.length}` : "0", hint: t('dash.reportsInQuarter'),         cls: "accent-neutral" },
+      { label: t('dash.activeCells'),        value: reportedCellsCount,                                       hint: t('dash.activeCellsHint'),             cls: "accent-neutral" },
+      { label: t('dash.avgReachPerCell'), value: ext.n > 0 ? Math.round((ext.reachMembers + ext.reachVisitors) / Math.max(1, reportedCellsCount)) : 0,
                                                                                                            hint: "Promedio de personas en alcance",     cls: "" },
-      { label: "Prom. culto / célula",   value: ext.n > 0 ? Math.round((ext.sundayMembers + ext.sundayVisitors) / Math.max(1, reportedCellsCount)) : 0,
+      { label: t('dash.avgSundayPerCell'),   value: ext.n > 0 ? Math.round((ext.sundayMembers + ext.sundayVisitors) / Math.max(1, reportedCellsCount)) : 0,
                                                                                                            hint: "Promedio de personas en culto",       cls: "" },
       { label: "Conversiones",           value: ext.reachConversions,                                      hint: "Decisiones de fe en el cuatrimestre", cls: "accent-faith" },
       { label: "Bautismos",              value: ext.baptisms,                                              hint: "Bautismos en el cuatrimestre",        cls: "accent-faith" },
       { label: "Faltas totales",         value: ext.absent + ext.justified,                                hint: "Ausentes + justificados (suma)",      cls: "" },
-      { label: "Pendientes esta sem.",   value: pendingCells.length,                                       hint: "Células sin reporte la semana actual", cls: "" },
+      { label: t('dash.pendingThisWk'),   value: pendingCells.length,                                       hint: t('dash.pendingHint'), cls: "" },
     ].map(({ label, value, hint, cls }) => `
       <article class="summary-card summary-card-dashboard ${cls || ""}">
         <span class="summary-label">${escapeHtml(label)}</span>
@@ -3030,7 +3038,7 @@ function renderDashboard(reports) {
         const severityLabel = entry.streak >= 4 ? "Crítica" : entry.streak >= 3 ? "Alta" : "Seguimiento";
         return `<article class="dashboard-list-item dashboard-alert-item dashboard-alert-${severity}"><div class="dashboard-alert-head"><strong>${escapeHtml(entry.name)}</strong><span class="dashboard-alert-badge">${escapeHtml(severityLabel)}</span></div><span>${escapeHtml(String(entry.streak))} semanas seguidas${entry.status === "justified" ? " justificadas" : " con falta"}</span></article>`;
       }).join("")
-    : '<div class="quick-list-empty">Sin alertas de faltas consecutivas por ahora.</div>';
+    : `<div class="quick-list-empty">${t('dash.noConsecAlerts')}</div>`;
 
   // ── Métricas consolidadas ───────────────────────────────────────────────
   renderDashboardMetrics(scopeTimeReports, scopeLabel);
@@ -3198,7 +3206,7 @@ function aggregateByQuarter(reportsList, year) {
 function renderMetricsTrend(reports) {
   if (!dashboardMetricsBody) return;
   if (!reports.length) {
-    dashboardMetricsBody.innerHTML = `<div class="quick-list-empty">Sin datos.</div>`;
+    dashboardMetricsBody.innerHTML = `<div class="quick-list-empty">${t('empty.noData')}</div>`;
     return;
   }
 
@@ -3274,7 +3282,7 @@ function renderMetricsTrend(reports) {
 function renderMetricsYearSummary(reports) {
   if (!dashboardMetricsBody) return;
   if (!reports.length) {
-    dashboardMetricsBody.innerHTML = `<div class="quick-list-empty">Sin datos.</div>`;
+    dashboardMetricsBody.innerHTML = `<div class="quick-list-empty">${t('empty.noData')}</div>`;
     return;
   }
 
@@ -3318,28 +3326,28 @@ function renderMetricsBlock(label, metrics) {
   const m = metrics;
   const events = [
     {
-      title: "Planeación", cls: "planning",
+      title: t('dash.planning'), cls: "planning",
       rows: [
         ["Hermanos presentes", m.planningPresent],
         ["Hermanos ausentes",  m.planningAbsent],
       ],
     },
     {
-      title: "Alcance", cls: "reach",
+      title: t('dash.reach'), cls: "reach",
       rows: [
         ["Hermanos presentes", m.reachMembers],
         ["Con privilegios",    m.reachPrivileged],
         ["Amigos presentes",   m.reachVisitors],
-        ["Niños presentes",    m.reachKids],
+        [t('rcm.kidsPresent'),    m.reachKids],
         ["Conversiones",       m.reachConversions],
       ],
     },
     {
       title: "Culto dominical", cls: "sunday",
       rows: [
-        ["Total asistentes", m.sundayTotal],
+        [t('rcm.totalAttendees'), m.sundayTotal],
         ["Hermanos",         m.sundayMembers],
-        ["Amigos",           m.sundayVisitors],
+        [t('dash.friends'),           m.sundayVisitors],
         ["Niños",            m.sundayKids],
       ],
     },
@@ -3379,11 +3387,11 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   if (dashboardMetricsEyebrow) {
     dashboardMetricsEyebrow.textContent = scopeLabel
       ? `Métricas · ${scopeLabel}`
-      : "Métricas consolidadas";
+      : t('dash.metricsConsolidated');
   }
 
   if (!weeklyReports.length) {
-    dashboardMetricsBody.innerHTML = '<div class="quick-list-empty">Sin reporte capturado para esta semana.</div>';
+    dashboardMetricsBody.innerHTML = `<div class="quick-list-empty">${t('dash.noReportCaptured')}</div>`;
     return;
   }
 
@@ -3402,12 +3410,12 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   // Week: existing table breakdown (optionally by sector for admin)
   if (isAdmin && activeMetricsScope === "sector") {
     const cellSectorMap = new Map(
-      (catalogs.cells || []).map(c => [String(c.cellNumber), c.sector || "Sin sector"])
+      (catalogs.cells || []).map(c => [String(c.cellNumber), c.sector || t('dash.noSector')])
     );
     const bySector = new Map();
     weeklyReports.forEach(report => {
       const cellNum = String(report.cellNumber || report.formData?.cellNumber || "");
-      const sector = cellSectorMap.get(cellNum) || "Sin sector";
+      const sector = cellSectorMap.get(cellNum) || t('dash.noSector');
       if (!bySector.has(sector)) bySector.set(sector, []);
       bySector.get(sector).push(report);
     });
@@ -3427,7 +3435,18 @@ function renderDashboardBaptisms(scopedReports) {
 
   // Build: year → quarter → cell → count
   // Reads both the baptisms[] array (individual records) and the numeric summary fields
+  // The numeric fields (baptismFirstQuarter, etc.) are auto-derived from baptisms[],
+  // so they represent the SAME baptisms — we must take the MAX of the two sources
+  // per (year, quarter, cell), not the sum, to avoid double-counting.
   const byYearQ = {};
+  const setMax = (year, q, cell, val) => {
+    if (!val) return;
+    if (!byYearQ[year])          byYearQ[year] = {};
+    if (!byYearQ[year][q])       byYearQ[year][q] = {};
+    if (!byYearQ[year][q][cell]) byYearQ[year][q][cell] = 0;
+    byYearQ[year][q][cell] = Math.max(byYearQ[year][q][cell], val);
+  };
+
   scopedReports.forEach(report => {
     const fd   = report?.formData || {};
     const date = String(fd.reportDate || report.reportDate || "");
@@ -3439,27 +3458,13 @@ function renderDashboardBaptisms(scopedReports) {
     if (bapArray.length) {
       const month = Number(date.slice(5, 7));
       const q = month <= 4 ? "1" : month <= 8 ? "2" : "3";
-      if (!byYearQ[year])          byYearQ[year] = {};
-      if (!byYearQ[year][q])       byYearQ[year][q] = {};
-      if (!byYearQ[year][q][cell]) byYearQ[year][q][cell] = 0;
-      byYearQ[year][q][cell] += bapArray.length;
+      setMax(year, q, cell, bapArray.length);
     }
 
-    // 2. Numeric summary fields (from Cierre metrics section, filled manually per quarter)
-    const numericMap = [
-      ["baptismFirstQuarter",  year, "1"],
-      ["baptismSecondQuarter", year, "2"],
-      ["baptismThirdQuarter",  year, "3"],
-    ];
-    numericMap.forEach(([key, y, q]) => {
-      const val = Number(fd[key] || 0);
-      if (!val) return;
-      if (!byYearQ[y])          byYearQ[y] = {};
-      if (!byYearQ[y][q])       byYearQ[y][q] = {};
-      if (!byYearQ[y][q][cell]) byYearQ[y][q][cell] = 0;
-      // Only take the max if the same cell reported in multiple weeks (avoid double-counting)
-      byYearQ[y][q][cell] = Math.max(byYearQ[y][q][cell], val);
-    });
+    // 2. Numeric summary fields (from Cierre metrics section, auto-derived per quarter)
+    setMax(year, "1", cell, Number(fd.baptismFirstQuarter  || 0));
+    setMax(year, "2", cell, Number(fd.baptismSecondQuarter || 0));
+    setMax(year, "3", cell, Number(fd.baptismThirdQuarter  || 0));
   });
 
   const qName = q => q === "1" ? "1er Cuatrimestre" : q === "2" ? "2do Cuatrimestre" : "3er Cuatrimestre";
@@ -3467,7 +3472,7 @@ function renderDashboardBaptisms(scopedReports) {
 
   if (!years.length) {
     if (chip) chip.textContent = "0 total";
-    body.innerHTML = '<p class="empty-state" style="padding:12px 0">Todavía no hay bautismos registrados en los reportes.</p>';
+    body.innerHTML = `<p class="empty-state" style="padding:12px 0">${t('dash.noBaptisms')}</p>`;
     return;
   }
 
@@ -3769,10 +3774,10 @@ function renderAttendanceSummary() {
   const summary = computeWeeklySummary();
   attendanceProgressChip.textContent = `${summary.totalMembers - summary.pending}/${summary.totalMembers} marcados`;
   attendanceSummaryCards.innerHTML = [
-    ["Planeación", summary.planningMembersPresent, "planificacion"],
-    ["Alcance",    summary.reachTotal,              "alcance"],
-    ["Culto",      summary.sundayTotal,             "culto"],
-    ["Amigos",     summary.visitors,               "alcance"],
+    [t('dash.planning'), summary.planningMembersPresent, "planificacion"],
+    [t('dash.reach'),    summary.reachTotal,              "alcance"],
+    [t('dash.sunday'),      summary.sundayTotal,             "culto"],
+    [t('dash.friends'),     summary.visitors,               "alcance"],
     ["Niños",      currentKids.filter((kid) => String(kid.name || "").trim()).length, "alcance"],
   ].map(([label, value, stage]) => `
     <article class="summary-card summary-card-mini" data-summary-stage="${stage}">
@@ -3783,8 +3788,8 @@ function renderAttendanceSummary() {
 
   const absentMembers = currentMemberAttendance.filter((entry) => entry.status === "absent" || entry.status === "justified");
   absentMemberPills.innerHTML = absentMembers.length
-    ? absentMembers.map((entry) => `<span class="pill">${escapeHtml(entry.name)} · ${entry.status === "justified" ? "Justificado" : "Faltó"}</span>`).join("")
-    : '<span class="member-admin-caption">Sin faltas registradas.</span>';
+    ? absentMembers.map((entry) => `<span class="pill">${escapeHtml(entry.name)} · ${entry.status === "justified" ? t('att.justified') : t('att.absent')}</span>`).join("")
+    : `<span class="member-admin-caption">${t('att.noAbsRegistered')}</span>`;
 
   syncDerivedMetricFields();
 }
@@ -3799,8 +3804,8 @@ function renderAttendanceTable() {
   if (!currentMemberAttendance.length) {
     const selectedCell = findCellByNumber(cellField.value);
     const emptyMessage = selectedCell
-      ? "Esta célula no tiene miembros asignados. Agrégalos en Catálogos o cambia a otra célula."
-      : "Selecciona una célula para marcar asistencia.";
+      ? t('att.noMembersAssigned')
+      : t('att.selectCellForAttendance');
     attendanceTableBody.innerHTML = `<tr><td colspan="${totalCols}" class="empty-state">${escapeHtml(emptyMessage)}</td></tr>`;
     renderAttendanceSummary();
     return;
@@ -3850,13 +3855,13 @@ function renderAttendanceTable() {
           <option value="service"${stageStatus === "service" ? " selected" : ""}>Sirviendo</option>
         </select>
       </td>
-      <td data-label="Planeación" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="planningAttended" type="checkbox"${entry.planningAttended ? " checked" : ""}></td>
-      <td data-label="Alcance" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="reachAttended" type="checkbox"${entry.reachAttended ? " checked" : ""}></td>
+      <td data-label=t('dash.planning') class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="planningAttended" type="checkbox"${entry.planningAttended ? " checked" : ""}></td>
+      <td data-label=t('dash.reach') class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="reachAttended" type="checkbox"${entry.reachAttended ? " checked" : ""}></td>
       <td data-label="Privilegios" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="reachPrivileged" type="checkbox"${entry.reachPrivileged ? " checked" : ""}${!entry.reachAttended ? " disabled" : ""}></td>
-      <td data-label="Culto" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="sundayAttended" type="checkbox"${entry.sundayAttended ? " checked" : ""}></td>
+      <td data-label=t('dash.sunday') class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="sundayAttended" type="checkbox"${entry.sundayAttended ? " checked" : ""}></td>
       ${eventCell}
       <td data-label="Observación">
-        <input data-attendance-index="${index}" data-attendance-field="note" type="text" value="${escapeHtml(entry.note)}" placeholder="Observación breve">
+        <input data-attendance-index="${index}" data-attendance-field="note" type="text" value="${escapeHtml(entry.note)}" placeholder=t('att.note')>
       </td>
     </tr>
   `;
@@ -3881,7 +3886,7 @@ function renderRcmMiniProgress(rcmProgress) {
 function renderRcmProgressBadges(rcmProgress) {
   const events = [
     { key: "levantate",      label: "Levántate",       phase: "ganar"      },
-    { key: "restauracion",   label: "Restauración",    phase: "consolidar" },
+    { key: "restauracion",   label: t('dash.restoration'),    phase: "consolidar" },
     { key: "reencuentro",    label: "Reencuentro",     phase: "consolidar" },
     { key: "cielosAbiertos", label: "Cielos Abiertos", phase: "discipular" },
   ];
@@ -3898,7 +3903,7 @@ function renderRcmProgressBadges(rcmProgress) {
 function renderPeopleRcmPanel(person) {
   if (!peopleRcmPanel) return;
   if (!person?.id || person.role === "kid") {
-    peopleRcmPanel.innerHTML = "<p class='empty-state'>Sin seguimiento RCM para este perfil.</p>";
+    peopleRcmPanel.innerHTML = `<p class='empty-state'>${t('rcm.noTracking')}</p>`;
     return;
   }
 
@@ -4005,13 +4010,13 @@ function renderVisitorTable() {
 
   visitorTableBody.innerHTML = currentVisitors.map((visitor, index) => {
     const kind = normalizeVisitorKind(visitor.kind);
-    const kindLabel = kind === "visita" ? "Visita (restauración)" : "Amigo";
-    const kindChip = `<span class="visitor-kind-chip is-${kind}" title="${kind === "visita" ? "Bautizado, en proceso de restauración" : "No bautizado"}">${kindLabel}</span>`;
+    const kindLabel = kind === "visita" ? t('vis.kindRest') : t('vis.friend');
+    const kindChip = `<span class="visitor-kind-chip is-${kind}" title="${kind === "visita" ? t('vis.bapInRest') : t('vis.notBaptized')}">${kindLabel}</span>`;
     const convertedCell = kind === "visita"
-      ? `<td data-label="Conversión" class="checkbox-cell"><span class="member-admin-caption" title="Las visitas ya están bautizadas">N/A</span></td>`
-      : `<td data-label="Conversión" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="converted" type="checkbox"${visitor.converted ? " checked" : ""}></td>`;
+      ? `<td data-label=t('preview.conversion') class="checkbox-cell"><span class="member-admin-caption" title=t('vis.alreadyBaptized')>N/A</span></td>`
+      : `<td data-label=t('preview.conversion') class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="converted" type="checkbox"${visitor.converted ? " checked" : ""}></td>`;
     const promoteAction = kind === "visita"
-      ? `<label class="visitor-promote-toggle" title="Al guardar el reporte, se agregará a la membresía de la célula"><input data-visitor-index="${index}" data-visitor-field="promoteToMember" type="checkbox"${visitor.promoteToMember ? " checked" : ""}> <span>Promover a miembro</span></label>`
+      ? `<label class="visitor-promote-toggle" title=t('vis.promoteHint')><input data-visitor-index="${index}" data-visitor-field="promoteToMember" type="checkbox"${visitor.promoteToMember ? " checked" : ""}> <span>Promover a miembro</span></label>`
       : "";
     // Resumen para móvil (cabecera colapsable)
     const flags = [];
@@ -4030,7 +4035,7 @@ function renderVisitorTable() {
         <button type="button" class="visitor-summary-toggle" data-action="toggle-visitor" data-visitor-index="${index}" aria-expanded="false">
           <div class="vsum-main">
             <span class="vsum-name">${escapeHtml(displayName)}</span>
-            <span class="vsum-meta">${kind === "visita" ? "Visita" : "Amigo"}${invitedLabel ? ` · invitó ${escapeHtml(invitedLabel)}` : ""}</span>
+            <span class="vsum-meta">${kind === "visita" ? t('vis.visit') : t('vis.friend')}${invitedLabel ? ` · invitó ${escapeHtml(invitedLabel)}` : ""}</span>
           </div>
           <div class="vsum-flags">${flagsHtml}</div>
           <svg class="vsum-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
@@ -4053,8 +4058,8 @@ function renderVisitorTable() {
         '<option value="">— Quién invitó —</option>',
         ...invitedByPeople.map(p => `<option value="${escapeHtml(p.name)}"${visitor.invitedBy === p.name ? " selected" : ""}>${escapeHtml(p.name)}</option>`)
       ].join("")}</select></td>
-      <td data-label="Alcance" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="reachAttended" type="checkbox"${visitor.reachAttended ? " checked" : ""}></td>
-      <td data-label="Culto" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="sundayAttended" type="checkbox"${visitor.sundayAttended ? " checked" : ""}></td>
+      <td data-label=t('dash.reach') class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="reachAttended" type="checkbox"${visitor.reachAttended ? " checked" : ""}></td>
+      <td data-label=t('dash.sunday') class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="sundayAttended" type="checkbox"${visitor.sundayAttended ? " checked" : ""}></td>
       <td data-label="Primera vez" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="firstVisit" type="checkbox"${visitor.firstVisit ? " checked" : ""}></td>
       ${convertedCell}
       ${isEventWeek ? `<td data-label="${escapeHtml(eventName)}" class="checkbox-cell event-col"><input data-visitor-index="${index}" data-visitor-field="eventAttended" type="checkbox"${visitor.eventAttended ? " checked" : ""}></td>` : ""}
@@ -4075,7 +4080,7 @@ function renderVisitorTable() {
 
 function renderKidsTable() {
   if (!currentKids.length) {
-    kidsTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">No hay niños cargados para esta célula.</td></tr>';
+    kidsTableBody.innerHTML = `<tr><td colspan="7" class="empty-state">${t('cell.noKidsLoaded')}</td></tr>`;
     renderAttendanceSummary();
     return;
   }
@@ -4084,11 +4089,11 @@ function renderKidsTable() {
     const isCatalogKid = kid.source === "catalog";
     return `
       <tr>
-        <td data-label="Niño"><input data-kid-index="${index}" data-kid-field="name" type="text" value="${escapeHtml(kid.name)}" placeholder="Nombre"${isCatalogKid ? " disabled" : ""}></td>
+        <td data-label=t('role.kidShort')><input data-kid-index="${index}" data-kid-field="name" type="text" value="${escapeHtml(kid.name)}" placeholder="Nombre"${isCatalogKid ? " disabled" : ""}></td>
         <td data-label="Responsable"><input data-kid-index="${index}" data-kid-field="guardianName" type="text" value="${escapeHtml(kid.guardianName)}" placeholder="Responsable"></td>
-        <td data-label="Origen">${escapeHtml(isCatalogKid ? "Célula" : "Visita")}</td>
-        <td data-label="Alcance" class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="reachAttended" type="checkbox"${kid.reachAttended ? " checked" : ""}></td>
-        <td data-label="Culto" class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="sundayAttended" type="checkbox"${kid.sundayAttended ? " checked" : ""}></td>
+        <td data-label="Origen">${escapeHtml(isCatalogKid ? "Célula" : t('vis.visit'))}</td>
+        <td data-label=t('dash.reach') class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="reachAttended" type="checkbox"${kid.reachAttended ? " checked" : ""}></td>
+        <td data-label=t('dash.sunday') class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="sundayAttended" type="checkbox"${kid.sundayAttended ? " checked" : ""}></td>
         <td data-label="Observación"><input data-kid-index="${index}" data-kid-field="note" type="text" value="${escapeHtml(kid.note)}" placeholder="Observación"></td>
         <td data-label="Acciones">${isCatalogKid ? '<span class="member-admin-caption">Precargado</span>' : `<button type="button" class="danger" data-action="remove-kid" data-kid-index="${index}">Quitar</button>`}</td>
       </tr>
@@ -4110,7 +4115,7 @@ function renderBaptismTable() {
       : registrationMessage;
     baptismTableBody.innerHTML = `<tr><td colspan="6" class="empty-state">${escapeHtml(emptyMessage)}</td></tr>`;
     if (baptismSummaryPills) {
-      baptismSummaryPills.innerHTML = `<span class="member-admin-caption">${escapeHtml(captureStatus.isAllowed ? "Sin bautismos registrados en este cierre." : registrationMessage)}</span>`;
+      baptismSummaryPills.innerHTML = `<span class="member-admin-caption">${escapeHtml(captureStatus.isAllowed ? t('bap.noneInCycle') : registrationMessage)}</span>`;
     }
     renderAttendanceSummary();
     return;
@@ -4121,7 +4126,7 @@ function renderBaptismTable() {
       <td data-label="Persona"><input data-baptism-index="${index}" data-baptism-field="name" type="text" value="${escapeHtml(entry.name)}" placeholder="Nombre completo"></td>
       <td data-label="Fecha"><input data-baptism-index="${index}" data-baptism-field="baptismDate" type="date" value="${escapeHtml(entry.baptismDate)}"></td>
       <td data-label="Origen">${escapeHtml(formatBaptismSource(entry.source))}</td>
-      <td data-label="Agregar como miembro al guardar" class="checkbox-cell"><input data-baptism-index="${index}" data-baptism-field="promoteToMember" type="checkbox" title="Se agregará a los miembros de la célula al guardar el reporte"${entry.promoteToMember ? " checked" : ""}></td>
+      <td data-label=t('bap.addAsMember') class="checkbox-cell"><input data-baptism-index="${index}" data-baptism-field="promoteToMember" type="checkbox" title=t('bap.addAsMemberHint')${entry.promoteToMember ? " checked" : ""}></td>
       <td data-label="Observación"><input data-baptism-index="${index}" data-baptism-field="note" type="text" value="${escapeHtml(entry.note)}" placeholder="Observacion"></td>
       <td data-label="Acciones"><button type="button" class="danger" data-action="remove-baptism" data-baptism-index="${index}">Quitar</button></td>
     </tr>
@@ -4339,7 +4344,7 @@ function handleCopyVisitorReachToSunday() {
   updateVisitors((visitor) => {
     visitor.sundayAttended = Boolean(visitor.reachAttended);
   });
-  setFeedback(target ? `↪ Marcados en Culto los ${target} amigos que asistieron a Alcance.` : "Ningún amigo tenía Alcance marcado.");
+  setFeedback(target ? `↪ Marcados en Culto los ${target} amigos que asistieron a Alcance.` : t('friend.noneInReach'));
 }
 
 function handleMarkVisitorFirstVisit() {
@@ -4353,7 +4358,7 @@ function handleMarkVisitorFirstVisit() {
 async function handleClearVisitorActivities() {
   const marked = currentVisitors.filter((v) => v.reachAttended || v.sundayAttended).length;
   if (!marked) {
-    setFeedback("Ningún amigo tenía Alcance ni Culto marcados.");
+    setFeedback(t('friend.noneInReachOrSunday'));
     return;
   }
   const ok = await appConfirm(
@@ -4434,7 +4439,7 @@ function renderReports(reports) {
   ).join("");
 
   if (!reports.length) {
-    cyclesList.innerHTML = '<p class="empty-state" style="padding:16px 0">Todavía no hay reportes.</p>';
+    cyclesList.innerHTML = `<p class="empty-state" style="padding:16px 0">${t('rep.noReportsYet')}</p>`;
     return;
   }
 
@@ -4646,7 +4651,7 @@ function renderSeguimiento(reports) {
   const cellNumbers = Object.keys(groups).sort((a, b) => Number(a) - Number(b));
 
   if (!cellNumbers.length) {
-    cyclesList.innerHTML = '<p class="empty-state" style="padding:16px 0">No hay células en tu alcance.</p>';
+    cyclesList.innerHTML = `<p class="empty-state" style="padding:16px 0">${t('rep.noCellsInScope')}</p>`;
     return;
   }
 
@@ -4801,21 +4806,21 @@ function renderSeguimiento(reports) {
     if (dashboardPendingCells) {
       dashboardPendingCells.innerHTML = pendingCells.length
         ? pendingCells.map(cell =>
-            `<article class="dashboard-list-item"><strong>Célula ${escapeHtml(cell.cellNumber)}</strong><span>${escapeHtml(cell.networkName || "Sin red")} · Sector ${escapeHtml(cell.sector || "-")}</span></article>`
+            `<article class="dashboard-list-item"><strong>Célula ${escapeHtml(cell.cellNumber)}</strong><span>${escapeHtml(cell.networkName || t('cell.noNetwork'))} · Sector ${escapeHtml(cell.sector || "-")}</span></article>`
           ).join("")
-        : '<div class="quick-list-empty">Todas las células tienen reporte esta semana. ✓</div>';
+        : `<div class="quick-list-empty">${t('dash.allCellsReported')}</div>`;
     }
 
     if (dashboardRecentActivity) {
       dashboardRecentActivity.innerHTML = weeklyReps.length
         ? weeklyReps.map((report, idx) => {
             const summary = getReportAttendanceSummary(report);
-            return `<article class="activity-card activity-card-clickable" role="button" tabindex="0" data-report-idx="${idx}" title="Ver reporte completo">
+            return `<article class="activity-card activity-card-clickable" role="button" tabindex="0" data-report-idx="${idx}" title=t('dash.viewFullReport')>
               <div class="activity-card-head">
                 <strong>Célula ${escapeHtml(String(report.cellNumber || report.formData?.cellNumber || "-"))}</strong>
                 <span>Semana ${escapeHtml(getReportWeek(report) || "-")}</span>
               </div>
-              <p>${escapeHtml(report.leaderName || report.formData?.leaderName || "Sin líder")}</p>
+              <p>${escapeHtml(report.leaderName || report.formData?.leaderName || t('cell.noLeader'))}</p>
               <div class="activity-metrics">
                 <span>${escapeHtml(String(summary.present))} asistentes</span>
                 <span>${escapeHtml(String(summary.visitors))} visitas</span>
@@ -4823,7 +4828,7 @@ function renderSeguimiento(reports) {
               <span class="activity-card-hint">Toca para ver detalle →</span>
             </article>`;
           }).join("")
-        : '<div class="quick-list-empty">Ninguna célula ha enviado reporte esta semana todavía.</div>';
+        : `<div class="quick-list-empty">${t('dash.noneSubmittedYet')}</div>`;
       dashboardRecentActivity._weeklyReports = weeklyReps;
     }
 
@@ -4845,7 +4850,7 @@ function renderSeguimiento(reports) {
               const cell   = r.cellNumber || r.formData?.cellNumber || "-";
               return `<span class="rcs-chip rcs-chip-done" data-goto-cell="${escapeHtml(String(cell))}" role="button" tabindex="0" title="Ver Célula ${escapeHtml(String(cell))} en el grid">Célula ${escapeHtml(String(cell))} · ${escapeHtml(leader)} · ${s.present} asis.${s.visitors ? ` · ${s.visitors} vis.` : ""}</span>`;
             }).join("")
-          : '<span class="rcs-empty">Ninguna todavía</span>';
+          : `<span class="rcs-empty">${t('dash.noneYet')}</span>`;
 
         // Click → scroll to cycle card and flash it
         rcsActivity.querySelectorAll('[data-goto-cell]').forEach(chip => {
@@ -4884,7 +4889,7 @@ function renderReportCellMembers(cell) {
 
 function renderAdminCellMembers(cell) {
   if (memberList) memberList.dataset.cellId = cell?.id ? String(cell.id) : "";
-  if (selectedCellName) selectedCellName.textContent = cell ? `Célula ${cell.cellNumber}` : "";
+  if (selectedCellName) selectedCellName.textContent = cell ? t('cell.numbered', { n: cell.cellNumber }) : "";
 
   const members  = getCellMembers(cell);
   const kids     = getCellKids(cell);
@@ -4906,7 +4911,7 @@ function renderAdminCellMembers(cell) {
       const ROLES = [
         { key: "leader",    label: "Líder",     cls: "fn-tag--leader"    },
         { key: "assistant", label: "Asistente", cls: "fn-tag--assistant" },
-        { key: "host",      label: "Anfitrión", cls: "fn-tag--host"      },
+        { key: "host",      label: t('preview.host'), cls: "fn-tag--host"      },
       ];
       cellMemberRoleTable.innerHTML = `
         <table class="catalog-table cell-role-table">
@@ -4926,7 +4931,7 @@ function renderAdminCellMembers(cell) {
               return `<tr>
                 <td><strong>${escapeHtml(member.name)}</strong></td>
                 <td>${roleChips}</td>
-                <td><button type="button" class="btn-remove-member" data-action="remove-member" data-person-id="${mid}" title="Quitar de la célula">✕</button></td>
+                <td><button type="button" class="btn-remove-member" data-action="remove-member" data-person-id="${mid}" title=t('cell.removeFromCell')>✕</button></td>
               </tr>`;
             }).join("")}
           </tbody>
@@ -4938,7 +4943,7 @@ function renderAdminCellMembers(cell) {
   const selectedIds = new Set(roster.map(m => String(m.id)));
   const available   = catalogs.people.filter(p => p.role !== "kid" && !selectedIds.has(String(p.id)) && !p.assignedCellId);
   renderSelect(memberPersonSelect, available.map(p => ({ value: String(p.id), label: p.name })),
-    available.length ? "Agregar miembro…" : "Sin miembros disponibles");
+    available.length ? t('cell.addMemberDots') : t('cell.noMembersAvail'));
 }
 
 function setCellLinkedFieldsLocked(locked) {
@@ -5027,7 +5032,7 @@ function applyReportFormPermissions() {
     btn.disabled = !allowed;
     btn.title = allowed
       ? ""
-      : "Solo el líder de esta célula puede guardar o finalizar el reporte.";
+      : t('form.readonlyLeader');
   });
   const banner = document.getElementById("report-readonly-banner");
   if (banner) banner.hidden = allowed;
@@ -5449,7 +5454,7 @@ document.getElementById("rcm-verbs-tbody")?.addEventListener("click", (e) => {
     return;
   }
   const week = parseInt(btn.dataset.week, 10);
-  if (!confirm(`¿Quitar la semana ${week} del ciclo? Esto NO elimina reportes ya guardados.`)) return;
+  if (!confirm(t('conf.removeWeek', { week: week }))) return;
   const current = collectRcmWeeksFromTable().filter(e => e.week !== week);
   RCM_WEEKS.length = 0;
   current.forEach((e, idx) => RCM_WEEKS.push({ ...e, week: idx + 1 }));
@@ -5490,7 +5495,7 @@ document.getElementById("settings-rcm-verbs-save-btn")?.addEventListener("click"
 
 document.getElementById("settings-rcm-verbs-reset-btn")?.addEventListener("click", async () => {
   const status = document.getElementById("settings-rcm-verbs-status");
-  if (!confirm("¿Restablecer ciclo a las 16 semanas predeterminadas de la IAFCJ?")) return;
+  if (!confirm(t('conf.resetCycleDefault'))) return;
   try {
     // Restaurar defaults completos en memoria
     RCM_WEEKS.length = 0;
@@ -5509,10 +5514,10 @@ document.getElementById("settings-rcm-verbs-reset-btn")?.addEventListener("click
 async function loadHealth() {
   try {
     const payload = await request("/api/health");
-    healthStatus.textContent = payload.ok ? t("nav.available") : "Sin respuesta";
+    healthStatus.textContent = payload.ok ? t("nav.available") : t('common.noAnswer');
     if (healthStatusDot) healthStatusDot.dataset.ok = payload.ok ? "true" : "false";
     if (tmcStatusDot) tmcStatusDot.dataset.ok = payload.ok ? "true" : "false";
-    if (tmcStatusText) tmcStatusText.textContent = payload.ok ? t("nav.available") : "Sin respuesta";
+    if (tmcStatusText) tmcStatusText.textContent = payload.ok ? t("nav.available") : t('common.noAnswer');
     heroCaption.textContent = payload.database || "Base de datos conectada.";
   } catch {
     healthStatus.textContent = "Error";
@@ -5579,7 +5584,7 @@ async function handleReportSubmit(event) {
   payload.cycleReportId = computeCycleReportId(payload.cellNumber, getReportYearValue());
   const promotedCount = countBaptismsToPromote(payload.baptisms);
   const createdMessage = promotedCount ? `${t('err.saved')} ${promotedCount} bautizado(s) agregado(s) como miembro(s).` : t('err.saved');
-  const updatedMessage = promotedCount ? `Reporte actualizado. ${promotedCount} bautizado(s) agregado(s) como miembro(s).` : "Reporte actualizado.";
+  const updatedMessage = promotedCount ? t('fb.reportUpdatedWithBap', { n: promotedCount }) : t('fb.reportUpdated');
   const successMessage = editingReportId ? updatedMessage : createdMessage;
 
   try {
@@ -5628,7 +5633,7 @@ async function handlePeopleSubmit(event) {
     const targetCell = catalogs.cells.find(c => String(c.id) === newCellId);
     if (targetCell?.leaderPersonId && String(targetCell.leaderPersonId) !== editId) {
       const leaderName = catalogs.people.find(p => String(p.id) === String(targetCell.leaderPersonId))?.name || "otra persona";
-      const ok = await appConfirm(`La célula ${targetCell.cellNumber} ya tiene a "${leaderName}" como líder.\n¿Reemplazar a "${leaderName}" y asignar a "${payload.name || "esta persona"}" como nuevo líder?`, "Cambio de líder");
+      const ok = await appConfirm(`La célula ${targetCell.cellNumber} ya tiene a "${leaderName}" como líder.\n¿Reemplazar a "${leaderName}" y asignar a "${payload.name || t('common.thisPerson')}" como nuevo líder?`, t('conf.leaderChange'));
       if (!ok) return;
     }
   }
@@ -5817,14 +5822,14 @@ async function handleCellsSubmit(event) {
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      setFeedback("Célula actualizada.");
+      setFeedback(t('fb.cellUpdated'));
     } else {
       const created = await request("/api/catalogs/cells", {
         method: "POST",
         body: JSON.stringify(payload),
       });
       cellsEditId.value = String(created.id);
-      setFeedback("Célula agregada.");
+      setFeedback(t('fb.cellAdded'));
     }
     await loadCatalogs();
     const selected = editId ? findCellById(editId) : catalogs.cells.find((cell) => cell.cellNumber === payload.cellNumber);
@@ -5854,7 +5859,7 @@ async function handleMemberSubmit(event) {
   const pendingPersonId = memberPersonSelect.value;
 
   if (!pendingPersonId) {
-    setCellDialogMsg("Selecciona una persona para agregarla como miembro.", true);
+    setCellDialogMsg(t('fb.selectPersonForMember'), true);
     return;
   }
 
@@ -5872,7 +5877,7 @@ async function handleMemberSubmit(event) {
       await loadCatalogs();
       const saved = findCellById(cellId);
       populateCellsForm(saved || null);
-      document.querySelector("#cell-dialog-title").textContent = `Editar: Célula ${saved?.cellNumber || ""}`;
+      document.querySelector("#cell-dialog-title").textContent = t('cell.editTitle', { n: saved?.cellNumber || "" });
     } catch (err) {
       setCellDialogMsg(err.message, true);
       return;
@@ -5946,7 +5951,7 @@ async function handleReportTableClick(event) {
       const payload = await request(`/api/reports/${reportId}`);
       const report  = payload.report;
       if (!isReportEditable(report)) {
-        setFeedback("Este reporte ya no puede editarse — la semana ha cerrado.", true);
+        setFeedback(t('fb.reportClosedNoEdit'), true);
         return;
       }
       loadReportIntoForm(report, Number(reportId));
@@ -5968,19 +5973,19 @@ async function handleReportTableClick(event) {
           const reportCell = String(report?.cellNumber ?? report?.formData?.cellNumber ?? "").trim();
           const ownCell = String(currentUser.assignedCellNumber || "").trim();
           if (!ownCell || ownCell !== reportCell) {
-            setFeedback("No tienes permiso para eliminar reportes de esta célula.", true);
+            setFeedback(t('fb.noDeletePermission'), true);
             return;
           }
         }
       } catch (_e) { /* si no se puede verificar, continuar al confirm */ }
-      const ok = await appConfirm("¿Eliminar este reporte?\nEsta acción no se puede deshacer.", "Eliminar reporte");
+      const ok = await appConfirm("¿Eliminar este reporte?\nEsta acción no se puede deshacer.", t('conf.deleteReport'));
       if (!ok) return;
       await request(`/api/reports/${reportId}`, { method: "DELETE" });
       if (editingReportId === Number(reportId)) {
         resetReportForm();
       }
       await loadReports();
-      setFeedback("Reporte eliminado.");
+      setFeedback(t('fb.reportDeleted'));
     }
   } catch (error) {
     setFeedback(error.message, true);
@@ -6057,7 +6062,7 @@ async function handleRcmMilestoneClick(event) {
 
 function openPeopleEditDialog(person = null) {
   populatePeopleForm(person);
-  if (peopleDialogTitle) peopleDialogTitle.textContent = person ? `Editar: ${person.name}` : "Nueva persona";
+  if (peopleDialogTitle) peopleDialogTitle.textContent = person ? t('pdlg.editTitleNamed', { name: person.name }) : t('pdlg.newPerson2');
 
   // Info row: all current functions + current cell
   if (person && peopleDialogInfoRow) {
@@ -6081,7 +6086,7 @@ function openPeopleEditDialog(person = null) {
       ).join("");
     }
     if (peopleDialogCellBadge) {
-      peopleDialogCellBadge.textContent = person.assignedCellNumber ? `Célula ${person.assignedCellNumber}` : "Sin célula";
+      peopleDialogCellBadge.textContent = person.assignedCellNumber ? t('cell.numbered', { n: person.assignedCellNumber }) : t('cell.none');
       peopleDialogCellBadge.className = `catalog-assignment-chip${person.assignedCellNumber ? "" : " is-unassigned"}`;
     }
   } else if (peopleDialogInfoRow) {
@@ -6091,7 +6096,7 @@ function openPeopleEditDialog(person = null) {
   // Cell select: populate with all cells, pre-select current
   if (peopleDialogCellSelect) {
     peopleDialogCellSelect.innerHTML =
-      `<option value="">— Sin célula —</option>` +
+      `<option value="">${t('pdlg.noCell')}</option>` +
       catalogs.cells.map(c =>
         `<option value="${c.id}"${String(c.id) === String(person?.assignedCellId || "") ? " selected" : ""}>${escapeHtml("Célula " + c.cellNumber + (c.networkName ? " · " + c.networkName : ""))}</option>`
       ).join("");
@@ -6162,7 +6167,7 @@ async function handlePeopleTableClick(event) {
       return;
     }
     if (button.dataset.action === "delete-person") {
-      const ok = await appConfirm(`¿Eliminar a "${person.name}"?\nEsta acción no se puede deshacer.`, "Eliminar persona");
+      const ok = await appConfirm(t('conf.deletePersonMsg', { name: person.name }), t('conf.deletePerson'));
       if (!ok) return;
       await request(`/api/catalogs/people/${person.id}`, { method: "DELETE" });
       if (peopleEditDialog?.open) peopleEditDialog.close();
@@ -6172,7 +6177,7 @@ async function handlePeopleTableClick(event) {
     }
     if (button.dataset.action === "reset-password") {
       if (!currentUser?.isSuperAdmin) return;
-      const ok = await appConfirm(`¿Resetear la contraseña de "${person.name}"?\nEn su próximo login se le pedirá crear una nueva.`, "Resetear contraseña");
+      const ok = await appConfirm(t('conf.resetPasswordMsg', { name: person.name }), t('conf.resetPassword'));
       if (!ok) return;
       const resp = await fetch(`/api/auth/admin-reset/${person.id}`, {
         method: "POST",
@@ -6180,7 +6185,7 @@ async function handlePeopleTableClick(event) {
       });
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) { setFeedback(data.message || "No se pudo resetear.", true); return; }
-      setFeedback(`Contraseña de ${person.name} reseteada. Creará una nueva en su próximo login.`);
+      setFeedback(t('fb.passwordResetOf', { name: person.name }));
     }
   } catch (error) {
     setFeedback(error.message, true);
@@ -6416,7 +6421,7 @@ async function handleVisitorTableClick(event) {
     || String(visitor.note || "").trim();
   if (hasData) {
     const label = String(visitor.name || "").trim() || "esta visita";
-    const ok = await appConfirm(`¿Quitar a "${label}" de la tabla?\nSe perderán los datos capturados de esta fila.`, "Quitar visita");
+    const ok = await appConfirm(t('conf.removeRowMsg', { name: label }), t('conf.removeVisit'));
     if (!ok) return;
   }
   currentVisitors.splice(idx, 1);
@@ -6443,7 +6448,7 @@ function handleBaptismTableInput(event) {
   }
   entry[target.dataset.baptismField] = target.type === "checkbox" ? target.checked : target.value;
   if (target.dataset.baptismField === "promoteToMember") {
-    setFeedback(target.checked ? "Este bautizado se agregará a los miembros de la célula al guardar el reporte." : "Este bautizado no se agregará como miembro al guardar el reporte.");
+    setFeedback(target.checked ? t('fb.bapWillBeMember') : t('fb.bapWontBeMember'));
   }
   syncDerivedMetricFields();
   if (event.type === "change") {
@@ -6480,7 +6485,7 @@ function handleAddBaptismClick() {
     promoteToMember: true,
   });
   if (!captureStatus.isAllowed) {
-    setFeedback("Bautismo agregado. Se guardará para promoverlo como miembro, pero no contará en el cierre cuatrimestral.");
+    setFeedback(t('fb.baptismAddedOutsideCycle'));
   } else {
     clearFeedback();
   }
@@ -6524,7 +6529,7 @@ function handleVisitorQuickSubmit() {
       setTimeout(() => lastRow.classList.remove("is-just-added"), 1800);
     }
   }
-  setFeedback(`✓ Agregada "${name}". Total: ${currentVisitors.length} amigos.`);
+  setFeedback(t('fb.friendAddedTotal', { name: name, n: currentVisitors.length }));
   if (visitorQuickName instanceof HTMLInputElement) {
     visitorQuickName.focus();
   }
@@ -6550,8 +6555,8 @@ async function handleMemberListClick(event) {
   const activeCellId = cellsEditId.value || memberList?.dataset.cellId || "";
   if (!button || !activeCellId) return;
 
-  const memberName = catalogs.people.find(p => String(p.id) === button.dataset.personId)?.name || "esta persona";
-  const ok = await appConfirm(`¿Quitar a "${memberName}" de la célula?`, "Quitar miembro");
+  const memberName = catalogs.people.find(p => String(p.id) === button.dataset.personId)?.name || t('common.thisPerson');
+  const ok = await appConfirm(t('conf.removeMemberMsg', { name: memberName }), t('conf.removeMember'));
   if (!ok) return;
 
   try {
@@ -6563,7 +6568,7 @@ async function handleMemberListClick(event) {
       syncReportWithCell(false);
     }
     populateCellsForm(activeCell);
-    setFeedback("Miembro removido de la célula.");
+    setFeedback(t('fb.memberRemoved'));
   } catch (error) {
     setFeedback(error.message, true);
   }
@@ -6585,8 +6590,8 @@ cellMemberRoleTable?.addEventListener("click", async (e) => {
   if (!cell) return;
 
   if (btn.dataset.action === "remove-member") {
-    const memberName = catalogs.people.find(p => String(p.id) === personId)?.name || "esta persona";
-    const ok = await appConfirm(`¿Quitar a "${memberName}" de la célula?`, "Quitar miembro");
+    const memberName = catalogs.people.find(p => String(p.id) === personId)?.name || t('common.thisPerson');
+    const ok = await appConfirm(t('conf.removeMemberMsg', { name: memberName }), t('conf.removeMember'));
     if (!ok) return;
     try {
       await request(`/api/catalogs/cells/${cellId}/members/${personId}`, { method: "DELETE" });
@@ -6649,7 +6654,7 @@ function showStage(stage, { skipWeekCheck = false } = {}) {
     const maxWeek = getQuarterWeekNumber();
     const selectedWeek = parseInt(weekField?.value || "1", 10);
     if (selectedWeek > maxWeek) {
-      setFeedback(`No puedes avanzar — la semana ${selectedWeek} aún no ha iniciado. Actualmente estamos en la semana ${maxWeek}.`, true);
+      setFeedback(t('fb.cannotAdvanceWeek', { sel: selectedWeek, max: maxWeek }), true);
       return;
     }
   }
@@ -6677,7 +6682,7 @@ function showStage(stage, { skipWeekCheck = false } = {}) {
     el.classList.toggle("stage-visible", isVisible);
   });
 
-  const stageLabels = { encabezado: "Reporte · Inicio", planificacion: "Reporte · Planeación", alcance: "Reporte · Alcance", culto: "Reporte · Culto", cierre: "Reporte · Cierre" };
+  const stageLabels = { encabezado: t('stage.encabezado'), planificacion: t('stage.planificacion'), alcance: t('stage.alcance'), culto: t('stage.culto'), cierre: t('stage.cierre') };
   if (topbarRouteLabel) topbarRouteLabel.textContent = stageLabels[stage] ?? "Reporte";
   document.body.dataset.activeStage = stage;
   // La columna "Estado semanal" muestra el sub-estado de la etapa activa;
@@ -6938,6 +6943,14 @@ function loadReportIntoForm(report, reportId) {
 
   editingReportId = Number(reportId || report.id);
 
+  // 0. Limpiar badges/draft de las pestañas antes de re-marcarlas según el
+  //    estado real del reporte que vamos a cargar. Evita que palomitas
+  //    residuales (p. ej. de una carga previa durante el bootstrap antes
+  //    del login) se queden visibles aunque el reporte cargado no las
+  //    tenga.
+  document.querySelectorAll(".stage-tab-badge").forEach(b => { b.hidden = true; });
+  document.querySelectorAll(".stage-tab").forEach(t => t.classList.remove("has-draft"));
+
   // 1. Reset y reconstruir selects ANTES de asignar valores (para que las
   //    opciones existan cuando hagamos .value = ...).
   reportForm.reset();
@@ -6979,15 +6992,33 @@ function loadReportIntoForm(report, reportId) {
   renderVisitorHistoryOptions();
 
   // Restaurar ✓ en pestañas según el estado real del reporte cargado:
-  // - Finalizado con datos: todas las etapas en verde.
-  // - Borrador: marcar hasta la última etapa guardada (lastStage).
+  // - Finalizado: todas las etapas en verde.
+  // - Borrador (cualquier indicio): marcar SOLO hasta la última etapa guardada
+  //   (lastStage). Si no hay lastStage pero sí hay datos, INFERIR qué etapas
+  //   están completas a partir del contenido (members/visitors/kids/baptisms)
+  //   para no pintar las 5 palomitas en falso.
   // - Vacío: ninguna palomita.
+  // Importante: lastStage es la señal más fiable de "en progreso". Aunque el
+  // flag `_draft` falte por algún motivo, si lastStage existe y no es la etapa
+  // final, debemos respetarlo y NO pintar las 5 palomitas.
   const STAGE_ORDER = ["encabezado", "planificacion", "alcance", "culto", "cierre"];
-  if (!isReportEffectivelyDraft({ formData })) {
+  const lastStage = formData?.lastStage;
+  const isDraftFlag = formData?._draft === true || formData?._draft === "true";
+  const inProgress = isDraftFlag || (lastStage && lastStage !== "cierre");
+  if (inProgress) {
+    if (lastStage) {
+      const idx = STAGE_ORDER.indexOf(lastStage);
+      if (idx >= 0) STAGE_ORDER.slice(0, idx + 1).forEach(markStageSaved);
+    } else {
+      // Borrador sin lastStage (compatibilidad con borradores antiguos):
+      // inferir la primera etapa incompleta y marcar las anteriores como guardadas.
+      const nextIncomplete = inferNextIncompleteStage(formData);
+      const idx = STAGE_ORDER.indexOf(nextIncomplete);
+      if (idx > 0) STAGE_ORDER.slice(0, idx).forEach(markStageSaved);
+    }
+  } else if (!isReportEffectivelyDraft({ formData })) {
+    // Reporte finalizado → todas las etapas en verde.
     STAGE_ORDER.forEach(markStageSaved);
-  } else if (formData?.lastStage) {
-    const idx = STAGE_ORDER.indexOf(formData.lastStage);
-    if (idx >= 0) STAGE_ORDER.slice(0, idx + 1).forEach(markStageSaved);
   }
 }
 
@@ -7072,10 +7103,10 @@ function stageHasData(stage) {
 // Guardar y continuar — saves then advances to next stage
 async function saveDraftAndAdvance(stage) {
   if (["planificacion", "alcance", "culto"].includes(stage) && !stageHasData(stage)) {
-    const labels = { planificacion: "Planeación", alcance: "Alcance", culto: "Culto" };
+    const labels = { planificacion: t('dash.planning'), alcance: t('dash.reach'), culto: t('dash.sunday') };
     const ok = await appConfirm(
-      `No detectamos asistencias ni datos capturados en ${labels[stage]}.\n¿Guardar y continuar de todos modos?`,
-      "Sin datos capturados"
+      t('conf.noDataInStageMsg', { stage: labels[stage] }),
+      t('conf.noDataCaptured')
     );
     if (!ok) return;
   }
@@ -7116,15 +7147,15 @@ async function finalizarReporte() {
   if (!reportHasMeaningfulData({ formData: payload })) {
     const ok = await appConfirm(
       "Este reporte no tiene asistencias, visitas, niños ni bautismos capturados.\n¿Seguro que deseas finalizarlo así?",
-      "Reporte sin datos"
+      t('conf.reportNoData')
     );
     if (!ok) return;
   }
 
   const promotedCount = countBaptismsToPromote(payload.baptisms);
   const msg = promotedCount
-    ? `Reporte finalizado. ${promotedCount} bautizado(s) agregado(s) como miembro(s).`
-    : "Reporte finalizado y guardado.";
+    ? t('fb.reportFinalizedWithBap', { n: promotedCount })
+    : t('fb.reportFinalized');
 
   try {
     if (editingReportId) {
@@ -7205,16 +7236,16 @@ document.querySelector("#cell-renumber-btn")?.addEventListener("click", async ()
     const nb = parseInt(b.cellNumber, 10) || 0;
     return na - nb || a.cellNumber.localeCompare(b.cellNumber);
   });
-  const preview = cells.map((c, i) => `  Célula ${c.cellNumber} → ${i + 1}`).join("\n");
+  const preview = cells.map((c, i) => t('conf.renumberRow', { from: c.cellNumber, to: i + 1 })).join("\n");
   const ok = await appConfirm(
-    `Esto renumerará ${cells.length} células en orden:\n\n${preview}\n\n¿Continuar?`,
-    "Renumerar células"
+    t('conf.renumberCellsMsg', { n: cells.length, preview: preview }),
+    t('conf.renumberCells')
   );
   if (!ok) return;
   try {
     await request("/api/catalogs/cells/renumber", { method: "POST" });
     await loadCatalogs();
-    setFeedback("Células renumeradas correctamente.");
+    setFeedback(t('fb.cellsRenumbered'));
   } catch (err) {
     setFeedback(err.message, true);
   }
@@ -7222,7 +7253,7 @@ document.querySelector("#cell-renumber-btn")?.addEventListener("click", async ()
 document.querySelector("#cell-dialog-close-btn")?.addEventListener("click", () => cellEditDialog?.close());
 cellEditDialog?.addEventListener("click", (e) => { if (e.target === cellEditDialog) cellEditDialog.close(); });
 
-// "Nueva persona" button inside cell dialog — opens people edit dialog with cell pre-selected
+// t('pdlg.newPerson2') button inside cell dialog — opens people edit dialog with cell pre-selected
 document.querySelector("#cell-dialog-new-person-btn")?.addEventListener("click", () => {
   const cellId = cellsEditId?.value || "";
   // Open people dialog for a new person
@@ -7242,12 +7273,12 @@ cellsTableBody?.addEventListener("click", async (e) => {
     openCellEditDialog(findCellById(cellId));
   } else if (btn.dataset.action === "delete-cell") {
     const cell = findCellById(cellId);
-    const ok = await appConfirm(`¿Eliminar Célula ${cell?.cellNumber}?\nLos miembros no se borran, solo quedan sin célula asignada.`, "Eliminar célula");
+    const ok = await appConfirm(t('conf.deleteCellMsg', { n: cell?.cellNumber }), t('conf.deleteCell'));
     if (!ok) return;
     try {
       await request(`/api/catalogs/cells/${cellId}`, { method: "DELETE" });
       await loadCatalogs();
-      setFeedback("Célula eliminada.");
+      setFeedback(t('fb.cellDeleted'));
     } catch (err) { setFeedback(err.message, true); }
   }
 });
@@ -7272,7 +7303,7 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
     const week = btn.dataset.week;
     const realWeek = getQuarterWeekNumber();
     if (Number(week) < realWeek) {
-      setFeedback(`La semana ${week} ya cerró y no puede capturarse.`, true);
+      setFeedback(t('fb.weekClosedNoCapture', { w: week }), true);
       return;
     }
     resetReportForm();
@@ -7291,7 +7322,7 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
       if (!reportPreviewDialog) return;
       const cell = String(report.cellNumber || report.formData?.cellNumber || "—");
       const week = String(report.formData?.week || report.week || "—");
-      if (previewDialogTitle) previewDialogTitle.textContent = `Célula ${cell} · Semana ${week}`;
+      if (previewDialogTitle) previewDialogTitle.textContent = t('preview.cellWeekTitle', { c: cell, w: week });
       if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
       if (previewDialogFooter) previewDialogFooter.hidden = false;
       const cancelBtn  = document.getElementById("preview-cancel-btn");
@@ -7328,13 +7359,13 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
     const canCapture = currentUser?.isSuperAdmin
       || String(currentUser?.assignedCellNumber || "") === String(cell);
     if (!canCapture) {
-      setFeedback(`Solo el líder de la célula ${cell} puede capturar este reporte.`, true);
+      setFeedback(t('fb.onlyLeaderCanCapture', { c: cell }), true);
       return;
     }
     const realWeek = getQuarterWeekNumber();
     // Block past weeks — should not be reachable (chip is disabled), but defensive
     if (Number(week) < realWeek) {
-      setFeedback(`La semana ${week} ya cerró y no puede capturarse.`, true);
+      setFeedback(t('fb.weekClosedNoCapture', { w: week }), true);
       return;
     }
     resetReportForm();
@@ -7352,7 +7383,7 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
       if (!reportPreviewDialog) return;
       const cell = String(report.cellNumber || report.formData?.cellNumber || "—");
       const week = String(report.formData?.week || report.week || "—");
-      if (previewDialogTitle) previewDialogTitle.textContent = `Célula ${cell} · Semana ${week}`;
+      if (previewDialogTitle) previewDialogTitle.textContent = t('preview.cellWeekTitle', { c: cell, w: week });
       if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
       // Show read-only footer with "Editar" button
       if (previewDialogFooter) previewDialogFooter.hidden = false;
@@ -7431,12 +7462,12 @@ document.getElementById("cells-card-grid")?.addEventListener("click", async (e) 
     openCellEditDialog(findCellById(cellId));
   } else if (btn.dataset.action === "delete-cell") {
     const cell = findCellById(cellId);
-    const ok = await appConfirm(`¿Eliminar Célula ${cell?.cellNumber}?\nLos miembros no se borran, solo quedan sin célula asignada.`, "Eliminar célula");
+    const ok = await appConfirm(t('conf.deleteCellMsg', { n: cell?.cellNumber }), t('conf.deleteCell'));
     if (!ok) return;
     try {
       await request(`/api/catalogs/cells/${cellId}`, { method: "DELETE" });
       await loadCatalogs();
-      setFeedback("Célula eliminada.");
+      setFeedback(t('fb.cellDeleted'));
     } catch (err) { setFeedback(err.message, true); }
   }
 });
@@ -7584,8 +7615,8 @@ function buildReportPreviewHtml() {
     <div class="preview-section-title">Asistencia</div>
     <div class="preview-cards-row">
       ${[
-        ["Miembros", summary.planningMembersPresent],
-        ["Amigos", summary.visitors],
+        [t('admin.members2'), summary.planningMembersPresent],
+        [t('dash.friends'), summary.visitors],
         ["Niños", currentKids.filter(k => String(k.name || "").trim()).length],
         ["Culto insp.", summary.sundayTotal],
         ["Conversiones", summary.reachConversions],
@@ -7599,15 +7630,15 @@ function buildReportPreviewHtml() {
   // Preview section definitions — match original PDF exactly
   // (reads from all form inputs including standalone Ofrendas and Supervisión panels)
   const PREVIEW_SECTIONS = [
-    { title: "Planeación",      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
-    { title: "Alcance",         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", "Niños presentes"], ["reachOffering", "Ofrenda ($)"]] },
-    { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
-    { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", "Amigos en E. Levántate"], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
-    { title: "Fase Consolidar", fields: [["consolidateE1", "E1 - Maduración"], ["consolidateE2", "E2 - Integración"], ["consolidateE3", "E3 - Ubicación"], ["consolidateJoinEvent", "Evento Únete"], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
-    { title: "Fase Discipular", fields: [["discipleE1Vision", "E1 - Visión"], ["discipleE2Character", "E2 - Carácter"], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
-    { title: "Supervisión",     fields: [["supervisionNetwork", "Sup. Red"], ["supervisionSector", "Sup. Sector"], ["supervisionZone", "Sup. Zona"], ["supervisionRegion", "Sup. Región"], ["supervisionArea", "Sup. Área"]] },
-    { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", "Esc. Líderes"], ["schoolSupervisors", "Esc. Supervisores"]] },
-    { title: "Bautismos",       fields: [["baptismFirstQuarter", "1er. Cuatr."], ["baptismSecondQuarter", "2do. Cuatr."], ["baptismThirdQuarter", "3er. Cuatr."], ["baptismYearTotal", "Total Año"]] },
+    { title: t('dash.planning'),      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
+    { title: t('dash.reach'),         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", t('rcm.kidsPresent')], ["reachOffering", "Ofrenda ($)"]] },
+    { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
+    { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
+    { title: "Fase Consolidar", fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
+    { title: "Fase Discipular", fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
+    { title: "Supervisión",     fields: [["supervisionNetwork", "Sup. Red"], ["supervisionSector", "Sup. Sector"], ["supervisionZone", "Sup. Zona"], ["supervisionRegion", t('met.supRegion')], ["supervisionArea", t('met.supArea')]] },
+    { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", "Esc. Supervisores"]] },
+    { title: "Bautismos",       fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
   ];
 
   // Metric sections
@@ -7656,9 +7687,9 @@ function buildReportPreviewHtml() {
   // WhatsApp message builder
   function buildWhatsAppText() {
     const lines = [
-      `📋 *Reporte Célula ${escapeHtml(data.cellNumber || "—")} · Semana ${escapeHtml(data.week || "—")}*`,
+      t('share.header', { c: escapeHtml(data.cellNumber || '—'), w: escapeHtml(data.week || '—') }),
       `📅 Fecha: ${escapeHtml(data.reportDate || "—")}`,
-      `👤 Líder: ${escapeHtml(data.leaderName || "—")}`,
+      t('share.leader', { name: escapeHtml(data.leaderName || '—') }),
       `🏠 Red: ${escapeHtml(data.networkName || "—")} · Sector: ${escapeHtml(data.sector || "—")}`,
       ``,
       `*Asistencia*`,
@@ -7707,7 +7738,7 @@ function openReportPreviewDialog() {
   syncDerivedMetricFields();
   const weekVal = weekField.value || "—";
   const cellVal = cellField.value || "—";
-  if (previewDialogTitle) previewDialogTitle.textContent = `Semana ${weekVal} · Célula ${cellVal}`;
+  if (previewDialogTitle) previewDialogTitle.textContent = t('preview.weekCellTitle', { w: weekVal, c: cellVal });
   if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtml();
   // Restore normal footer buttons
   if (previewDialogFooter) previewDialogFooter.hidden = false;
@@ -7731,15 +7762,15 @@ if (previewConfirmBtn) previewConfirmBtn.addEventListener("click", () => {
 
 // ── Preview read-only desde dashboard ───────────────────────────────────────
 const PREVIEW_SECTIONS_DEF = [
-  { title: "Planeación",      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
-  { title: "Alcance",         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", "Niños presentes"], ["reachOffering", "Ofrenda ($)"]] },
-  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", "Hnos. en nueva célula"], ["multiplyPEinNewCell", "P.E. en nueva célula"], ["multiplyKidsNewCell", "Niños en nueva célula"], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
-  { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", "Amigos en E. Levántate"], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
-  { title: "Fase Consolidar", fields: [["consolidateE1", "E1 - Maduración"], ["consolidateE2", "E2 - Integración"], ["consolidateE3", "E3 - Ubicación"], ["consolidateJoinEvent", "Evento Únete"], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
-  { title: "Fase Discipular", fields: [["discipleE1Vision", "E1 - Visión"], ["discipleE2Character", "E2 - Carácter"], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
-  { title: "Supervisión",     fields: [["supervisionNetwork", "Sup. Red"], ["supervisionSector", "Sup. Sector"], ["supervisionZone", "Sup. Zona"], ["supervisionRegion", "Sup. Región"], ["supervisionArea", "Sup. Área"]] },
-  { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", "Esc. Líderes"], ["schoolSupervisors", "Esc. Supervisores"]] },
-  { title: "Bautismos",       fields: [["baptismFirstQuarter", "1er. Cuatr."], ["baptismSecondQuarter", "2do. Cuatr."], ["baptismThirdQuarter", "3er. Cuatr."], ["baptismYearTotal", "Total Año"]] },
+  { title: t('dash.planning'),      fields: [["planningMembersPresent", "Miembros asistentes"], ["planningMembersAbsent", "Miembros ausentes"]] },
+  { title: t('dash.reach'),         fields: [["reachMembersPresent", "Miembros asistentes"], ["reachPrivilegedMembers", "Miembros con privilegios"], ["reachFriendsPresent", "Amigos presentes"], ["reachConversions", "Conversiones"], ["reachKidsPresent", t('rcm.kidsPresent')], ["reachOffering", "Ofrenda ($)"]] },
+  { title: "Multiplicación",  fields: [["multiplyBrothersNewCell", t('met.multBros')], ["multiplyPEinNewCell", t('met.multPE')], ["multiplyKidsNewCell", t('met.multKids')], ["multiplySundayAttendance", "Asistieron al culto insp."]] },
+  { title: "Fase Ganar",      fields: [["winSpiritualParents", "Padres espirituales"], ["winFriendsContacted", "Amigos contactados"], ["winRiseEventFriends", t('met.friendsLev')], ["winEDRFriends", "Amigos en E.D.R."], ["winBaptizedFriends", "Amigos bautizados"]] },
+  { title: "Fase Consolidar", fields: [["consolidateE1", t('met.e1Mat')], ["consolidateE2", t('met.e2Int')], ["consolidateE3", t('met.e3Ubi')], ["consolidateJoinEvent", t('met.evtUnete')], ["consolidateReencuentro", "Evento Re-encuentro"], ["consolidateMinistries", "Evento Ministerios"]] },
+  { title: "Fase Discipular", fields: [["discipleE1Vision", t('met.e1Vis')], ["discipleE2Character", t('met.e2Car')], ["discipleE3Profile", "E3 - Perfil"], ["discipleLaunchMultiply", "Lanzamiento/Multip."]] },
+  { title: "Supervisión",     fields: [["supervisionNetwork", "Sup. Red"], ["supervisionSector", "Sup. Sector"], ["supervisionZone", "Sup. Zona"], ["supervisionRegion", t('met.supRegion')], ["supervisionArea", t('met.supArea')]] },
+  { title: "Escuelas",        fields: [["schoolFormative", "Esc. Formativa"], ["schoolParents", "Esc. Padres Esp."], ["schoolLeaders", t('met.eduLeaders')], ["schoolSupervisors", "Esc. Supervisores"]] },
+  { title: "Bautismos",       fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
 ];
 
 function buildReportPreviewHtmlFromData(report) {
@@ -7819,7 +7850,7 @@ function buildReportPreviewHtmlFromData(report) {
         ${namedVisitors.map(v => `
           <div class="ev-visitor-row">
             <span class="ev-visitor-name">${escapeHtml(v.name || "")}</span>
-            ${v.invitedBy ? `<span class="ev-visitor-meta">invitado por ${escapeHtml(v.invitedBy)}</span>` : ""}
+            ${v.invitedBy ? `<span class=\"ev-visitor-meta\">${t('preview.invitedBy', { name: escapeHtml(v.invitedBy) })}</span>` : ""}
             <span class="ev-visitor-badges">
               ${v.converted      ? '<span class="ev-badge ev-badge--conversion">Conversión</span>'  : ""}
               ${v.sundayAttended ? '<span class="ev-badge ev-badge--sunday">↪ Culto</span>'         : ""}
@@ -7834,7 +7865,7 @@ function buildReportPreviewHtmlFromData(report) {
         ${namedKids.map(k => `
           <div class="ev-visitor-row">
             <span class="ev-visitor-name">${escapeHtml(k.name || "")}</span>
-            ${k.guardianName ? `<span class="ev-visitor-meta">guardián: ${escapeHtml(k.guardianName)}</span>` : ""}
+            ${k.guardianName ? `<span class=\"ev-visitor-meta\">${t('preview.guardian', { name: escapeHtml(k.guardianName) })}</span>` : ""}
             ${k.sundayAttended ? '<span class="ev-badge ev-badge--sunday">↪ Culto</span>' : ""}
           </div>`).join("")}
       </div>
@@ -7910,7 +7941,7 @@ function openReportPreviewFromDashboard(report) {
   if (!reportPreviewDialog) return;
   const cell = String(report.cellNumber || report.formData?.cellNumber || "—");
   const week = String(report.formData?.week || report.week || "—");
-  if (previewDialogTitle) previewDialogTitle.textContent = `Semana ${week} · Célula ${cell}`;
+  if (previewDialogTitle) previewDialogTitle.textContent = t('preview.weekCellTitle', { w: week, c: cell });
   if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
   // Read-only mode: hide save actions, restore cancel, hide seguimiento edit btn
   if (previewDialogFooter) previewDialogFooter.hidden = true;
@@ -7972,7 +8003,7 @@ async function handleConvocarConfirm() {
   const today = new Date().toISOString().slice(0, 10);
   const checked = /** @type {NodeListOf<HTMLInputElement>} */ (convocarMemberList.querySelectorAll("input[type=checkbox]:checked"));
   if (!checked.length) {
-    setFeedback("Selecciona al menos un miembro.", true);
+    setFeedback(t('fb.selectAtLeastOne'), true);
     return;
   }
 
@@ -8027,7 +8058,7 @@ function hideAppSplash() { _appSplash?.classList.add("is-hidden"); }
 // Watchdog: si el backend tarda >8s, avisar
 const _splashWatchdog = setTimeout(() => {
   if (_appSplashSub && _appSplash && !_appSplash.classList.contains("is-hidden")) {
-    _appSplashSub.textContent = "El servidor está despertando, esto puede tomar hasta 30 segundos…";
+    _appSplashSub.textContent = t('splash.serverWaking');
   }
 }, 8000);
 
@@ -8080,7 +8111,7 @@ try {
 } catch (err) {
   console.error("[init] error durante carga inicial", err);
   if (_appSplashSub) {
-    _appSplashSub.textContent = "No se pudo cargar. Refresca la página.";
+    _appSplashSub.textContent = t('splash.loadFailed');
   }
 } finally {
   clearTimeout(_splashWatchdog);
