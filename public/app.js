@@ -3456,12 +3456,27 @@ function renderDashboardBaptisms(scopedReports) {
     const year = date.slice(0, 4) || "?";
     const cell = String(report.cellNumber || fd.cellNumber || "?");
 
-    // 1. Individual records from baptisms[] array (only in closing weeks)
+    // 1. Individual records from baptisms[] array (only in closing weeks).
+    // Cada bautismo se ubica por su propia `baptismDate` (no por la fecha del
+    // reporte que lo contiene), para que coincida con cómo los campos numéricos
+    // de cierre se derivan por cuatrimestre. Esto evita doble conteo si el
+    // array quedó adjunto a un reporte de un cuatrimestre distinto al del
+    // bautismo (p.ej. captura tardía).
     const bapArray = Array.isArray(fd.baptisms) ? fd.baptisms.filter(b => b.name) : [];
     if (bapArray.length) {
-      const month = Number(date.slice(5, 7));
-      const q = month <= 4 ? "1" : month <= 8 ? "2" : "3";
-      setMax(year, q, cell, bapArray.length);
+      const buckets = {};
+      bapArray.forEach((b) => {
+        const bDate = String(b.baptismDate || "").trim() || date;
+        const bYear = bDate.slice(0, 4) || year;
+        const bMonth = Number(bDate.slice(5, 7));
+        const bQ = bMonth <= 4 ? "1" : bMonth <= 8 ? "2" : "3";
+        const key = `${bYear}|${bQ}`;
+        buckets[key] = (buckets[key] || 0) + 1;
+      });
+      Object.entries(buckets).forEach(([key, count]) => {
+        const [bYear, bQ] = key.split("|");
+        setMax(bYear, bQ, cell, count);
+      });
     }
 
     // 2. Numeric summary fields (from Cierre metrics section, auto-derived per quarter)
@@ -6868,16 +6883,11 @@ function pickResumeStage(formData) {
     // Avanza a la siguiente etapa; si ya estaba en la última, quédate ahí.
     return idx >= 0 && idx < STAGES.length - 1 ? STAGES[idx + 1] : fd.lastStage;
   }
-  // Si no hay lastStage, ir a la primera etapa con datos (review-first)
-  const members  = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
-  const visitors = Array.isArray(fd.visitors) ? fd.visitors : [];
-  const kids     = Array.isArray(fd.kids) ? fd.kids : [];
-  const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms : [];
-  if (members.some(m => m && m.planningAttended)) return "planificacion";
-  if (members.some(m => m && m.reachAttended) || visitors.some(v => v && v.reachAttended) || kids.some(k => k && k.reachAttended)) return "alcance";
-  if (members.some(m => m && m.sundayAttended) || visitors.some(v => v && v.sundayAttended) || kids.some(k => k && k.sundayAttended)) return "culto";
-  if (baptisms.some(b => b && b.name) || String(fd.notes || "").trim()) return "cierre";
-  return "encabezado";
+  // Sin lastStage (p.ej. reporte finalizado y reabierto): ir a la primera
+  // etapa SIN datos. Antes devolvíamos la primera CON datos (review-first),
+  // lo que dejaba al usuario en Planificación cuando ya había llenado
+  // Planificación + Alcance y esperaba aterrizar en Culto.
+  return inferNextIncompleteStage(fd);
 }
 
 async function autoLoadExistingReportIfAny(cell, week) {
