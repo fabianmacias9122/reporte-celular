@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./app.css?v=20260512-019">
+  <link rel="stylesheet" href="./app.css?v=20260515-064">
 </head>
 <body class="app-fixed">
   <!-- TOPBAR -->
@@ -285,23 +285,27 @@
               <span id="attendance-progress-chip" class="count-chip">0 marcados</span>
             </div>
             <div class="helper-actions" aria-label="Atajos de miembros">
-              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="planificacion" id="fill-planning-members">
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="planificacion" id="fill-planning-members" data-tooltip="Marca a TODOS los miembros como asistentes a la Planeación.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 <span data-i18n="att.allPlanning">Todos en planeación</span>
               </button>
-              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-members">
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-members" data-tooltip="Marca a TODOS los miembros como asistentes al Alcance.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span data-i18n="att.allReach">Todos a Alcance</span>
               </button>
-              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-privileges">
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="alcance" id="fill-reach-privileges" data-tooltip="Marca a TODOS los miembros con Alcance + Privilegios.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 <span data-i18n="att.allReachPrivileges">Todos a Alcance + Privilegios</span>
               </button>
-              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="copy-reach-to-sunday">
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="fill-sunday-members" data-tooltip="Marca a TODOS los miembros como asistentes al Culto, sin importar Alcance.">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Todos al Culto</span>
+              </button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="copy-reach-to-sunday" data-tooltip="Copia al Culto solo los miembros que asistieron al Alcance.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 <span data-i18n="att.reachToSunday">Alcance → Culto</span>
               </button>
-              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-member-activities">
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-member-activities" data-tooltip="Limpia las marcas de la etapa activa para todos los miembros.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
                 <span data-i18n="att.clearActivities">Limpiar actividades</span>
               </button>
@@ -410,7 +414,16 @@
                 </button>
               </div>
             </div>
-            <div class="helper-actions" aria-label="Atajos de amigos" hidden></div>
+            <div class="helper-actions" aria-label="Atajos de amigos">
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="mark-all-visitors-to-sunday" data-tooltip="Marca a TODOS los amigos/visitas como asistentes al Culto, sin importar si fueron al Alcance.">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Todos al Culto</span>
+              </button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="copy-visitor-reach-to-sunday" data-tooltip="Copia al Culto solo los amigos/visitas que asistieron al Alcance.">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <span>Alcance → Culto</span>
+              </button>
+            </div>
             <div class="table-wrap weekly-table-wrap">
               <table>
                 <thead>
@@ -420,9 +433,9 @@
                     <th class="col-alcance" data-i18n="att.reach">Alcance</th>
                     <th class="col-culto" data-i18n="stage.service">Culto</th>
                     <th data-i18n="vis.firstTime">Primera vez</th>
-                    <th data-i18n="vis.conversion">Conversión</th>
+                    <th class="col-conversion" data-i18n="vis.conversion">Conversión</th>
                     <th id="visitor-event-col-header" hidden data-i18n="att.event">Evento</th>
-                    <th data-i18n="vis.contacted">Contactado</th>
+                    <th class="col-contactado" data-i18n="vis.contacted">Contactado</th>
                     <th data-i18n="vis.phone">Teléfono</th>
                     <th data-i18n="att.observation">Observación</th>
                     <th data-i18n="vis.actions">Acciones</th>
@@ -449,11 +462,15 @@
               </button>
             </div>
             <div class="helper-actions" aria-label="Atajos de niños">
-              <button type="button" class="secondary helper-action-button btn-with-icon" id="copy-kid-reach-to-sunday">
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="fill-sunday-kids" data-tooltip="Marca a TODOS los niños como asistentes al Culto, sin importar Alcance.">
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Todos al Culto</span>
+              </button>
+              <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="copy-kid-reach-to-sunday" data-tooltip="Copia al Culto solo los niños que asistieron al Alcance.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 <span data-i18n="kids.reachToSunday">Alcance → Culto</span>
               </button>
-              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-kid-activities">
+              <button type="button" class="secondary helper-action-button btn-with-icon" id="clear-kid-activities" data-tooltip="Desmarca asistencia de Alcance y Culto en todos los niños.">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
                 <span data-i18n="kids.clear">Limpiar niños</span>
               </button>
@@ -1342,6 +1359,6 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260515-028"></script>
+  <script type="module" src="./app.js?v=20260515-064"></script>
 </body>
 </html>

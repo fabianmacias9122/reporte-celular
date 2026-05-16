@@ -1,4 +1,4 @@
-import { t, setLang, currentLang, applyStaticTranslations } from './i18n.js';
+import { t, setLang, currentLang, applyStaticTranslations } from './i18n.js?v=20260515-047';
 
 const API_BASE_URL = window.location.origin;
 
@@ -184,9 +184,13 @@ const fillReachMembersButton = document.querySelector("#fill-reach-members");
 const fillReachPrivilegesButton = document.querySelector("#fill-reach-privileges");
 const copyPlanningToReachButton = document.querySelector("#copy-planning-to-reach");
 const copyReachToSundayButton = document.querySelector("#copy-reach-to-sunday");
+const fillSundayMembersButton = document.querySelector("#fill-sunday-members");
+const markAllVisitorsToSundayButton = document.querySelector("#mark-all-visitors-to-sunday");
+const copyVisitorReachToSundayButton = document.querySelector("#copy-visitor-reach-to-sunday");
 const markAllPrivilegesButton = document.querySelector("#mark-all-privileges");
 const clearMemberActivitiesButton = document.querySelector("#clear-member-activities");
 const copyKidReachToSundayButton = document.querySelector("#copy-kid-reach-to-sunday");
+const fillSundayKidsButton = document.querySelector("#fill-sunday-kids");
 const clearKidActivitiesButton = document.querySelector("#clear-kid-activities");
 const dashboardScopeTitle  = document.querySelector("#dashboard-scope-title");
 const dashboardWeekChip = document.querySelector("#dashboard-week-chip");
@@ -1615,7 +1619,9 @@ function populateWeekOptions() {
     return (now.getTime() - rollover.getTime()) / 3600000 < graceHours;
   })();
 
-  // Set of past weeks for the current cell+cycle that ALREADY have a report
+  // Set of weeks for the current cell+cycle that ALREADY have a report.
+  // Incluye la semana actual (no sólo pasadas) para poder mostrar "✓ entregado"
+  // también cuando el líder recién terminó el reporte de esta semana.
   const cell = String(cellField?.value || "").trim();
   const cycleStartStr = appSettings?.cycle_start_date;
   const reportedPastWeeks = new Set();
@@ -1624,7 +1630,7 @@ function populateWeekOptions() {
       const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
       if (rCell !== cell) return;
       const rWeek = Number(getReportWeek(r));
-      if (!rWeek || rWeek >= realWeek) return;
+      if (!rWeek || rWeek > realWeek) return;
       const rDraft = r.formData?._draft === true || r.formData?._draft === "true";
       if (rDraft) return; // un borrador no cuenta como entregado
       const rDate = String(r.reportDate || r.formData?.reportDate || "");
@@ -1654,6 +1660,9 @@ function populateWeekOptions() {
       } else {
         disabled = true; note = " 🔒 cerrada";
       }
+    } else {
+      // Current week: editable; mark con ✓ si ya se finalizó.
+      if (reportedPastWeeks.has(num)) note = " ✓ entregado";
     }
     return `<option value="${value}"${disabled ? " disabled" : ""}>${value} — ${phaseLabel}${verbPart}${eventMark}${note}</option>`;
   }).join("");
@@ -2042,27 +2051,46 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
     const planApp   = stageReached(fd, "planificacion");
     const reachApp  = stageReached(fd, "alcance");
     const sundayApp = stageReached(fd, "culto");
-    const planning = Boolean(entry.planningAttended);
-    const reach    = Boolean(entry.reachAttended);
-    const sunday   = Boolean(entry.sundayAttended);
-    const isFalta  = entry.status === "absent" || entry.status === "justified";
-    const isJust   = entry.status === "justified";
-    if (planApp)   { appliedP++; if (planning) totalP++; }
-    if (reachApp)  { appliedA++; if (reach)    totalA++; }
-    if (sundayApp) { appliedC++; if (sunday)   totalC++; }
-    if (isFalta)   totalFaltas++;
-    if (isJust)    totalJust++;
+    const planSt   = String(entry.planningStatus || "").toLowerCase();
+    const reachSt  = String(entry.reachStatus    || "").toLowerCase();
+    const sundaySt = String(entry.sundayStatus   || "").toLowerCase();
+    // Fall back to boolean if status is empty/pending: attended true => present
+    const stageState = (st, attended) => {
+      if (st === "absent" || st === "justified" || st === "present" || st === "service") return st;
+      return attended ? "present" : "pending";
+    };
+    const planning = stageState(planSt,   entry.planningAttended);
+    const reach    = stageState(reachSt,  entry.reachAttended);
+    const sunday   = stageState(sundaySt, entry.sundayAttended);
+    const isPresentLike = (s) => s === "present" || s === "service";
+    const isAbsentLike  = (s) => s === "absent"  || s === "justified";
+
+    if (planApp)   { appliedP++; if (isPresentLike(planning)) totalP++; }
+    if (reachApp)  { appliedA++; if (isPresentLike(reach))    totalA++; }
+    if (sundayApp) { appliedC++; if (isPresentLike(sunday))   totalC++; }
+
+    // Per-stage falta counters (correct: count each missed applicable event)
+    const stageStates = [];
+    if (planApp)   stageStates.push(planning);
+    if (reachApp)  stageStates.push(reach);
+    if (sundayApp) stageStates.push(sunday);
+    stageStates.forEach(s => {
+      if (isAbsentLike(s))   totalFaltas++;
+      if (s === "justified") totalJust++;
+    });
 
     const missed = [];
-    if (planApp   && !planning) missed.push("P");
-    if (reachApp  && !reach)    missed.push("A");
-    if (sundayApp && !sunday)   missed.push("C");
+    if (planApp   && isAbsentLike(planning)) missed.push("P");
+    if (reachApp  && isAbsentLike(reach))    missed.push("A");
+    if (sundayApp && isAbsentLike(sunday))   missed.push("C");
 
     const rd = r.formData?.reportDate || r.reportDate || "";
     const dateLabel = rd ? new Date(rd + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "";
     const weekNum = getReportWeek(r);
+    const yearNum = getReportYear(r);
+    const quarter = getReportQuarter(r);
 
-    weekRows.push({ weekNum, dateLabel, planning, reach, sunday, planApp, reachApp, sundayApp, missed, isFalta, isJust });
+    weekRows.push({ weekNum, yearNum, quarter, dateLabel, planning, reach, sunday, planApp, reachApp, sundayApp, missed });
   });
 
   if (totalWeeks === 0) {
@@ -2103,47 +2131,110 @@ function openMemberDetail(memberKey, memberName, scopeReports, periodLabel) {
 
   // Week-by-week table
   const MONTHS = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const eventDot = (attended, label, applicable = true) => {
+  const eventDot = (state, label, applicable = true) => {
     if (!applicable) return `<span class="mdl-dot mdl-dot-pending" title="${label} aún pendiente (no reportado)">-</span>`;
-    return attended
-      ? `<span class="mdl-dot mdl-dot-ok" title="${label}">✓</span>`
-      : `<span class="mdl-dot mdl-dot-miss" title="Faltó a ${label}">✗</span>`;
+    if (state === "present" || state === "service") {
+      return `<span class="mdl-dot mdl-dot-ok" title="${label}">✓</span>`;
+    }
+    if (state === "justified") {
+      return `<span class="mdl-dot mdl-dot-just" title="Justificado en ${label}">J</span>`;
+    }
+    if (state === "absent") {
+      return `<span class="mdl-dot mdl-dot-miss" title="Faltó a ${label}">✗</span>`;
+    }
+    return `<span class="mdl-dot mdl-dot-pending" title="${label} sin marcar">-</span>`;
   };
 
-  memberModalBody.innerHTML = `
-    <table class="mdl-table">
-      <thead><tr>
-        <th>Sem.</th>
-        <th>Fecha</th>
-        <th title=t('dash.planning')>Plan.</th>
-        <th title=t('dash.reach')>Alc.</th>
-        <th title=t('dash.sunday')>Culto</th>
-        <th>Estado</th>
-      </tr></thead>
-      <tbody>${weekRows.map(w => {
-        const rowCls = w.isFalta ? (w.isJust ? " mdl-row-just" : " mdl-row-falta") : "";
-        const allPending = !w.planApp && !w.reachApp && !w.sundayApp;
-        const someStagePending = !(w.planApp && w.reachApp && w.sundayApp);
-        const statusBadge = w.isFalta
-          ? `<span class="mdl-status-badge mdl-status-${w.isJust ? "just" : "absent"}">${w.isJust ? t('att.justified') : "Falta"}</span>`
-          : allPending
-            ? `<span class="mdl-status-badge mdl-status-pending">Pendiente</span>`
-            : w.missed.length > 0
-              ? `<span class="mdl-status-badge mdl-status-partial">Parcial</span>`
-              : someStagePending
-                ? `<span class="mdl-status-badge mdl-status-pending">En curso</span>`
-                : `<span class="mdl-status-badge mdl-status-ok">Completo</span>`;
-        return `<tr class="${rowCls}">
-          <td class="mdl-week">${w.weekNum}</td>
-          <td class="mdl-date">${w.dateLabel}</td>
-          <td class="mdl-ev">${eventDot(w.planning, t('dash.planning'), w.planApp)}</td>
-          <td class="mdl-ev">${eventDot(w.reach, t('dash.reach'), w.reachApp)}</td>
-          <td class="mdl-ev">${eventDot(w.sunday, t('dash.sunday'), w.sundayApp)}</td>
-          <td>${statusBadge}</td>
-        </tr>`;
-      }).join("")}</tbody>
-    </table>
-  `;
+  memberModalBody.innerHTML = (() => {
+    // Group by year+quarter, descending (current/latest first), then weeks desc within group
+    const groups = new Map(); // key: "YYYY-Q" -> { year, quarter, rows: [] }
+    weekRows.forEach(w => {
+      const key = `${w.yearNum}-${w.quarter}`;
+      if (!groups.has(key)) groups.set(key, { year: w.yearNum, quarter: w.quarter, rows: [] });
+      groups.get(key).rows.push(w);
+    });
+    const orderedGroups = Array.from(groups.values()).sort((a, b) => {
+      if (a.year !== b.year) return Number(b.year) - Number(a.year);
+      return Number(b.quarter) - Number(a.quarter);
+    });
+    const renderRow = (w) => {
+      const stagesApplied = [];
+      if (w.planApp)   stagesApplied.push(w.planning);
+      if (w.reachApp)  stagesApplied.push(w.reach);
+      if (w.sundayApp) stagesApplied.push(w.sunday);
+      const isPresentLike = (s) => s === "present" || s === "service";
+      const allPending = stagesApplied.length === 0;
+      const presents = stagesApplied.filter(isPresentLike).length;
+      const absents  = stagesApplied.filter(s => s === "absent").length;
+      const justs    = stagesApplied.filter(s => s === "justified").length;
+      const pendings = stagesApplied.filter(s => s !== "present" && s !== "service" && s !== "absent" && s !== "justified").length;
+      const missingApplied = absents + justs;
+      let rowCls = "";
+      let statusBadge = "";
+      if (allPending) {
+        statusBadge = `<span class="mdl-status-badge mdl-status-pending">Pendiente</span>`;
+      } else if (presents === stagesApplied.length) {
+        statusBadge = `<span class="mdl-status-badge mdl-status-ok">Completo</span>`;
+      } else if (missingApplied === stagesApplied.length) {
+        if (justs === stagesApplied.length) {
+          rowCls = " mdl-row-just";
+          statusBadge = `<span class="mdl-status-badge mdl-status-just">${t('att.justified')}</span>`;
+        } else {
+          rowCls = " mdl-row-falta";
+          statusBadge = `<span class="mdl-status-badge mdl-status-absent">Falta</span>`;
+        }
+      } else if (pendings > 0 && missingApplied === 0) {
+        statusBadge = `<span class="mdl-status-badge mdl-status-pending">En curso</span>`;
+      } else {
+        statusBadge = `<span class="mdl-status-badge mdl-status-partial">Parcial</span>`;
+      }
+      return `<tr class="${rowCls}">
+        <td class="mdl-week">${w.weekNum}</td>
+        <td class="mdl-date">${w.dateLabel}</td>
+        <td class="mdl-ev">${eventDot(w.planning, t('dash.planning'), w.planApp)}</td>
+        <td class="mdl-ev">${eventDot(w.reach, t('dash.reach'), w.reachApp)}</td>
+        <td class="mdl-ev">${eventDot(w.sunday, t('dash.sunday'), w.sundayApp)}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    };
+    return orderedGroups.map((g, idx) => {
+      const rowsDesc = [...g.rows].sort((a, b) => Number(b.weekNum) - Number(a.weekNum));
+      // Quarter summary stats
+      let qPres = 0, qAbs = 0, qJust = 0;
+      rowsDesc.forEach(w => {
+        [["planApp", "planning"], ["reachApp", "reach"], ["sundayApp", "sunday"]].forEach(([appK, stK]) => {
+          if (!w[appK]) return;
+          const s = w[stK];
+          if (s === "present" || s === "service") qPres++;
+          else if (s === "absent")    qAbs++;
+          else if (s === "justified") qJust++;
+        });
+      });
+      const summaryChips = `
+        <span class="mdl-qchip mdl-qchip-ok" title="Asistencias">${qPres}✓</span>
+        ${qAbs  ? `<span class="mdl-qchip mdl-qchip-miss" title="Faltas">${qAbs}✗</span>` : ""}
+        ${qJust ? `<span class="mdl-qchip mdl-qchip-just" title="Justificadas">${qJust}J</span>` : ""}
+        <span class="mdl-qchip-weeks">${rowsDesc.length} sem.</span>
+      `;
+      return `<details class="mdl-qgroup"${idx === 0 ? " open" : ""}>
+        <summary class="mdl-qgroup-summary">
+          <span class="mdl-qgroup-title">Q${g.quarter} · ${g.year}</span>
+          <span class="mdl-qgroup-stats">${summaryChips}</span>
+        </summary>
+        <table class="mdl-table">
+          <thead><tr>
+            <th>Sem.</th>
+            <th>Fecha</th>
+            <th title="${t('dash.planning')}">Plan.</th>
+            <th title="${t('dash.reach')}">Alc.</th>
+            <th title="${t('dash.sunday')}">Culto</th>
+            <th>Estado</th>
+          </tr></thead>
+          <tbody>${rowsDesc.map(renderRow).join("")}</tbody>
+        </table>
+      </details>`;
+    }).join("");
+  })();
 
   memberDetailModal.showModal();
 }
@@ -2173,7 +2264,14 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
     if (!invitedBy && entry.invitedBy) invitedBy = String(entry.invitedBy).trim();
     const rd = r.formData?.reportDate || r.reportDate || "";
     const dateLabel = rd ? new Date(rd + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "";
-    weekRows.push({ weekNum: getReportWeek(r), dateLabel, reach, sunday });
+    weekRows.push({
+      weekNum: getReportWeek(r),
+      yearNum: getReportYear(r),
+      quarter: getReportQuarter(r),
+      dateLabel,
+      reach,
+      sunday,
+    });
   });
 
   const totalVisits = weekRows.length;
@@ -2213,36 +2311,63 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
     ? `<span class="mdl-dot mdl-dot-ok" title="${label}">✓</span>`
     : `<span class="mdl-dot mdl-dot-miss" title="No asistió a ${label}">✗</span>`;
 
-  memberModalBody.innerHTML = `
-    <table class="mdl-table">
-      <thead><tr>
-        <th>Sem.</th>
-        <th>Fecha</th>
-        <th title=t('dash.reach')>Alc.</th>
-        <th title="${t('met.sectSunday')}">${t('dash.sunday')}</th>
-        <th>Asistencia</th>
-      </tr></thead>
-      <tbody>${weekRows.map(w => {
-        const both = w.reach && w.sunday;
-        const none = !w.reach && !w.sunday;
-        const rowCls = none ? " mdl-row-falta" : "";
-        const statusBadge = both
-          ? `<span class="mdl-status-badge mdl-status-ok">Ambos eventos</span>`
-          : !w.reach && w.sunday
-            ? `<span class="mdl-status-badge mdl-status-partial">Solo culto</span>`
-            : w.reach && !w.sunday
-              ? `<span class="mdl-status-badge mdl-status-partial">Solo alcance</span>`
-              : `<span class="mdl-status-badge mdl-status-absent">No asistió</span>`;
-        return `<tr class="${rowCls}">
-          <td class="mdl-week">${w.weekNum}</td>
-          <td class="mdl-date">${w.dateLabel}</td>
-          <td class="mdl-ev">${eventDot(w.reach,  t('dash.reach'))}</td>
-          <td class="mdl-ev">${eventDot(w.sunday, t('dash.sunday'))}</td>
-          <td>${statusBadge}</td>
-        </tr>`;
-      }).join("")}</tbody>
-    </table>
-  `;
+  memberModalBody.innerHTML = (() => {
+    const groups = new Map();
+    weekRows.forEach(w => {
+      const key = `${w.yearNum}-${w.quarter}`;
+      if (!groups.has(key)) groups.set(key, { year: w.yearNum, quarter: w.quarter, rows: [] });
+      groups.get(key).rows.push(w);
+    });
+    const orderedGroups = Array.from(groups.values()).sort((a, b) => {
+      if (a.year !== b.year) return Number(b.year) - Number(a.year);
+      return Number(b.quarter) - Number(a.quarter);
+    });
+    const renderRow = (w) => {
+      const both = w.reach && w.sunday;
+      const none = !w.reach && !w.sunday;
+      const rowCls = none ? " mdl-row-falta" : "";
+      const statusBadge = both
+        ? `<span class="mdl-status-badge mdl-status-ok">Ambos eventos</span>`
+        : !w.reach && w.sunday
+          ? `<span class="mdl-status-badge mdl-status-partial">Solo culto</span>`
+          : w.reach && !w.sunday
+            ? `<span class="mdl-status-badge mdl-status-partial">Solo alcance</span>`
+            : `<span class="mdl-status-badge mdl-status-absent">No asistió</span>`;
+      return `<tr class="${rowCls}">
+        <td class="mdl-week">${w.weekNum}</td>
+        <td class="mdl-date">${w.dateLabel}</td>
+        <td class="mdl-ev">${eventDot(w.reach,  t('dash.reach'))}</td>
+        <td class="mdl-ev">${eventDot(w.sunday, t('dash.sunday'))}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    };
+    return orderedGroups.map((g, idx) => {
+      const rowsDesc = [...g.rows].sort((a, b) => Number(b.weekNum) - Number(a.weekNum));
+      let qReach = 0, qSun = 0;
+      rowsDesc.forEach(w => { if (w.reach) qReach++; if (w.sunday) qSun++; });
+      const summaryChips = `
+        <span class="mdl-qchip mdl-qchip-ok" title="Alcance">A ${qReach}/${rowsDesc.length}</span>
+        <span class="mdl-qchip mdl-qchip-ok" title="Culto">C ${qSun}/${rowsDesc.length}</span>
+        <span class="mdl-qchip-weeks">${rowsDesc.length} sem.</span>
+      `;
+      return `<details class="mdl-qgroup"${idx === 0 ? " open" : ""}>
+        <summary class="mdl-qgroup-summary">
+          <span class="mdl-qgroup-title">Q${g.quarter} · ${g.year}</span>
+          <span class="mdl-qgroup-stats">${summaryChips}</span>
+        </summary>
+        <table class="mdl-table">
+          <thead><tr>
+            <th>Sem.</th>
+            <th>Fecha</th>
+            <th title="${t('dash.reach')}">Alc.</th>
+            <th title="${t('dash.sunday')}">Culto</th>
+            <th>Asistencia</th>
+          </tr></thead>
+          <tbody>${rowsDesc.map(renderRow).join("")}</tbody>
+        </table>
+      </details>`;
+    }).join("");
+  })();
 
   memberDetailModal.showModal();
 }
@@ -2480,19 +2605,20 @@ function renderDashboardForLeader(reports) {
     const agg = aggregateMetrics(scopeReports, { baptismYear: selectedYear, baptismQuarter: selectedQuarter });
     dashboardSummaryGrid.innerHTML = [
       { label: t('dash.planningBrothers'), value: agg.planningPresent,    hint: t('dash.planningPresentHint') },
-      { label: t('dash.planningAbsent'), value: agg.absent + agg.justified, hint: t('dash.planningAbsentHint') },
+      { label: t('dash.planningAbsent'), value: agg.planningAbsent, hint: t('dash.planningAbsentHint') },
       { label: t('met.reachBros'),    value: agg.reachMembers,       hint: t('dash.reachMembersHint') },
-      { label: t('met.reachFriends'),      value: agg.reachVisitors,      hint: t('dash.reachVisitorsHint') },
+      { label: t('met.reachFriends'),      value: agg.reachVisitors,      hint: t('dash.reachVisitorsHint'),  sub: (agg.reachRestor || 0) > 0 ? `${agg.reachFriends || 0} amigos · ${agg.reachRestor} restauración` : "" },
       { label: t('dash.reachKids'),       value: agg.reachKids,          hint: t('dash.reachKidsHint') },
       { label: t('met.cultoBros'),      value: agg.sundayMembers,      hint: t('dash.cultoBrosHint') },
-      { label: t('met.cultoFriends'),        value: agg.sundayVisitors,     hint: t('dash.cultoFriendsHint') },
+      { label: t('met.cultoFriends'),        value: agg.sundayVisitors,     hint: t('dash.cultoFriendsHint'), sub: (agg.sundayRestor || 0) > 0 ? `${agg.sundayFriends || 0} amigos · ${agg.sundayRestor} restauración` : "" },
       { label: t('dash.sundayKids'),         value: agg.sundayKids,         hint: t('dash.sundayKidsHint') },
       ...(agg.reachConversions ? [{ label: t('met.conversions'), value: agg.reachConversions, hint: t('dash.faithHint') }] : []),
-    ].map(({ label, value, hint }) => `
+    ].map(({ label, value, hint, sub }) => `
       <article class="summary-card summary-card-dashboard">
         <span class="summary-label">${escapeHtml(label)}</span>
         <strong class="summary-value">${escapeHtml(String(value))}</strong>
         <span class="summary-hint">${escapeHtml(hint)}</span>
+        ${sub ? `<span class="summary-sub">${escapeHtml(sub)}</span>` : ""}
       </article>
     `).join("");
 
@@ -2607,15 +2733,19 @@ function renderDashboardForLeader(reports) {
       const rows = [];
       if (weekReport) {
         weekEntries.forEach(entry => {
+          // Per-stage: include only if absent OR justified (not pending/present/service)
           const missed = [];
-          if (!entry.planningAttended) missed.push("P");
-          if (!entry.reachAttended)    missed.push("A");
-          if (!entry.sundayAttended)   missed.push("C");
+          const planSt = String(entry.planningStatus || "").toLowerCase();
+          const reachSt = String(entry.reachStatus    || "").toLowerCase();
+          const sunSt  = String(entry.sundayStatus   || "").toLowerCase();
+          if (planSt === "absent" || planSt === "justified") missed.push({ code: "P", justified: planSt === "justified" });
+          if (reachSt === "absent" || reachSt === "justified") missed.push({ code: "A", justified: reachSt === "justified" });
+          if (sunSt  === "absent" || sunSt  === "justified") missed.push({ code: "C", justified: sunSt  === "justified" });
           if (missed.length === 0) return;
           const key = String(entry.personId || entry.name || "");
           seenKeys.add(key);
           const streakInfo = streaks.get(key);
-          rows.push({ name: entry.name || "", missed, justified: entry.status === "justified", streak: streakInfo?.streak || 0 });
+          rows.push({ name: entry.name || "", missed, streak: streakInfo?.streak || 0 });
         });
         rows.sort((a, b) => b.missed.length - a.missed.length || b.streak - a.streak);
       }
@@ -2627,8 +2757,11 @@ function renderDashboardForLeader(reports) {
       if (rows.length) {
         const EVENT_LABELS = { P: t('dash.planning'), A: t('dash.reach'), C: t('dash.sunday') };
         html += rows.map(row => {
-          const chipsCls = row.justified ? "alert-chip alert-chip-justified" : "alert-chip alert-chip-absent";
-          const chips    = row.missed.map(ev => `<span class="${chipsCls}" title="${EVENT_LABELS[ev]}">${ev}</span>`).join("");
+          const chips = row.missed.map(m => {
+            const cls = m.justified ? "alert-chip alert-chip-justified" : "alert-chip alert-chip-absent";
+            const ttl = `${EVENT_LABELS[m.code]} — ${m.justified ? t('att.statuses.justified') : t('att.statuses.absent')}`;
+            return `<span class="${cls}" title="${ttl}">${m.code}</span>`;
+          }).join("");
           const streakPill = row.streak >= 2
             ? `<span class="alert-streak-pill alert-streak-${row.streak >= 4 ? "critical" : row.streak >= 3 ? "high" : "medium"}">${row.streak}×</span>`
             : "";
@@ -2698,12 +2831,13 @@ function renderDashboardForLeader(reports) {
         visitors.forEach(v => {
           const norm = normalizeVisitorName(v.name);
           if (!norm) return;
-          const prev = visitorStats.get(norm) || { name: String(v.name || norm).trim(), invitedBy: String(v.invitedBy || "").trim(), visits: 0, reachCount: 0, sundayCount: 0, converted: false };
+          const prev = visitorStats.get(norm) || { name: String(v.name || norm).trim(), invitedBy: String(v.invitedBy || "").trim(), visits: 0, reachCount: 0, sundayCount: 0, converted: false, kind: 'amigo' };
           prev.visits++;
           if (v.reachAttended)  prev.reachCount++;
           if (v.sundayAttended) prev.sundayCount++;
           if (v.converted)      prev.converted = true;
           if (!prev.invitedBy && v.invitedBy) prev.invitedBy = String(v.invitedBy).trim();
+          if ((v.kind || 'amigo') === 'visita') prev.kind = 'visita';
           visitorStats.set(norm, prev);
         });
       });
@@ -2753,9 +2887,12 @@ function renderDashboardForLeader(reports) {
           const sundayPct = v.visits > 0 ? Math.round((v.sundayCount / v.visits) * 100) : 0;
           const convertedBadge = v.converted ? `<span class="visitor-conv-badge">Convertido ✓</span>` : "";
           const invitadoBadge  = v.invitedBy ? `<span class="attend-ev-detail">Invitado por ${escapeHtml(v.invitedBy)}</span>` : "";
+          const vKind = v.kind === 'visita' ? 'visita' : 'amigo';
+          const kindLbl = vKind === 'visita' ? t('vis.kindRest') : t('vis.friend');
+          const kindChip = `<span class="visitor-kind-chip is-${vKind}" title="${vKind === 'visita' ? t('vis.bapInRest') : t('vis.notBaptized')}">${escapeHtml(kindLbl)}</span>`;
           return `<tr class="attend-row attend-row-clickable" data-visitor-key="${escapeHtml(normKey)}" data-visitor-name="${escapeHtml(v.name)}" title="Ver detalle de ${escapeHtml(v.name)}">
             <td class="attend-name">
-              ${escapeHtml(v.name)} ${convertedBadge}
+              ${kindChip} ${escapeHtml(v.name)} ${convertedBadge}
               ${invitadoBadge}
             </td>
             <td class="attend-falta-cell">
@@ -2776,7 +2913,7 @@ function renderDashboardForLeader(reports) {
       dashboardAbsenceAlerts.innerHTML = `
         <div class="attend-tabs">
           <button class="attend-tab attend-tab-active" data-tab="hermanos">Hermanos <span class="attend-tab-count">${memberStats.size}</span></button>
-          <button class="attend-tab" data-tab="amigos">Amigos <span class="attend-tab-count">${visitorStats.size}</span></button>
+          <button class="attend-tab" data-tab="amigos">Amigos <span class="attend-tab-count">${visitorStats.size}</span>${(() => { const r = [...visitorStats.values()].filter(x => x.kind === 'visita').length; return r > 0 ? ` <span class="attend-tab-count" title="En restauración" style="background:#f3e5f5;color:#6a1b9a;">+${r} rest.</span>` : ""; })()}</button>
         </div>
         <div id="attend-panel-hermanos" class="attend-panel">
           <table class="attend-table">
@@ -3340,7 +3477,7 @@ function renderMetricsBlock(label, metrics) {
       rows: [
         [t('met.brothersPresent'), m.reachMembers],
         [t('met.privileged'),    m.reachPrivileged],
-        [t('met.friendsPresent'),   m.reachVisitors],
+        [t('met.friendsPresent'),   m.reachVisitors, (m.reachRestor || 0) > 0 ? `${m.reachFriends || 0} amigos · ${m.reachRestor} restauración` : ""],
         [t('rcm.kidsPresent'),    m.reachKids],
         [t('met.conversions'),       m.reachConversions],
       ],
@@ -3350,7 +3487,7 @@ function renderMetricsBlock(label, metrics) {
       rows: [
         [t('rcm.totalAttendees'), m.sundayTotal],
         [t('met.brothers'),         m.sundayMembers],
-        [t('dash.friends'),           m.sundayVisitors],
+        [t('dash.friends'),           m.sundayVisitors, (m.sundayRestor || 0) > 0 ? `${m.sundayFriends || 0} amigos · ${m.sundayRestor} restauración` : ""],
         [t('met.kids'),            m.sundayKids],
       ],
     },
@@ -3371,9 +3508,9 @@ function renderMetricsBlock(label, metrics) {
           <div class="metrics-event-block">
             <div class="metrics-event-title metrics-event--${ev.cls}">${escapeHtml(ev.title)}</div>
             <div class="metrics-event-rows">
-              ${ev.rows.map(([name, val]) => `
+              ${ev.rows.map(([name, val, sub]) => `
                 <div class="metrics-event-row${val === 0 ? " is-zero" : ""}">
-                  <span>${escapeHtml(name)}</span><strong>${val}</strong>
+                  <span>${escapeHtml(name)}${sub ? `<small class="metrics-event-sub"> · ${escapeHtml(sub)}</small>` : ""}</span><strong>${val}</strong>
                 </div>`).join("")}
             </div>
           </div>`).join("")}
@@ -3804,10 +3941,57 @@ function renderAttendanceSummary() {
     </article>
   `).join("");
 
-  const absentMembers = currentMemberAttendance.filter((entry) => entry.status === "absent" || entry.status === "justified");
-  absentMemberPills.innerHTML = absentMembers.length
-    ? absentMembers.map((entry) => `<span class="pill">${escapeHtml(entry.name)} · ${entry.status === "justified" ? t('att.justified') : t('att.absent')}</span>`).join("")
-    : `<span class="member-admin-caption">${t('att.noAbsRegistered')}</span>`;
+  // "Faltaron esta semana" — vista por etapas + resumen consolidado.
+  // Mostramos SÓLO el bloque correspondiente a la etapa activa
+  // (Planeación / Alcance / Culto) y debajo el resumen consolidado de
+  // toda la semana. Antes mostrábamos los 3 bloques siempre, lo cual
+  // era ruido; en cada etapa al líder le interesa la fase en la que
+  // está parado más el resumen general.
+  const STAGE_PILL_LABELS = [
+    { stage: "planificacion", field: "planningStatus", label: t('att.planning') || "Planeación" },
+    { stage: "alcance",       field: "reachStatus",    label: t('att.reach')    || "Alcance" },
+    { stage: "culto",         field: "sundayStatus",   label: t('att.service')  || "Culto" },
+  ];
+
+  // Sólo mostramos el "Resumen — faltantes de la semana" (los bloques por
+  // etapa eran ruido). Cada pill agrupa a la persona con TODOS los eventos
+  // a los que faltó/justificó. El color del pill refleja la severidad:
+  // rojo si tiene al menos una falta, amarillo si todo es justificado.
+  const perPerson = new Map();
+  currentMemberAttendance.forEach((entry) => {
+    STAGE_PILL_LABELS.forEach(({ field, label }) => {
+      const v = entry[field];
+      if (v !== "absent" && v !== "justified") return;
+      const key = entry.name;
+      if (!perPerson.has(key)) perPerson.set(key, []);
+      perPerson.get(key).push({ label, status: v });
+    });
+  });
+  let summaryBlock = "";
+  if (perPerson.size > 0) {
+    const items = [...perPerson.entries()].map(([name, evs]) => {
+      const hasAbsent = evs.some((e) => e.status === "absent");
+      const cls = hasAbsent ? "pill pill-absent" : "pill pill-justified";
+      const parts = evs.map(({ label, status }) => {
+        const tag = status === "justified" ? t('att.justified') : t('att.absent');
+        return `${escapeHtml(label)} (${tag})`;
+      }).join(", ");
+      return `<span class="${cls}"><strong>${escapeHtml(name)}</strong> — ${parts}</span>`;
+    }).join("");
+    summaryBlock = `
+      <div class="absent-summary-block">
+        <span class="absent-stage-title">Resumen — faltantes de la semana <small>(${perPerson.size} ${perPerson.size === 1 ? 'persona' : 'personas'})</small></span>
+        <div class="pill-row">${items}</div>
+      </div>`;
+  }
+
+  // Si no hay nada que mostrar, dejamos el contenedor vacío (CSS oculta el label).
+  absentMemberPills.innerHTML = summaryBlock;
+  // Ocultar la etiqueta "Faltaron esta semana" cuando no hay faltas.
+  const summaryLabel = absentMemberPills.parentElement?.querySelector('.member-summary-label');
+  if (summaryLabel) {
+    summaryLabel.style.display = summaryBlock ? "" : "none";
+  }
 
   syncDerivedMetricFields();
 }
@@ -3873,13 +4057,13 @@ function renderAttendanceTable() {
           <option value="service"${stageStatus === "service" ? " selected" : ""}>Sirviendo</option>
         </select>
       </td>
-      <td data-label=t('dash.planning') class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="planningAttended" type="checkbox"${entry.planningAttended ? " checked" : ""}></td>
-      <td data-label=t('dash.reach') class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="reachAttended" type="checkbox"${entry.reachAttended ? " checked" : ""}></td>
+      <td data-label="${t('dash.planning')}" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="planningAttended" type="checkbox"${entry.planningAttended ? " checked" : ""}></td>
+      <td data-label="${t('dash.reach')}" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="reachAttended" type="checkbox"${entry.reachAttended ? " checked" : ""}></td>
       <td data-label="Privilegios" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="reachPrivileged" type="checkbox"${entry.reachPrivileged ? " checked" : ""}${!entry.reachAttended ? " disabled" : ""}></td>
-      <td data-label=t('dash.sunday') class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="sundayAttended" type="checkbox"${entry.sundayAttended ? " checked" : ""}></td>
+      <td data-label="${t('dash.sunday')}" class="checkbox-cell"><input data-attendance-index="${index}" data-attendance-field="sundayAttended" type="checkbox"${entry.sundayAttended ? " checked" : ""}></td>
       ${eventCell}
       <td data-label="Observación">
-        <input data-attendance-index="${index}" data-attendance-field="note" type="text" value="${escapeHtml(entry.note)}" placeholder=t('att.note')>
+        <input data-attendance-index="${index}" data-attendance-field="note" type="text" value="${escapeHtml(entry.note)}" placeholder="${t('att.note')}">
       </td>
     </tr>
   `;
@@ -4031,8 +4215,8 @@ function renderVisitorTable() {
     const kindLabel = kind === "visita" ? t('vis.kindRest') : t('vis.friend');
     const kindChip = `<span class="visitor-kind-chip is-${kind}" title="${kind === "visita" ? t('vis.bapInRest') : t('vis.notBaptized')}">${kindLabel}</span>`;
     const convertedCell = kind === "visita"
-      ? `<td data-label=t('preview.conversion') class="checkbox-cell"><span class="member-admin-caption" title=t('vis.alreadyBaptized')>N/A</span></td>`
-      : `<td data-label=t('preview.conversion') class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="converted" type="checkbox"${visitor.converted ? " checked" : ""}></td>`;
+      ? `<td data-label="${escapeHtml(t('preview.conversion'))}" class="checkbox-cell col-conversion"><span class="member-admin-caption" title="${escapeHtml(t('vis.alreadyBaptized'))}">N/A</span></td>`
+      : `<td data-label="${escapeHtml(t('preview.conversion'))}" class="checkbox-cell col-conversion"><input data-visitor-index="${index}" data-visitor-field="converted" type="checkbox"${visitor.converted ? " checked" : ""}></td>`;
     const promoteAction = kind === "visita"
       ? `<label class="visitor-promote-toggle" title=t('vis.promoteHint')><input data-visitor-index="${index}" data-visitor-field="promoteToMember" type="checkbox"${visitor.promoteToMember ? " checked" : ""}> <span>Promover a miembro</span></label>`
       : "";
@@ -4076,12 +4260,12 @@ function renderVisitorTable() {
         '<option value="">— Quién invitó —</option>',
         ...invitedByPeople.map(p => `<option value="${escapeHtml(p.name)}"${visitor.invitedBy === p.name ? " selected" : ""}>${escapeHtml(p.name)}</option>`)
       ].join("")}</select></td>
-      <td data-label=t('dash.reach') class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="reachAttended" type="checkbox"${visitor.reachAttended ? " checked" : ""}></td>
-      <td data-label=t('dash.sunday') class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="sundayAttended" type="checkbox"${visitor.sundayAttended ? " checked" : ""}></td>
+      <td data-label="${escapeHtml(t('dash.reach'))}" class="checkbox-cell col-alcance"><input data-visitor-index="${index}" data-visitor-field="reachAttended" type="checkbox"${visitor.reachAttended ? " checked" : ""}></td>
+      <td data-label="${escapeHtml(t('dash.sunday'))}" class="checkbox-cell col-culto"><input data-visitor-index="${index}" data-visitor-field="sundayAttended" type="checkbox"${visitor.sundayAttended ? " checked" : ""}></td>
       <td data-label="Primera vez" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="firstVisit" type="checkbox"${visitor.firstVisit ? " checked" : ""}></td>
       ${convertedCell}
       ${isEventWeek ? `<td data-label="${escapeHtml(eventName)}" class="checkbox-cell event-col"><input data-visitor-index="${index}" data-visitor-field="eventAttended" type="checkbox"${visitor.eventAttended ? " checked" : ""}></td>` : ""}
-      <td data-label="Contactado" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="contacted" type="checkbox"${visitor.contacted ? " checked" : ""}></td>
+      <td data-label="Contactado" class="checkbox-cell col-contactado"><input data-visitor-index="${index}" data-visitor-field="contacted" type="checkbox"${visitor.contacted ? " checked" : ""}></td>
       <td data-label="Teléfono"><input data-visitor-index="${index}" data-visitor-field="phone" type="text" value="${escapeHtml(visitor.phone)}" placeholder="Teléfono"></td>
       <td data-label="Observación"><input data-visitor-index="${index}" data-visitor-field="note" type="text" value="${escapeHtml(visitor.note)}" placeholder="Observación"></td>
       <td data-label="Acciones">
@@ -4327,6 +4511,13 @@ function handleCopyReachToSunday() {
   });
 }
 
+function handleFillSundayMembers() {
+  // Marca a TODOS los miembros como asistentes al Culto, sin importar Alcance.
+  updateMemberActivities((entry) => {
+    entry.sundayAttended = true;
+  });
+}
+
 function handleMarkAllPrivileges() {
   // Marca Privilegios=true a todos los miembros que asistieron al Alcance.
   // Si alguien no fue al Alcance, no se le asignan privilegios (la columna
@@ -4355,6 +4546,19 @@ function handleClearMemberActivities() {
     if (entry[stageField] === "present") entry[stageField] = "pending";
     entry.status = deriveOverallStatus(entry);
   });
+}
+
+function handleMarkAllVisitorsToSunday() {
+  // Marca el Culto de TODOS los amigos/visitas registrados, sin importar
+  // si fueron al Alcance o no.
+  if (!currentVisitors.length) {
+    setFeedback(t('friend.noneInReach'));
+    return;
+  }
+  updateVisitors((visitor) => {
+    visitor.sundayAttended = true;
+  });
+  setFeedback(`✓ Marcados al Culto los ${currentVisitors.length} amigos.`);
 }
 
 function handleCopyVisitorReachToSunday() {
@@ -4395,6 +4599,15 @@ function handleCopyKidReachToSunday() {
   updateKids((kid) => {
     kid.sundayAttended = Boolean(kid.reachAttended);
   });
+}
+
+function handleFillSundayKids() {
+  // Marca a TODOS los niños como asistentes al Culto.
+  if (!currentKids.length) return;
+  updateKids((kid) => {
+    kid.sundayAttended = true;
+  });
+  setFeedback(`✓ Marcados al Culto los ${currentKids.length} niños.`);
 }
 
 function handleClearKidActivities() {
@@ -6305,10 +6518,12 @@ function handleAttendanceTableInput(event) {
     if (m && currentStage === m.stage) {
       const cur = entry[m.field];
       if (target.checked) {
-        if (cur === "pending" || !cur) entry[m.field] = "present";
-        // si era "service" lo dejamos; sigue siendo "asistió"
+        if (cur === "pending" || cur === "absent" || !cur) entry[m.field] = "present";
+        // si era "service" o "justified" lo dejamos; ya refleja una decisión manual
       } else {
-        if (cur === "present" || cur === "service") entry[m.field] = "pending";
+        // Al desmarcar, lo registramos como "Faltó" (no como "Sin marcar"):
+        // la interacción del usuario es una decisión, no ausencia de dato.
+        if (cur === "present" || cur === "service" || cur === "pending" || !cur) entry[m.field] = "absent";
       }
       entry.status = deriveOverallStatus(entry);
       // Refrescar el <select> de esta fila sin re-render completo (evita perder foco).
@@ -6489,7 +6704,7 @@ function handleAddVisitorClick() {
 }
 
 function handleAddKidClick() {
-  currentKids.push({ personId: null, name: "", guardianName: "", source: "visit", reachAttended: false, sundayAttended: false, note: "" });
+  currentKids.push({ personId: null, name: "", guardianName: "", source: "visit", reachAttended: true, sundayAttended: false, note: "" });
   renderKidsTable();
 }
 
@@ -6703,6 +6918,20 @@ function showStage(stage, { skipWeekCheck = false } = {}) {
   const stageLabels = { encabezado: t('stage.encabezado'), planificacion: t('stage.planificacion'), alcance: t('stage.alcance'), culto: t('stage.culto'), cierre: t('stage.cierre') };
   if (topbarRouteLabel) topbarRouteLabel.textContent = stageLabels[stage] ?? "Reporte";
   document.body.dataset.activeStage = stage;
+  // Sincronizar los defaults del mini-form de "Agregar amigo" con la etapa
+  // activa, pero solo si el formulario est\u00e1 vac\u00edo (para no pisar lo que el
+  // usuario ya tecle\u00f3). Reach=true en Alcance, Sunday=true en Culto.
+  if ((stage === "culto" || stage === "alcance")
+      && visitorQuickName instanceof HTMLInputElement
+      && !String(visitorQuickName.value || "").trim()) {
+    const inCulto = stage === "culto";
+    if (visitorQuickReach instanceof HTMLInputElement) {
+      visitorQuickReach.checked = !inCulto;
+    }
+    if (visitorQuickSunday instanceof HTMLInputElement) {
+      visitorQuickSunday.checked = inCulto;
+    }
+  }
   // La columna "Estado semanal" muestra el sub-estado de la etapa activa;
   // hay que re-pintar la tabla para que el <select> refleje el valor correcto.
   if (typeof renderAttendanceTable === "function" && attendanceTableBody && currentMemberAttendance.length) {
@@ -6878,6 +7107,14 @@ function inferNextIncompleteStage(formData) {
 // la primera etapa con datos como fallback.
 function pickResumeStage(formData) {
   const fd = formData || {};
+  // Si el reporte ya fue finalizado (no es borrador), no tiene sentido empujar
+  // al usuario a la etapa de "cierre" (Finalizar) cada vez que abre el form.
+  // Lo dejamos en "Inicio" (encabezado) y desde ahí decide si quiere revisar
+  // alguna etapa o re-editar (sólo posible mientras siga editable la semana).
+  const isDraft = fd._draft === true || fd._draft === "true";
+  if (!isDraft && !fd.lastStage) {
+    return "encabezado";
+  }
   if (fd.lastStage && STAGES.includes(fd.lastStage)) {
     const idx = STAGES.indexOf(fd.lastStage);
     // Avanza a la siguiente etapa; si ya estaba en la última, quédate ahí.
@@ -7038,6 +7275,15 @@ function loadReportIntoForm(report, reportId) {
 // Guardar borrador — saves current form state without browser validation
 async function saveDraft(stage) {
   clearFeedback();
+  // Defensa: si el reporte cargado pertenece a una semana ya cerrada (fuera
+  // de gracia), no permitir guardar cambios — ni siquiera como borrador.
+  if (editingReportId) {
+    const _existing = (reportsData || []).find(r => Number(r.id) === Number(editingReportId));
+    if (_existing && !isReportEditable(_existing)) {
+      setFeedback(t('fb.reportClosedNoEdit') || "Esta semana ya está cerrada, no se puede modificar.", true);
+      return;
+    }
+  }
   const fd = new FormData(reportForm);
   const payload = Object.fromEntries(fd.entries());
   payload.week          = weekField.value      || payload.week          || "";
@@ -7165,6 +7411,61 @@ async function finalizarReporte() {
     if (!ok) return;
   }
 
+  // Aviso por etapa sin información: si alguna de las 3 fases (Planeación,
+  // Alcance, Culto) no tiene ningún dato registrado (nadie marcado, sin
+  // visitas/niños/bautismos según corresponda), advertimos al líder antes
+  // de finalizar para que sepa qué le falta.
+  const emptyStages = [];
+  const att = Array.isArray(payload.memberAttendance) ? payload.memberAttendance : [];
+  const anyMarked = (field) => att.some((e) => {
+    const v = e && e[field];
+    return v && v !== "pending";
+  });
+  const anyChecked = (field) => att.some((e) => e && e[field] === true);
+  if (!anyMarked("planningStatus") && !anyChecked("planningAttended")) {
+    emptyStages.push("Planeación");
+  }
+  if (!anyMarked("reachStatus") && !anyChecked("reachAttended") &&
+      (!Array.isArray(payload.visitors) || payload.visitors.length === 0) &&
+      (!Array.isArray(payload.kids)     || payload.kids.length === 0)) {
+    emptyStages.push("Alcance");
+  }
+  if (!anyMarked("sundayStatus") && !anyChecked("sundayAttended") &&
+      (!Array.isArray(payload.baptisms) || payload.baptisms.length === 0)) {
+    emptyStages.push("Culto");
+  }
+  if (emptyStages.length > 0) {
+    const list = emptyStages.join(", ");
+    const ok = await appConfirm(
+      `No se registró información en: ${list}.\n¿Deseas finalizar el reporte de todas formas?`,
+      "Etapa(s) sin información"
+    );
+    if (!ok) return;
+  }
+
+  // Si el reporte YA estaba finalizado (no es borrador) y se está re-editando,
+  // pedir confirmación explícita: el líder está modificando un reporte ya
+  // entregado oficialmente. Esto sólo es posible mientras la semana sigue
+  // abierta o dentro del periodo de gracia (la UI ya bloquea lo demás).
+  if (editingReportId) {
+    const existing = (reportsData || []).find(r => Number(r.id) === Number(editingReportId));
+    // Defensa adicional: si la semana del reporte ya está cerrada (fuera de
+    // gracia), bloquear cualquier cambio aunque el formulario haya quedado
+    // cargado. Sólo se puede editar la semana actual o la anterior en gracia.
+    if (existing && !isReportEditable(existing)) {
+      setFeedback(t('fb.reportClosedNoEdit') || "Esta semana ya está cerrada, no se puede modificar.", true);
+      return;
+    }
+    const wasFinalized = existing && !(existing.formData?._draft === true || existing.formData?._draft === "true");
+    if (wasFinalized) {
+      const ok = await appConfirm(
+        "Este reporte ya estaba finalizado.\n¿Seguro que deseas guardar los cambios y sobrescribir la versión entregada?",
+        "Modificar reporte finalizado"
+      );
+      if (!ok) return;
+    }
+  }
+
   const promotedCount = countBaptismsToPromote(payload.baptisms);
   const msg = promotedCount
     ? t('fb.reportFinalizedWithBap', { n: promotedCount })
@@ -7183,11 +7484,20 @@ async function finalizarReporte() {
     await loadCatalogs();
     await loadReports();
     resetReportForm();
-    // After reset, keep the same cell and auto-advance to next unreported week
+    // Después de finalizar, regresamos al "Inicio" del flujo (etapa Encabezado)
+    // con el formulario en blanco. Conservamos la célula seleccionada y
+    // refrescamos el dropdown de semanas para que se vea el ✓ entregado.
+    // NO auto-cargamos otro reporte ni auto-avanzamos semana: si no hay más
+    // semanas por reportar, el botón "Siguiente" quedará deshabilitado de
+    // forma natural y el usuario verá la pantalla de Inicio limpia.
     if (savedCell) {
       cellField.value = String(savedCell);
       syncReportWithCell(true);
-      autoAdvanceWeekForCell(savedCell);
+      populateWeekOptions();
+      // populateWeekOptions ya selecciona la semana real en curso y marca
+      // "✓ entregado" si esta semana ya fue finalizada. Dejamos esa selección
+      // para que el dropdown no aparezca vacío y el indicador de fase se vea.
+      syncPhaseIndicator();
     }
     showStage("encabezado");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -7581,9 +7891,13 @@ fillReachMembersButton?.addEventListener("click", handleFillReachMembers);
 fillReachPrivilegesButton?.addEventListener("click", handleFillReachPrivileges);
 copyPlanningToReachButton?.addEventListener("click", handleCopyPlanningToReach);
 copyReachToSundayButton.addEventListener("click", handleCopyReachToSunday);
+fillSundayMembersButton?.addEventListener("click", handleFillSundayMembers);
+markAllVisitorsToSundayButton?.addEventListener("click", handleMarkAllVisitorsToSunday);
+copyVisitorReachToSundayButton?.addEventListener("click", handleCopyVisitorReachToSunday);
 markAllPrivilegesButton?.addEventListener("click", handleMarkAllPrivileges);
 clearMemberActivitiesButton.addEventListener("click", handleClearMemberActivities);
 copyKidReachToSundayButton?.addEventListener("click", handleCopyKidReachToSunday);
+fillSundayKidsButton?.addEventListener("click", handleFillSundayKids);
 clearKidActivitiesButton?.addEventListener("click", handleClearKidActivities);
 memberList.addEventListener("click", handleMemberListClick);
 
@@ -7654,13 +7968,22 @@ function buildReportPreviewHtml() {
     { title: t('met.sectBaptisms'),   fields: [["baptismFirstQuarter", t('met.q1')], ["baptismSecondQuarter", t('met.q2')], ["baptismThirdQuarter", t('met.q3')], ["baptismYearTotal", t('met.totalYear')]] },
   ];
 
+  // Visitor kind split (used to enrich "Amigos presentes" row in the Alcance card)
+  const _namedVisPrev = (Array.isArray(currentVisitors) ? currentVisitors : []).filter(v => String(v?.name || "").trim());
+  const _friendsPrev  = _namedVisPrev.filter(v => (v.kind || 'amigo') !== 'visita').length;
+  const _restorPrev   = _namedVisPrev.filter(v => (v.kind || 'amigo') === 'visita').length;
+
   // Metric sections
   const metricsHtml = PREVIEW_SECTIONS.map(section => {
     const rows = section.fields.map(([name, label]) => {
       const el = reportForm.elements.namedItem(name);
       const val = (el instanceof HTMLInputElement ? el.value : data[name]) || "0";
       const num = parseFloat(val) || 0;
-      return { label, val: num === 0 ? "—" : String(num), isEmpty: num === 0 };
+      const row = { label, val: num === 0 ? "—" : String(num), isEmpty: num === 0 };
+      if (name === "reachFriendsPresent" && _restorPrev > 0) {
+        row.sublabel = `${_friendsPrev} amigo${_friendsPrev === 1 ? "" : "s"} · ${_restorPrev} restauración`;
+      }
+      return row;
     });
     const hasData = rows.some(r => !r.isEmpty);
     return `
@@ -7669,28 +7992,71 @@ function buildReportPreviewHtml() {
         <div class="preview-metric-rows">
           ${rows.map(r => `
             <div class="preview-metric-row${r.isEmpty ? " is-zero" : ""}">
-              <span class="preview-metric-label">${escapeHtml(r.label)}</span>
+              <span class="preview-metric-label">${escapeHtml(r.label)}${r.sublabel ? `<small class="preview-metric-sub"> · ${escapeHtml(r.sublabel)}</small>` : ""}</span>
               <span class="preview-metric-value">${escapeHtml(r.val)}</span>
             </div>`).join("")}
         </div>
       </div>`;
   }).join("");
 
-  // Members list
-  const presentMembers = currentMemberAttendance.filter(e => e.status === "present" || e.status === "service");
-  const absentMembers  = currentMemberAttendance.filter(e => e.status === "absent" || e.status === "justified");
+  // Members list — árbol colapsable por evento de la semana.
+  // Por cada evento (Planeación / Alcance / Culto) listamos quiénes asistieron
+  // y quiénes faltaron / justificaron. Colapsado por defecto para no abrumar.
+  const STAGE_LABELS_PREVIEW = [
+    { field: "planningStatus", label: "Planeación" },
+    { field: "reachStatus",    label: "Alcance" },
+    { field: "sundayStatus",   label: "Culto" },
+  ];
+  const totalMembers = currentMemberAttendance.length;
+  const eventBlocks = STAGE_LABELS_PREVIEW.map(({ field, label }) => {
+    const present = currentMemberAttendance.filter(e => e[field] === "present" || e[field] === "service");
+    const absent  = currentMemberAttendance.filter(e => e[field] === "absent");
+    const justified = currentMemberAttendance.filter(e => e[field] === "justified");
+    const pending = currentMemberAttendance.filter(e => !e[field] || e[field] === "pending");
+    const presentPills = present.map(e => `<span class="preview-pill is-present">${escapeHtml(e.name)}${e[field] === "service" ? " · sirviendo" : ""}</span>`).join("");
+    const absentPills = absent.map(e => `<span class="preview-pill is-absent">${escapeHtml(e.name)}</span>`).join("");
+    const justifiedPills = justified.map(e => `<span class="preview-pill is-justified">${escapeHtml(e.name)}</span>`).join("");
+    const pendingNote = pending.length ? `<div class="preview-empty-note" style="margin-top:6px">${pending.length} sin marcar</div>` : "";
+    return `
+      <details class="preview-event-tree">
+        <summary>
+          <span class="preview-event-tree-label">${escapeHtml(label)}</span>
+          <span class="preview-event-tree-counts">
+            <span class="ev-tally ev-tally--ok">✓ ${present.length}</span>
+            <span class="ev-tally ev-tally--miss">✗ ${absent.length}</span>
+            ${justified.length ? `<span class="ev-tally ev-tally--just">J ${justified.length}</span>` : ""}
+          </span>
+        </summary>
+        <div class="preview-event-tree-body">
+          ${present.length ? `
+            <div class="preview-event-tree-group">
+              <span class="preview-event-tree-grouplabel">Asistieron (${present.length})</span>
+              <div class="preview-pills">${presentPills}</div>
+            </div>` : ""}
+          ${absent.length ? `
+            <div class="preview-event-tree-group">
+              <span class="preview-event-tree-grouplabel">Faltaron (${absent.length})</span>
+              <div class="preview-pills">${absentPills}</div>
+            </div>` : ""}
+          ${justified.length ? `
+            <div class="preview-event-tree-group">
+              <span class="preview-event-tree-grouplabel">Justificados (${justified.length})</span>
+              <div class="preview-pills">${justifiedPills}</div>
+            </div>` : ""}
+          ${pendingNote}
+          ${(!present.length && !absent.length && !justified.length) ? '<span class="preview-empty-note">Sin información en este evento</span>' : ""}
+        </div>
+      </details>`;
+  }).join("");
   const membersHtml = `
-    <div class="preview-section-title">Miembros presentes (${presentMembers.length})</div>
-    <div class="preview-pills">
-      ${presentMembers.length
-        ? presentMembers.map(e => `<span class="preview-pill is-present">${escapeHtml(e.name)}</span>`).join("")
-        : '<span class="preview-empty-note">Ninguno marcado presente</span>'}
-    </div>
-    ${absentMembers.length ? `
-      <div class="preview-section-title" style="margin-top:10px">Ausencias (${absentMembers.length})</div>
-      <div class="preview-pills">
-        ${absentMembers.map(e => `<span class="preview-pill is-absent">${escapeHtml(e.name)} ${e.status === "justified" ? "·J" : ""}</span>`).join("")}
-      </div>` : ""}`;
+    <div class="preview-section-title">Asistencia por evento (${totalMembers} miembros)</div>
+    <div class="preview-event-tree-list">${eventBlocks}</div>`;
+
+  // Lista de "presentes" para el resumen de WhatsApp: cualquier miembro que
+  // estuvo presente o sirviendo en al menos UN evento de la semana.
+  const presentMembers = currentMemberAttendance.filter((e) =>
+    STAGE_LABELS_PREVIEW.some(({ field }) => e[field] === "present" || e[field] === "service")
+  );
 
   // Notes
   const notesHtml = data.notes ? `
@@ -7759,7 +8125,7 @@ function openReportPreviewDialog() {
   const confirmBtn = document.getElementById("preview-confirm-btn");
   const editFromSegBtn = document.getElementById("preview-edit-from-seg-btn");
   if (cancelBtn)  cancelBtn.hidden  = false;
-  if (confirmBtn) confirmBtn.hidden = false;
+  if (confirmBtn) confirmBtn.hidden = true;
   if (editFromSegBtn) editFromSegBtn.hidden = true;
   reportPreviewDialog.showModal();
 }
@@ -7845,19 +8211,30 @@ function buildReportPreviewHtmlFromData(report) {
   const reachPresent    = memberAttendance.filter(m => m.reachAttended).length;
   const reachPriv       = memberAttendance.filter(m => m.reachPrivileged).length;
   const reachOfrenda    = Number(s.reachOffering || fd.reachOffering || 0);
+  const friendsCount = namedVisitors.filter(v => (v.kind || 'amigo') !== 'visita').length;
+  const restorCount  = namedVisitors.filter(v => (v.kind || 'amigo') === 'visita').length;
+  const visitorsTitle = restorCount > 0
+    ? `Amigos (${friendsCount}) · Restauración (${restorCount})`
+    : `Amigos (${friendsCount})`;
   const visitorsHtml = namedVisitors.length ? `
     <div class="ev-subsection">
-      <p class="ev-subsection-title">Amigos (${namedVisitors.length})</p>
+      <p class="ev-subsection-title">${visitorsTitle}</p>
       <div class="ev-visitor-list">
-        ${namedVisitors.map(v => `
+        ${namedVisitors.map(v => {
+          const vKind = (v.kind || 'amigo') === 'visita' ? 'visita' : 'amigo';
+          const kindLbl = vKind === 'visita' ? t('vis.kindRest') : t('vis.friend');
+          const kindChip = `<span class="visitor-kind-chip is-${vKind}" title="${vKind === 'visita' ? t('vis.bapInRest') : t('vis.notBaptized')}">${escapeHtml(kindLbl)}</span>`;
+          return `
           <div class="ev-visitor-row">
+            ${kindChip}
             <span class="ev-visitor-name">${escapeHtml(v.name || "")}</span>
             ${v.invitedBy ? `<span class=\"ev-visitor-meta\">${t('preview.invitedBy', { name: escapeHtml(v.invitedBy) })}</span>` : ""}
             <span class="ev-visitor-badges">
               ${v.converted      ? '<span class="ev-badge ev-badge--conversion">Conversión</span>'  : ""}
               ${v.sundayAttended ? '<span class="ev-badge ev-badge--sunday">↪ Culto</span>'         : ""}
             </span>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
       </div>
     </div>` : "";
   const kidsHtml = namedKids.length ? `
@@ -7876,7 +8253,7 @@ function buildReportPreviewHtmlFromData(report) {
     <div class="ev-section">
       <div class="ev-head ev-head--reach">
         <span class="ev-title">🌱 Alcance</span>
-        <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""} · ${namedVisitors.length} amigos · ${namedKids.length} niños</span>
+        <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""} · ${friendsCount} amigos${restorCount ? ` · ${restorCount} restauración` : ""} · ${namedKids.length} niños</span>
       </div>
       <div class="ev-body">
         ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.reachAttended, m.reachPrivileged ? "privileged" : null)).join("")}</div>` : ""}
@@ -7904,22 +8281,10 @@ function buildReportPreviewHtmlFromData(report) {
       </div>
     </div>`;
 
-  // ── AUSENCIAS (resumen) ─────────────────────────────────────────────────────
-  const absentMembers   = memberAttendance.filter(e => e.status === "absent");
-  const justifiedMembers = memberAttendance.filter(e => e.status === "justified");
-  const absencesHtml = (absentMembers.length || justifiedMembers.length) ? `
-    <div class="ev-section">
-      <div class="ev-head ev-head--absent">
-        <span class="ev-title">Ausencias</span>
-        <span class="ev-count">${absentMembers.length} ausente${absentMembers.length !== 1 ? "s" : ""} · ${justifiedMembers.length} justificado${justifiedMembers.length !== 1 ? "s" : ""}</span>
-      </div>
-      <div class="ev-body">
-        <div class="ev-chip-grid">
-          ${absentMembers.map(m   => `<div class="ev-chip ev-chip--missed"><span class="ev-chip-icon">✗</span><span>${escapeHtml(m.name || "")}</span></div>`).join("")}
-          ${justifiedMembers.map(m => `<div class="ev-chip ev-chip--justified"><span class="ev-chip-icon">J</span><span>${escapeHtml(m.name || "")}</span></div>`).join("")}
-        </div>
-      </div>
-    </div>` : "";
+  // Nota: ya no renderizamos un bloque "Ausencias" — cada evento
+  // (Planeación / Alcance / Culto) muestra los chips por miembro con su
+  // estado (verde si asistió, rojo si faltó), así que el bloque resumen
+  // era redundante.
 
   const notesHtml = fd.notes ? `
     <div class="preview-section-title" style="margin-top:14px">Observaciones generales</div>
@@ -7936,7 +8301,7 @@ function buildReportPreviewHtmlFromData(report) {
       <span class="ev-badge ev-badge--conversion" style="font-size:0.7rem">Conversión</span>
     </div>`;
 
-  return headerHtml + summaryHtml + legendHtml + planSection + reachSection + cultoSection + absencesHtml + notesHtml;
+  return headerHtml + summaryHtml + legendHtml + planSection + reachSection + cultoSection + notesHtml;
 }
 
 function openReportPreviewFromDashboard(report) {
