@@ -914,20 +914,20 @@
                 <p class="eyebrow" data-i18n="dash.dashboard">Dashboard</p>
                 <h2 id="dashboard-scope-title" data-i18n="dash.currentWeek">Semana en curso</h2>
               </div>
-              <div class="dashboard-period-controls">
-                <label class="dashboard-period-field">
-                  <span data-i18n="dash.period">Periodo</span>
-                  <select id="dashboard-period-select"></select>
-                </label>
-                <span id="dashboard-week-chip" class="panel-tag">Semana 0</span>
-                <span id="dashboard-scope-chip" class="panel-tag panel-tag-scope" hidden></span>
-              </div>
+              <span id="dashboard-scope-chip" class="panel-tag panel-tag-scope" hidden></span>
             </div>
             <div class="dashboard-scope-tabs" id="dashboard-scope-tabs" role="tablist" hidden></div>
             <div class="dashboard-time-tabs" id="dashboard-time-tabs">
               <button type="button" class="dashboard-time-tab is-active" data-timescope="week" data-i18n="form.week">Semana</button>
               <button type="button" class="dashboard-time-tab" data-timescope="quarter" data-i18n="dash.quarter">Cuatrimestre</button>
               <button type="button" class="dashboard-time-tab" data-timescope="year" data-i18n="dash.year">Año</button>
+            </div>
+            <div class="dashboard-period-controls">
+              <label class="dashboard-period-field">
+                <span data-i18n="dash.period">Periodo</span>
+                <select id="dashboard-period-select"></select>
+              </label>
+              <span id="dashboard-week-chip" class="panel-tag" hidden>Semana 0</span>
             </div>
             <div id="dashboard-summary-grid" class="summary-grid"></div>
           </section>
@@ -1395,6 +1395,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <!-- Chart.js para graficas del Dashboard -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="./app.js?v=20260518-049"></script>
+  <script type="module" src="./app.js?v=20260518-055"></script>
 </body>
 </html>

@@ -2709,7 +2709,14 @@ function renderDashboardForLeader(reports) {
     ? String(currentUser.assignedCellNumber)
     : cellField?.value || "";
 
-  const scopedReports = getScopedReports(reports);
+  // OJO: no usamos getScopedReports() aquí porque si el usuario es líder Y
+  // supervisor a la vez, getScopedReports filtra a las células del sector
+  // supervisado y descarta la célula propia (que puede estar en otro sector).
+  // La vista "Mi célula" siempre debe ver TODOS los reportes filtrados por
+  // su propia célula directamente.
+  const scopedReports = (reports || []).filter(r =>
+    String(r.cellNumber || r.formData?.cellNumber || "") === cellNum
+  );
   renderDashboardPeriodOptions(scopedReports);
 
   const { year: parsedYear, quarter: parsedQuarter, week: parsedWeek } = parsePeriodKey(activeDashboardPeriod);
@@ -3753,8 +3760,18 @@ function renderMetricsTrendByCell(reports) {
           <th title="Decisiones de fe registradas">Conv.</th>
         </tr></thead>
         <tbody>${rows.map(r => {
-          const reachPop  = r.reachNames.length  ? `<span class="trend-pop"><span class="trend-pop-title">Amigos al alcance (${r.reachNames.length})</span>${r.reachNames.map(n => `<span class="trend-pop-name${r.sundayNames.some(s => s.toLowerCase() === n.toLowerCase()) ? ' is-sunday' : ''}">${n}</span>`).join("")}</span>` : '';
-          const sundayPop = r.sundayNames.length ? `<span class="trend-pop"><span class="trend-pop-title">Llegaron al culto (${r.sundayNames.length})</span>${r.sundayNames.map(n => `<span class="trend-pop-name is-sunday">${n}</span>`).join("")}</span>` : '';
+          const sundayLowSet = new Set(r.sundayNames.map(n => n.toLowerCase()));
+          const missedNames = r.reachNames.filter(n => !sundayLowSet.has(n.toLowerCase()));
+          const reachPop  = r.reachNames.length
+            ? `<span class="trend-pop"><span class="trend-pop-title">Amigos al alcance (${r.reachNames.length})</span>${r.reachNames.map(n => `<span class="trend-pop-name${sundayLowSet.has(n.toLowerCase()) ? ' is-sunday' : ''}">${n}</span>`).join("")}</span>`
+            : '';
+          const retPct = r.friendsUniqReach > 0 ? Math.round(r.friendsUniqSunday / r.friendsUniqReach * 100) : 0;
+          const sundayPop = r.reachNames.length
+            ? `<span class="trend-pop trend-pop-wide"><span class="trend-pop-title">Retención al culto · ${r.friendsUniqSunday}/${r.friendsUniqReach} (${retPct}%)</span>
+                 ${r.sundayNames.length ? `<span class="trend-pop-section trend-pop-section-ok">Llegaron (${r.sundayNames.length})</span>${r.sundayNames.map(n => `<span class="trend-pop-name is-sunday">${n}</span>`).join("")}` : ''}
+                 ${missedNames.length ? `<span class="trend-pop-section trend-pop-section-miss">No llegaron (${missedNames.length})</span>${missedNames.map(n => `<span class="trend-pop-name is-missed">${n}</span>`).join("")}` : ''}
+               </span>`
+            : '';
           return `
           <tr class="trend-row">
             <td class="trend-week-cell"><strong>Célula ${r.cellNum}</strong><span class="trend-date">${r.weeks} sem · ${r.label || ""}</span></td>
@@ -3861,17 +3878,30 @@ function renderMetricsTrend(reports) {
           <th title="Amigos que pasaron del alcance al culto">Retención culto</th>
           <th title="Decisiones de fe registradas">Conv.</th>
         </tr></thead>
-        <tbody>${rows.map(r => `
+        <tbody>${rows.map(r => {
+          const sundaySet = new Set(r.friendsSundayNames.map(n => n.toLowerCase()));
+          const missedNames = r.friendsReachNames.filter(n => !sundaySet.has(n.toLowerCase()));
+          const reachPop  = r.friendsReachNames.length
+            ? `<span class="trend-pop"><span class="trend-pop-title">Amigos al alcance (${r.friendsReachNames.length})</span>${r.friendsReachNames.map(n => `<span class="trend-pop-name${sundaySet.has(n.toLowerCase()) ? ' is-sunday' : ''}">${n}</span>`).join("")}</span>`
+            : '';
+          const retPct = r.friends > 0 ? Math.round(r.sundayFriends / r.friends * 100) : 0;
+          const sundayPop = r.friendsReachNames.length
+            ? `<span class="trend-pop trend-pop-wide"><span class="trend-pop-title">Retención al culto · ${r.sundayFriends}/${r.friends} (${retPct}%)</span>
+                 ${r.friendsSundayNames.length ? `<span class="trend-pop-section trend-pop-section-ok">Llegaron (${r.friendsSundayNames.length})</span>${r.friendsSundayNames.map(n => `<span class="trend-pop-name is-sunday">${n}</span>`).join("")}` : ''}
+                 ${missedNames.length ? `<span class="trend-pop-section trend-pop-section-miss">No llegaron (${missedNames.length})</span>${missedNames.map(n => `<span class="trend-pop-name is-missed">${n}</span>`).join("")}` : ''}
+               </span>`
+            : '';
+          return `
           <tr class="trend-row">
             <td class="trend-week-cell"><strong>${r.week}</strong><span class="trend-date">${r.date}</span></td>
             <td>${miniDonut(r.plan,    r.total, "plan")}</td>
             <td>${miniDonut(r.reach,   r.total, "reach")}</td>
             <td>${miniDonut(r.sunday,  r.total, "sunday")}</td>
-            <td>${miniDonut(r.friends, 0, "friends")}${r.friendsReachNames.length ? `<div class="trend-names" title="${r.friendsReachNames.join(', ')}">${r.friendsReachNames.slice(0,3).join(', ')}${r.friendsReachNames.length>3?` +${r.friendsReachNames.length-3}`:''}</div>` : ''}</td>
-            <td>${miniDonut(r.sundayFriends, r.friends, "friends")}${r.friendsSundayNames.length ? `<div class="trend-names" title="${r.friendsSundayNames.join(', ')}">${r.friendsSundayNames.slice(0,3).join(', ')}${r.friendsSundayNames.length>3?` +${r.friendsSundayNames.length-3}`:''}</div>` : ''}</td>
+            <td class="trend-td-hover">${miniDonut(r.friends, 0, "friends")}${reachPop}</td>
+            <td class="trend-td-hover">${miniDonut(r.sundayFriends, r.friends, "friends")}${sundayPop}</td>
             <td>${miniDonut(r.conv, 0, "friends")}</td>
-          </tr>`).join("")}
-        </tbody>
+          </tr>`;
+        }).join("")}</tbody>
         <tfoot>
           <tr class="trend-avg-row">
             <td class="trend-avg-label">Total visitas</td>
