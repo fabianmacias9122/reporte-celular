@@ -811,21 +811,23 @@
 
         <!-- Tab: Seguimiento -->
         <div id="seg-tab-seguimiento" class="seg-tab-panel">
-          <!-- Week offset toggle (oculto en semana 1 del cuatrimestre) -->
-          <div id="seg-week-offset-tabs" class="filter-tabs" style="margin-bottom:12px" hidden>
-            <button type="button" class="filter-tab is-active" data-weekoff="-1" data-i18n="seg.prevWeekPray">Semana anterior · Orar</button>
-            <button type="button" class="filter-tab" data-weekoff="0" data-i18n="seg.thisWeekNote">Esta semana · Anotar</button>
-          </div>
-          <!-- Compact weekly context strip -->
+          <!-- Compact weekly context strip (incluye el toggle de semana) -->
           <div id="report-context-strip" class="report-context-strip" hidden>
-            <div class="rcs-col">
-              <span class="rcs-label" id="dashboard-pending-eyebrow" data-i18n="dash.pendingThisWeek">Pendientes esta semana</span>
-              <div class="rcs-chips" id="rcs-pending"></div>
+            <!-- Week offset toggle (oculto en semana 1 del cuatrimestre) -->
+            <div id="seg-week-offset-tabs" class="filter-tabs rcs-week-tabs" hidden>
+              <button type="button" class="filter-tab is-active" data-weekoff="-1" data-i18n="seg.prevWeekPray">Semana anterior · Orar</button>
+              <button type="button" class="filter-tab" data-weekoff="0" data-i18n="seg.thisWeekNote">Esta semana · Anotar</button>
             </div>
-            <div class="rcs-divider"></div>
-            <div class="rcs-col">
-              <span class="rcs-label" id="rcs-activity-eyebrow" data-i18n="dash.reportedThisWeek">Reportaron esta semana</span>
-              <div class="rcs-chips" id="rcs-activity"></div>
+            <div class="rcs-cols">
+              <div class="rcs-col">
+                <span class="rcs-label" id="dashboard-pending-eyebrow" data-i18n="dash.pendingThisWeek">Pendientes esta semana</span>
+                <div class="rcs-chips" id="rcs-pending"></div>
+              </div>
+              <div class="rcs-divider"></div>
+              <div class="rcs-col">
+                <span class="rcs-label" id="rcs-activity-eyebrow" data-i18n="dash.reportedThisWeek">Reportaron esta semana</span>
+                <div class="rcs-chips" id="rcs-activity"></div>
+              </div>
             </div>
           </div>
           <!-- Keep hidden containers so existing JS refs don't break -->
@@ -921,6 +923,7 @@
                 <span id="dashboard-scope-chip" class="panel-tag panel-tag-scope" hidden></span>
               </div>
             </div>
+            <div class="dashboard-scope-tabs" id="dashboard-scope-tabs" role="tablist" hidden></div>
             <div class="dashboard-time-tabs" id="dashboard-time-tabs">
               <button type="button" class="dashboard-time-tab is-active" data-timescope="week" data-i18n="form.week">Semana</button>
               <button type="button" class="dashboard-time-tab" data-timescope="quarter" data-i18n="dash.quarter">Cuatrimestre</button>
@@ -943,7 +946,7 @@
               <span class="absence-legend-sep">·</span>
               <span class="absence-legend-item"><span class="alert-chip alert-chip-justified">J</span> Justificado</span>
               <span class="absence-legend-sep">·</span>
-              <span class="absence-legend-item"><span class="alert-streak-pill alert-streak-medium">3×</span> semanas seguidas</span>
+              <span class="absence-legend-item"><span class="alert-streak-pill alert-streak-medium">3×</span> faltas</span>
             </div>
             <div id="dashboard-absence-alerts" class="dashboard-list"></div>
           </section>
@@ -960,30 +963,6 @@
               </div>
             </div>
             <div id="dashboard-metrics-body"></div>
-          </section>
-
-          <!-- Tendencias del cuatrimestre (gráficas) -->
-          <section class="panel panel-soft" id="dashboard-trends-section">
-            <div class="panel-head">
-              <div>
-                <p class="eyebrow" data-i18n="dash.trends">Tendencias</p>
-                <h2 data-i18n="dash.trendsTitle">Tendencias del cuatrimestre</h2>
-              </div>
-              <div id="dashboard-trends-scope" class="dashboard-trends-scope" hidden>
-                <select id="dashboard-trends-scope-select" aria-label="Ámbito de la gráfica"></select>
-              </div>
-            </div>
-            <div id="dashboard-trends-controls" class="dashboard-trends-controls">
-              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="planning" checked> <span data-i18n="dash.trendPlanning">Planeación</span></label>
-              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="reach" checked> <span data-i18n="dash.trendReach">Alcance</span></label>
-              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="sunday" checked> <span data-i18n="dash.trendSunday">Culto</span></label>
-              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="visitors"> <span data-i18n="dash.trendVisitors">Visitas</span></label>
-              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="offering"> <span data-i18n="dash.trendOffering">Ofrenda</span></label>
-            </div>
-            <div id="dashboard-trends-canvas-wrap" class="dashboard-trends-canvas-wrap">
-              <canvas id="dashboard-trends-canvas" height="320" aria-label="Gráfica de tendencias del cuatrimestre"></canvas>
-            </div>
-            <p id="dashboard-trends-empty" class="dashboard-trends-empty" data-i18n="dash.trendsEmpty" hidden>Aún no hay reportes en este cuatrimestre.</p>
           </section>
 
           <section class="panel panel-soft" id="dashboard-baptisms-section">
@@ -1416,6 +1395,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <!-- Chart.js para graficas del Dashboard -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="./app.js?v=20260518-001"></script>
+  <script type="module" src="./app.js?v=20260518-049"></script>
 </body>
 </html>

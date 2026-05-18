@@ -222,6 +222,9 @@ const dashboardMetricsEyebrow = document.querySelector("#dashboard-metrics-eyebr
 const dashboardMetricsBody = document.querySelector("#dashboard-metrics-body");
 let activeMetricsScope = "total"; // "total" | "sector"
 let activeDashboardTimeScope = "week"; // "week" | "quarter" | "year"
+// Sub-pestañas del Dashboard que reducen el ámbito (mi célula / mi sector / todas)
+// null = aún no inicializado; se ajusta a la primera pestaña disponible para el usuario.
+let activeDashboardScope = null; // null | "cell" | "sector" | "all"
 
 const peopleForm = document.querySelector("#people-form");
 const peopleEditId = document.querySelector("#people-edit-id");
@@ -335,6 +338,9 @@ let currentBaptisms = [];
 let reportsData = [];
 let approvalsData = [];
 let activeDashboardPeriod = "";
+// Memoria por scope de tiempo: recordar la última semana/cuatrimestre/año
+// seleccionado al cambiar de pestaña, para no saltar a la actual.
+const dashboardPeriodByScope = { week: "", quarter: "", year: "" };
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
 let currentUser = null;
@@ -1113,12 +1119,91 @@ function getScopedReports(reports) {
 }
 
 function getDashboardScopeLabel() {
+  // Refleja la sub-pestaña activa si hay varias; si no, cae al rol.
+  const myCell   = String(currentUser?.assignedCellNumber || "").trim();
+  const mySector = String(currentUser?.supervisedSector || "").trim();
+  if (activeDashboardScope === "cell" && myCell)     return t('cell.numbered', { n: myCell });
+  if (activeDashboardScope === "sector" && mySector) return `Sector ${mySector}`;
+  if (activeDashboardScope === "all")                return null; // sin chip cuando se ve todo
   if (!currentUser || currentUser.isAdmin) return null;
-  if (currentUser.isSupervisor && currentUser.supervisedSector) {
-    return `Sector ${currentUser.supervisedSector}`;
-  }
-  if (currentUser.assignedCellNumber) return t('cell.numbered', { n: currentUser.assignedCellNumber });
+  if (currentUser.isSupervisor && mySector)          return `Sector ${mySector}`;
+  if (myCell)                                        return t('cell.numbered', { n: myCell });
   return null;
+}
+
+// ── Sub-pestañas de ámbito del Dashboard ─────────────────────────────────
+// Devuelve las pestañas disponibles para el usuario actual.
+// Cada pestaña: { key, label, sublabel? }
+// - "cell"   → solo su célula (requiere assignedCellNumber)
+// - "sector" → su sector (requiere supervisedSector)
+// - "all"    → todas las células (solo admin)
+function getDashboardScopeTabs() {
+  const tabs = [];
+  if (!currentUser) return tabs;
+  const myCell   = String(currentUser.assignedCellNumber || "").trim();
+  const mySector = String(currentUser.supervisedSector || "").trim();
+  const isAdmin  = !!currentUser.isAdmin;
+  if (myCell)         tabs.push({ key: "cell",   label: t('dash.scopeMyCell'),   sublabel: t('cell.numbered', { n: myCell }) });
+  if (mySector)       tabs.push({ key: "sector", label: t('dash.scopeMySector'), sublabel: `Sector ${mySector}` });
+  if (isAdmin)        tabs.push({ key: "all",    label: t('dash.scopeAll'),      sublabel: t('dash.scopeAllSub') });
+  return tabs;
+}
+
+// Filtra reports (ya escopados por rol con getScopedReports) según la sub-pestaña activa.
+function applyDashboardScopeFilter(reports) {
+  if (!Array.isArray(reports) || !reports.length) return reports || [];
+  const scope = activeDashboardScope;
+  if (!scope || scope === "all") return reports;
+  const myCell   = String(currentUser?.assignedCellNumber || "").trim();
+  const mySector = String(currentUser?.supervisedSector || "").trim();
+  if (scope === "cell" && myCell) {
+    return reports.filter(r => String(r.cellNumber || r.formData?.cellNumber || "") === myCell);
+  }
+  if (scope === "sector" && mySector) {
+    const sectorCellNums = new Set(
+      (catalogs.cells || [])
+        .filter(c => String(c.sector || "").trim() === mySector)
+        .map(c => String(c.cellNumber))
+    );
+    return reports.filter(r => sectorCellNums.has(String(r.cellNumber || r.formData?.cellNumber || "")));
+  }
+  return reports;
+}
+
+// Pinta las sub-pestañas. Devuelve true si hay más de una pestaña (es decir, vale la pena mostrarlas).
+function renderDashboardScopeTabs() {
+  const wrap = document.getElementById("dashboard-scope-tabs");
+  if (!wrap) return false;
+  const tabs = getDashboardScopeTabs();
+  if (tabs.length <= 1) {
+    wrap.hidden = true;
+    wrap.innerHTML = "";
+    activeDashboardScope = tabs[0]?.key || null;
+    return false;
+  }
+  // Inicializar a la primera pestaña si aún no se ha elegido o ya no es válida.
+  if (!activeDashboardScope || !tabs.some(t => t.key === activeDashboardScope)) {
+    activeDashboardScope = tabs[0].key;
+  }
+  wrap.hidden = false;
+  wrap.innerHTML = tabs.map(tab => `
+    <button type="button" class="dashboard-scope-tab ${tab.key === activeDashboardScope ? "is-active" : ""}" data-scope="${escapeHtml(tab.key)}" role="tab" aria-selected="${tab.key === activeDashboardScope}">
+      ${escapeHtml(tab.label)}
+      ${tab.sublabel ? `<span class="scope-tab-sub">${escapeHtml(tab.sublabel)}</span>` : ""}
+    </button>
+  `).join("");
+  if (!wrap.dataset.wired) {
+    wrap.addEventListener("click", (ev) => {
+      const btn = ev.target.closest(".dashboard-scope-tab");
+      if (!btn) return;
+      const newScope = btn.dataset.scope;
+      if (!newScope || newScope === activeDashboardScope) return;
+      activeDashboardScope = newScope;
+      renderDashboard(reportsData);
+    });
+    wrap.dataset.wired = "1";
+  }
+  return true;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1149,6 +1234,19 @@ function getDashboardPeriods(reports) {
 }
 
 function renderDashboardPeriodOptions(reports) {
+  // Si el período actual pertenece a otro scope (porque venimos de cambiar de
+  // pestaña), restaurar el último período seleccionado para este scope.
+  const looksLikeWeek    = /^\d{4}-Q\d-W\d{2}$/.test(activeDashboardPeriod);
+  const looksLikeQuarter = /^\d{4}-Q\d$/.test(activeDashboardPeriod);
+  const looksLikeYear    = /^\d{4}$/.test(activeDashboardPeriod);
+  const matchesScope =
+    (activeDashboardTimeScope === "week"    && looksLikeWeek) ||
+    (activeDashboardTimeScope === "quarter" && looksLikeQuarter) ||
+    (activeDashboardTimeScope === "year"    && looksLikeYear);
+  if (!matchesScope && dashboardPeriodByScope[activeDashboardTimeScope]) {
+    activeDashboardPeriod = dashboardPeriodByScope[activeDashboardTimeScope];
+  }
+
   if (activeDashboardTimeScope === "year") {
     // Show distinct years
     const years = [...new Set(reports.map(r => getReportYear(r)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
@@ -1160,6 +1258,7 @@ function renderDashboardPeriodOptions(reports) {
       `<option value="${escapeHtml(y)}">${escapeHtml(y)}</option>`
     ).join("");
     dashboardPeriodSelect.value = activeDashboardPeriod;
+    dashboardPeriodByScope[activeDashboardTimeScope] = activeDashboardPeriod;
     return;
   }
 
@@ -1185,6 +1284,7 @@ function renderDashboardPeriodOptions(reports) {
       `<option value="${year}-Q${quarter}">${escapeHtml(`C${quarter} ${qLabel(quarter)} ${year}`)}</option>`
     ).join("");
     dashboardPeriodSelect.value = activeDashboardPeriod;
+    dashboardPeriodByScope[activeDashboardTimeScope] = activeDashboardPeriod;
     return;
   }
 
@@ -1200,6 +1300,7 @@ function renderDashboardPeriodOptions(reports) {
     `<option value="${escapeHtml(p.key)}">${escapeHtml(t('opt.weekOption', { w: p.week, q: p.quarter, y: p.year }))}</option>`
   ).join("");
   dashboardPeriodSelect.value = activeDashboardPeriod;
+  dashboardPeriodByScope[activeDashboardTimeScope] = activeDashboardPeriod;
 }
 
 function formatRole(role) {
@@ -2434,6 +2535,26 @@ function renderSegTotalsPanel(weeklyReps) {
         ${hint ? `<span class="tot-row-hint">${hint}</span>` : ''}
       </div>`;
     };
+    // Para "Miembros únicos": si val > roster significa que se vieron ex-miembros
+    // en reportes pasados. Invertimos a "roster/vistos" con nota explicativa.
+    const rowMembers = (label, val, color, denom, hint) => {
+      if (!denom || denom <= 0) return row(label, val, color, hint || '', 0);
+      if (val > denom) {
+        const extra = val - denom;
+        const pct = Math.round((denom / val) * 100);
+        const histHint = `+${extra} históric${extra !== 1 ? 'os' : 'o'} · aparecen en reportes pero ya no están en el roster`;
+        const fullHint = hint ? `${hint} · ${histHint}` : histHint;
+        return `<div class="tot-row-wrap">
+          <div class="tot-row">
+            <span class="tot-row-label">${label}</span>
+            <div class="tot-bar-track"><div class="tot-bar" style="width:${pct}%;background:${color}"></div></div>
+            <strong class="tot-row-val">${denom}/${val} <span class="tot-row-pct">(${pct}%)</span></strong>
+          </div>
+          <span class="tot-row-hint">${fullHint}</span>
+        </div>`;
+      }
+      return row(label, val, color, hint || '', denom);
+    };
     const sectionLabel = (txt) => `<div class="tot-section-label">${txt}</div>`;
 
     const planningTotal   = agg.planningPresent + agg.planningAbsent;
@@ -2448,13 +2569,13 @@ function renderSegTotalsPanel(weeklyReps) {
       <p class="tot-group-label">${escapeHtml(label)}${rosterHint ? ` · <span class="tot-roster-hint">${rosterHint}</span>` : ''}</p>
       <div class="tot-rows">
         ${sectionLabel(t('dash.cellBrothers'))}
-        ${row(t('dash.membersUnique'), agg.cellMembersUnique || 0, '#5063b8', '', roster)}
+        ${rowMembers(t('dash.membersUnique'), agg.cellMembersUnique || 0, '#5063b8', roster)}
 
         ${sectionLabel(t('dash.planning'))}
-        ${row('Asistieron',       agg.planningPresent,  'var(--brand)', planningMissTxt, roster)}
+        ${rowMembers('Asistieron',       agg.planningPresent,  'var(--brand)', roster, planningMissTxt) /* hint planningMiss omitido cuando capeamos */}
 
         ${sectionLabel(t('dash.reach'))}
-        ${row('Hermanos',     agg.reachMembers,    '#2d8a55', reachMissParts.join(' · '), roster)}
+        ${rowMembers('Hermanos',     agg.reachMembers,    '#2d8a55', roster, reachMissParts.join(' · '))}
         ${row(t('dash.friends'),       agg.reachFriends,    '#1565c0', agg.friendsUnique ? `${agg.friendsUnique} únic.` : '')}
         ${row(t('dash.restoration'), agg.reachRestor,     '#6a1b9a', agg.restorUnique  ? `${agg.restorUnique} únic.`  : '')}
         ${row(t('dash.kidsCell'), agg.reachKidsCell,   '#8e44ad', agg.kidsCellUnique  ? `${agg.kidsCellUnique} únic.`  : '')}
@@ -2462,7 +2583,7 @@ function renderSegTotalsPanel(weeklyReps) {
         ${agg.reachConversions ? row('Conversiones', agg.reachConversions, '#e0872a', '') : ''}
 
         ${sectionLabel(t('dash.sunday'))}
-        ${row('Hermanos',     agg.sundayMembers,   '#3a7bd5', sundayMissTxt, roster)}
+        ${rowMembers('Hermanos',     agg.sundayMembers,   '#3a7bd5', roster, sundayMissTxt)}
         ${row(t('dash.friends'),       agg.sundayFriends,   '#1565c0', '')}
         ${row(t('dash.restoration'), agg.sundayRestor,    '#6a1b9a', '')}
         ${row(t('dash.kidsCell'), agg.sundayKidsCell,  '#8e44ad', '')}
@@ -2474,9 +2595,29 @@ function renderSegTotalsPanel(weeklyReps) {
   }
 
   function renderScope(scope) {
+    // Helper: roster efectivo = max(roster actual del catálogo, snapshot máximo en reportes).
+    // Los reportes guardan attendanceSummary.totalMembers como snapshot al momento del reporte.
+    // Si el roster actual cambió (alta/baja de hermanos) usamos el snapshot histórico.
+    const snapshotMaxForCell = (cellNum) => {
+      let maxSnap = 0;
+      weeklyReps.forEach(r => {
+        const rc = String(r.cellNumber || r.formData?.cellNumber || "");
+        if (rc !== String(cellNum)) return;
+        const n = Number(r.formData?.attendanceSummary?.totalMembers || 0);
+        if (n > maxSnap) maxSnap = n;
+      });
+      return maxSnap;
+    };
+    const effectiveRosterForCell = (cellNum) => Math.max(rosterForCell(cellNum), snapshotMaxForCell(cellNum));
+    const effectiveRosterForSector = (sec) => {
+      const cellsInSec = scopedCellsList.filter(c => String(c.sector || '').trim() === String(sec).trim());
+      return cellsInSec.reduce((sum, c) => sum + effectiveRosterForCell(c.cellNumber), 0);
+    };
+    const effectiveRosterTotal = () => scopedCellsList.reduce((sum, c) => sum + effectiveRosterForCell(c.cellNumber), 0);
+
     if (scope === 'total') {
       const agg = aggregateMetrics(weeklyReps);
-      const roster = rosterForTotal();
+      const roster = effectiveRosterTotal();
       return `<div class="tot-scope-total">${buildRows(agg, `${weeklyReps.length} reporte${weeklyReps.length!==1?'s':''} esta semana`, roster)}</div>`;
     }
     if (scope === 'sector') {
@@ -2485,7 +2626,7 @@ function renderSegTotalsPanel(weeklyReps) {
       return `<div class="tot-scope-grid">${sectorsToShow.map(sec => {
         const reps = weeklyReps.filter(r => String(r.formData?.sector || r.sector || "?").trim() === sec);
         const agg  = aggregateMetrics(reps);
-        const roster = rosterForSector(sec);
+        const roster = effectiveRosterForSector(sec);
         const cellsInSector = scopedCellsList.filter(c => String(c.sector || '').trim() === sec).length;
         return buildRows(agg, `Sector ${sec} · ${reps.length}/${cellsInSector} célula${cellsInSector!==1?'s':''} reportó`, roster);
       }).join('')}</div>`;
@@ -2496,7 +2637,7 @@ function renderSegTotalsPanel(weeklyReps) {
       const reps = weeklyReps.filter(r => String(r.cellNumber || r.formData?.cellNumber || "?") === cellNum);
       const agg  = aggregateMetrics(reps);
       const leader = reps[0]?.leaderName || reps[0]?.formData?.leaderName || leaderForCell(cellNum);
-      const roster = rosterForCell(cellNum);
+      const roster = effectiveRosterForCell(cellNum);
       const noRep = reps.length === 0 ? t('dash.noReportSuffix') : '';
       return buildRows(agg, `Célula ${cellNum}${leader ? ` · ${leader}` : ''}${noRep}`, roster);
     }).join('')}</div>`;
@@ -2562,6 +2703,8 @@ function renderSegTotalsPanel(weeklyReps) {
 
 // ── Dashboard para líderes (vista propia de célula por evento) ────────────────
 function renderDashboardForLeader(reports) {
+  // Pintar sub-pestañas (si el usuario es solo líder, no se muestran).
+  renderDashboardScopeTabs();
   const cellNum = currentUser?.assignedCellNumber
     ? String(currentUser.assignedCellNumber)
     : cellField?.value || "";
@@ -2984,18 +3127,24 @@ function renderDashboardForLeader(reports) {
 
   // Metrics: scoped to this cell, selected time scope
   renderDashboardMetrics(scopeReports, t('cell.numbered', { n: cellNum }));
-  renderDashboardTrends(allCellReports, { selectedYear, selectedQuarter });
+  // Donas: usar el MISMO periodo de tiempo que las tarjetas para evitar discrepancias
+  // (ej. tarjeta dice 91 esta semana y dona decía 134 del cuatrimestre).
+  renderDashboardTrends(scopeReports, { selectedYear, selectedQuarter });
   renderDashboardBaptisms(allCellReports);
 }
 
 function renderDashboard(reports) {
   reports = filterVisibleReports(reports);
-  // Anyone with an assigned cell sees their own cell data (leaders, supervisors/coordinators who lead a cell)
-  if (currentUser?.assignedCellNumber) {
+  // Pintar sub-pestañas de ámbito (Mi célula / Mi sector / Todos) y asegurar
+  // que activeDashboardScope tenga un valor válido para el usuario actual.
+  renderDashboardScopeTabs();
+  // Si el usuario tiene célula asignada y eligió "Mi célula" (o no tiene más opciones),
+  // usar la vista de líder enfocada en una sola célula.
+  if (currentUser?.assignedCellNumber && (activeDashboardScope === "cell" || activeDashboardScope === null)) {
     return renderDashboardForLeader(reports);
   }
 
-  const scopedReports = getScopedReports(reports);
+  const scopedReports = applyDashboardScopeFilter(getScopedReports(reports));
   const scopedCells   = getScopedCells();
   const scopeLabel    = getDashboardScopeLabel();
   renderDashboardPeriodOptions(scopedReports);
@@ -3150,49 +3299,173 @@ function renderDashboard(reports) {
     `;
   }
 
-  const sortedReports = [...scopedReports].sort((left, right) => {
+  // Para semana usamos scopedReports filtrados hasta la semana seleccionada
+  // (necesitamos historial previo para calcular rachas). Para cuatrimestre/año
+  // basta con los reportes ya filtrados por scope de tiempo.
+  const alertsSource = activeDashboardTimeScope === "week"
+    ? scopedReports.filter((report) => getReportPeriodKey(report) <= activeDashboardPeriod)
+    : scopeTimeReports;
+  const sortedReports = [...alertsSource].sort((left, right) => {
     const leftKey = `${getReportYear(left)}-${getReportWeek(left).padStart(2, "0")}`;
     const rightKey = `${getReportYear(right)}-${getReportWeek(right).padStart(2, "0")}`;
     return leftKey.localeCompare(rightKey);
-  }).filter((report) => getReportPeriodKey(report) <= activeDashboardPeriod);
+  });
+  // Alertas de faltas: rastrea rachas de inasistencia POR EVENTO (Planeación / Alcance / Culto).
+  // En vista semanal muestra a TODOS los que faltaron a algún evento esta semana + rachas previas.
+  // En vista cuatrimestre/año muestra solo rachas de 2+ semanas.
+  const EVENT_DEFS = [
+    { key: "planning", letter: "P", statusField: "planningStatus", attendedField: "planningAttended" },
+    { key: "reach",    letter: "A", statusField: "reachStatus",    attendedField: "reachAttended"    },
+    { key: "sunday",   letter: "C", statusField: "sundayStatus",   attendedField: "sundayAttended"   },
+  ];
   const streaks = new Map();
   sortedReports.forEach((report) => {
-    const reportPeriodKey = getReportPeriodKey(report);
+    const pk = getReportPeriodKey(report);
+    const cellNum = String(report.cellNumber || report.formData?.cellNumber || "");
+    const leaderNm = report.leaderName || report.formData?.leaderName || "";
     const entries = Array.isArray(report?.formData?.memberAttendance) ? report.formData.memberAttendance : [];
     entries.forEach((entry) => {
       const key = String(entry.personId || entry.name || "");
-      const previous = streaks.get(key) || { name: entry.name || "", streak: 0, lastPeriodKey: "" };
-      const isAbsent = entry.status === "absent" || entry.status === "justified";
-      let nextStreak = 0;
-      if (isAbsent) {
-        nextStreak = previous.lastPeriodKey && isNextPeriod(previous.lastPeriodKey, reportPeriodKey)
-          ? previous.streak + 1
-          : 1;
-      }
-      streaks.set(key, {
-        name: entry.name || previous.name,
-        streak: nextStreak,
-        lastPeriodKey: reportPeriodKey,
-        status: entry.status || "pending",
+      if (!key) return;
+      if (!streaks.has(key)) streaks.set(key, { name: entry.name || "", cellNum, leaderNm, perEvent: {}, totalMissed: 0 });
+      const rec = streaks.get(key);
+      rec.name = entry.name || rec.name;
+      if (cellNum) rec.cellNum = cellNum;
+      if (leaderNm) rec.leaderNm = leaderNm;
+      let missedHere = false;
+      EVENT_DEFS.forEach((ev) => {
+        const status = String(entry[ev.statusField] || "").toLowerCase();
+        const attended = entry[ev.attendedField] === true;
+        const cur = rec.perEvent[ev.key] || { streak: 0, last: "", justified: false, total: 0 };
+        // Falta = no asistió. Justificado solo si está marcado explícitamente.
+        if (!attended) {
+          cur.streak = (cur.last && isNextPeriod(cur.last, pk)) ? cur.streak + 1 : 1;
+          cur.last = pk;
+          cur.justified = status === "justified";
+          cur.total = (cur.total || 0) + 1;
+          missedHere = true;
+        } else {
+          cur.streak = 0;
+          cur.last = pk;
+          cur.justified = false;
+        }
+        rec.perEvent[ev.key] = cur;
       });
+      if (missedHere) rec.totalMissed = (rec.totalMissed || 0) + 1;
     });
   });
-  const alerts = Array.from(streaks.values())
-    .filter((entry) => entry.streak >= 2 && (entry.status === "absent" || entry.status === "justified"))
-    .sort((left, right) => right.streak - left.streak)
-    .slice(0, 6);
-  dashboardAbsenceAlerts.innerHTML = alerts.length
-    ? alerts.map((entry) => {
-        const severity = getAbsenceAlertSeverity(entry);
-        const severityLabel = entry.streak >= 4 ? "Crítica" : entry.streak >= 3 ? "Alta" : "Seguimiento";
-        return `<article class="dashboard-list-item dashboard-alert-item dashboard-alert-${severity}"><div class="dashboard-alert-head"><strong>${escapeHtml(entry.name)}</strong><span class="dashboard-alert-badge">${escapeHtml(severityLabel)}</span></div><span>${escapeHtml(t(entry.status === 'justified' ? 'alert.streakJustified' : 'alert.streakAbsent', { n: entry.streak }))}</span></article>`;
-      }).join("")
-    : `<div class="quick-list-empty">${t('dash.noConsecAlerts')}</div>`;
+
+  const renderAlertRow = (entry) => {
+    const severity = entry.maxStreak >= 4 ? "high" : entry.maxStreak >= 3 ? "medium" : entry.maxStreak >= 2 ? "soft" : "soft";
+    const severityLabel = entry.maxStreak >= 4 ? "Crítica" : entry.maxStreak >= 3 ? "Alta" : entry.maxStreak >= 2 ? "Seguimiento" : "Nueva";
+    const badges = entry.events.map((e) =>
+      `<span class="absence-event-pill absence-pill-${e.letter.toLowerCase()}${e.justified ? ' is-justified' : ''}" title="${e.streak >= 2 ? e.streak + ' semanas seguidas' : 'esta semana'}">${e.letter}${e.streak >= 2 ? `<small>${e.streak}×</small>` : ''}</span>`
+    ).join("");
+    const ctx = [];
+    if (entry.cellNum) ctx.push(`Cél ${escapeHtml(entry.cellNum)}`);
+    if (entry.leaderNm) ctx.push(escapeHtml(entry.leaderNm));
+    if (entry.totalMissed && entry.totalMissed >= 2) ctx.push(`${entry.totalMissed} sem. con faltas`);
+    const ctxHtml = ctx.length ? `<span class="absence-row-meta">${ctx.join(" · ")}</span>` : "";
+    return `<div class="absence-row-compact dashboard-alert-${severity}">
+      <span class="absence-row-pills">${badges}</span>
+      <span class="absence-row-main">
+        <strong class="absence-row-name">${escapeHtml(entry.name)}</strong>
+        ${ctxHtml}
+      </span>
+      <span class="absence-row-badge">${escapeHtml(severityLabel)}</span>
+    </div>`;
+  };
+
+  let alertsHtml = "";
+  if (activeDashboardTimeScope === "week") {
+    // Vista semana: faltas de esta semana + rachas previas como segunda sección
+    const weekKeys = new Set();
+    const weekAlerts = [];
+    weeklyReports.forEach((report) => {
+      const cellNum = String(report.cellNumber || report.formData?.cellNumber || "");
+      const leaderNm = report.leaderName || report.formData?.leaderName || "";
+      const entries = Array.isArray(report?.formData?.memberAttendance) ? report.formData.memberAttendance : [];
+      entries.forEach((entry) => {
+        const events = [];
+        EVENT_DEFS.forEach((ev) => {
+          const status = String(entry[ev.statusField] || "").toLowerCase();
+          const attended = entry[ev.attendedField] === true;
+          if (!attended) {
+            const key = String(entry.personId || entry.name || "");
+            const stk = streaks.get(key)?.perEvent[ev.key]?.streak || 1;
+            events.push({ letter: ev.letter, streak: stk, justified: status === "justified" });
+          }
+        });
+        if (events.length === 0) return;
+        const k = String(entry.personId || entry.name || "");
+        if (!k) return;
+        weekKeys.add(k);
+        const rec = streaks.get(k);
+        const maxStreak = events.reduce((m, e) => Math.max(m, e.streak), 0);
+        weekAlerts.push({
+          name: entry.name || "",
+          cellNum, leaderNm,
+          totalMissed: rec?.totalMissed || 1,
+          maxStreak, events,
+        });
+      });
+    });
+    weekAlerts.sort((a, b) => b.maxStreak - a.maxStreak || b.events.length - a.events.length);
+
+    const prevStreaks = Array.from(streaks.entries()).map(([k, rec]) => {
+      let maxStreak = 0;
+      const events = [];
+      EVENT_DEFS.forEach((ev) => {
+        const c = rec.perEvent[ev.key];
+        if (c && c.streak >= 2) {
+          maxStreak = Math.max(maxStreak, c.streak);
+          events.push({ letter: ev.letter, streak: c.streak, justified: c.justified });
+        }
+      });
+      return { key: k, name: rec.name, cellNum: rec.cellNum, leaderNm: rec.leaderNm, totalMissed: rec.totalMissed, maxStreak, events };
+    }).filter((a) => a.maxStreak >= 2 && !weekKeys.has(a.key))
+      .sort((a, b) => b.maxStreak - a.maxStreak)
+      .slice(0, 5);
+
+    if (weekAlerts.length) {
+      alertsHtml += `<div class="absence-rows-wrap">${weekAlerts.map(renderAlertRow).join("")}</div>`;
+    }
+    if (prevStreaks.length) {
+      alertsHtml += `<div class="alert-group-label" style="margin-top:10px">${t('dash.alsoInPrevWeeks') || 'También con racha previa'}</div>`;
+      alertsHtml += `<div class="absence-rows-wrap">${prevStreaks.map(renderAlertRow).join("")}</div>`;
+    }
+    if (!alertsHtml) {
+      alertsHtml = `<div class="quick-list-empty">${t('dash.noAbsThisWeek') || 'Sin faltas registradas esta semana.'}</div>`;
+    }
+  } else {
+    // Vista cuatrimestre/año: top de personas con más faltas en el período.
+    // Las pills muestran el total de faltas por evento (no la racha).
+    const alerts = Array.from(streaks.values()).map((rec) => {
+      const events = [];
+      let maxStreak = 0;
+      EVENT_DEFS.forEach((ev) => {
+        const c = rec.perEvent[ev.key];
+        if (c && c.total > 0) {
+          events.push({ letter: ev.letter, streak: c.total, justified: c.justified });
+          maxStreak = Math.max(maxStreak, c.streak || 0);
+        }
+      });
+      return { name: rec.name, cellNum: rec.cellNum, leaderNm: rec.leaderNm, totalMissed: rec.totalMissed, maxStreak, events };
+    }).filter((a) => a.totalMissed > 0)
+      .sort((a, b) => b.totalMissed - a.totalMissed || b.events.length - a.events.length)
+      .slice(0, 25);
+    alertsHtml = alerts.length
+      ? `<div class="absence-rows-wrap">${alerts.map(renderAlertRow).join("")}</div>`
+      : `<div class="quick-list-empty">${t('dash.noConsecAlerts')}</div>`;
+  }
+  dashboardAbsenceAlerts.innerHTML = alertsHtml;
 
   // ── Métricas consolidadas ───────────────────────────────────────────────
   renderDashboardMetrics(scopeTimeReports, scopeLabel);
-  // ── Tendencias del cuatrimestre (gráficas) ──────────────────────────────
-  renderDashboardTrends(scopedReports, { selectedYear, selectedQuarter });
+  // ── Composición (donas) ─────────────────────────────────────────────────
+  // Usar scopeTimeReports (no scopedReports) para respetar la pestaña de tiempo
+  // activa y que el total de cada dona cuadre con las tarjetas de métricas.
+  renderDashboardTrends(scopeTimeReports, { selectedYear, selectedQuarter });
   // ── Bautismos ────────────────────────────────────────────────────────────
   renderDashboardBaptisms(scopedReports);
 }
@@ -3219,6 +3492,10 @@ function aggregateMetrics(reportsList, opts = {}) {
   const kidsVisitSet = new Set();   // niños de visita (no son de la célula)
   const friendsSet = new Set();     // amigos únicos (kind=amigo)
   const restorSet = new Set();      // visitas en restauración únicas (kind=visita)
+  // Mapas de ausentes por evento: {nameLower → {name, count}}
+  const planAbsMap   = new Map();
+  const reachAbsMap  = new Map();
+  const sundayAbsMap = new Map();
 
   const acc = reportsList.reduce((acc, report) => {
     const fd = report?.formData || {};
@@ -3240,6 +3517,17 @@ function aggregateMetrics(reportsList, opts = {}) {
     acc.sundayTotal      += Number(s.sundayTotal || 0) || (sm + sf + sk);
     acc.absent           += Number(s.absent    || 0);
     acc.justified        += Number(s.justified || 0);
+    // Roster acumulado (slots): suma de miembros del catálogo por reporte.
+    // Permite calcular ausentes como roster - presentes para que los números cuadren.
+    const rosterW = Number(s.totalMembers || (Array.isArray(fd.memberAttendance) ? fd.memberAttendance.length : 0));
+    acc.rosterSlots += rosterW;
+    // Justificados por evento (informativo)
+    const memList = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+    memList.forEach((e) => {
+      if (String(e.planningStatus || "").toLowerCase() === "justified") acc.planningJustEv += 1;
+      if (String(e.reachStatus    || "").toLowerCase() === "justified") acc.reachJustEv    += 1;
+      if (String(e.sundayStatus   || "").toLowerCase() === "justified") acc.sundayJustEv   += 1;
+    });
     const baptList = Array.isArray(fd.baptisms) ? fd.baptisms : [];
     acc.baptisms         += baptList.filter(baptismMatchesScope).length;
     acc.offering         += Number(s.reachOffering || fd.reachOffering || 0);
@@ -3280,10 +3568,18 @@ function aggregateMetrics(reportsList, opts = {}) {
     });
 
     const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
-    members.forEach((m) => {
-      const name = String(m?.name || m?.memberName || "").trim();
+    members.forEach((mm) => {
+      const name = String(mm?.name || mm?.memberName || "").trim();
       if (!name) return;
       memberSet.add(`${cellNum}|${name.toLowerCase()}`);
+      const k = name.toLowerCase();
+      const bump = (map) => {
+        const prev = map.get(k) || { name, count: 0 };
+        prev.name = name; prev.count += 1; map.set(k, prev);
+      };
+      if (!mm.planningAttended) bump(planAbsMap);
+      if (!mm.reachAttended)    bump(reachAbsMap);
+      if (!mm.sundayAttended)   bump(sundayAbsMap);
     });
 
     return acc;
@@ -3291,6 +3587,8 @@ function aggregateMetrics(reportsList, opts = {}) {
        reachVisitors: 0, reachKids: 0, reachConversions: 0,
        sundayMembers: 0, sundayVisitors: 0, sundayKids: 0, sundayTotal: 0,
        absent: 0, justified: 0, baptisms: 0, offering: 0,
+       rosterSlots: 0,
+       planningJustEv:   0, reachJustEv:   0, sundayJustEv:   0,
        reachFriends: 0, reachRestor: 0, sundayFriends: 0, sundayRestor: 0,
        reachKidsCell: 0, reachKidsVisit: 0, sundayKidsCell: 0, sundayKidsVisit: 0 });
 
@@ -3299,6 +3597,11 @@ function aggregateMetrics(reportsList, opts = {}) {
   acc.kidsVisitUnique   = kidsVisitSet.size;
   acc.friendsUnique     = friendsSet.size;
   acc.restorUnique      = restorSet.size;
+  // Listas de ausentes por evento ordenadas por cantidad de faltas desc
+  const sortAbs = (map) => [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  acc.planningAbsentList = sortAbs(planAbsMap);
+  acc.reachAbsentList    = sortAbs(reachAbsMap);
+  acc.sundayAbsentList   = sortAbs(sundayAbsMap);
   // Faltas absolutas por etapa basadas en miembros únicos vistos en la ventana.
   // Si no hay miembros vistos, caer a planningAbsent que ya viene del summary.
   acc.reachAbsentMembers  = Math.max(0, acc.cellMembersUnique - acc.reachMembers);
@@ -3353,11 +3656,143 @@ function aggregateByQuarter(reportsList, year) {
   return quarters;
 }
 
+// Mini-dona SVG reutilizable para la tabla de métricas
+function _trendMiniDonut(val, total, cls) {
+  const hasTotal = total > 0;
+  const pct = hasTotal ? Math.max(0, Math.min(1, val / total)) : 0;
+  const R = 14, C = 2 * Math.PI * R;
+  const dash = (pct * C).toFixed(2);
+  const gap  = (C - pct * C).toFixed(2);
+  const pctTxt = hasTotal ? `${Math.round(pct * 100)}%` : "";
+  const subTxt = hasTotal ? `${val}/${total}` : `${val}`;
+  const title  = hasTotal ? `${val} de ${total} (${pctTxt})` : `${val}`;
+  return `<div class="trend-cell trend-cell-donut" title="${title}">
+    <svg class="trend-donut trend-donut-${cls}" viewBox="0 0 36 36" aria-hidden="true">
+      <circle class="trend-donut-track" cx="18" cy="18" r="${R}" fill="none" stroke-width="4"></circle>
+      <circle class="trend-donut-fill"  cx="18" cy="18" r="${R}" fill="none" stroke-width="4"
+              stroke-dasharray="${dash} ${gap}" stroke-dashoffset="0" stroke-linecap="round"
+              transform="rotate(-90 18 18)"></circle>
+      <text class="trend-donut-text" x="18" y="18" text-anchor="middle" dominant-baseline="central">${hasTotal ? pctTxt : val}</text>
+    </svg>
+    <span class="trend-donut-sub">${subTxt}</span>
+  </div>`;
+}
+
+// ── Metrics: agrupado por célula (cuando la vista incluye múltiples células) ──
+function renderMetricsTrendByCell(reports) {
+  const cellLabelMap = new Map(
+    (catalogs.cells || []).map(c => [String(c.cellNumber), c.label || c.name || ""])
+  );
+  const byCell = new Map();
+  reports.forEach(r => {
+    const num = String(r.cellNumber || r.formData?.cellNumber || "");
+    if (!num) return;
+    if (!byCell.has(num)) byCell.set(num, []);
+    byCell.get(num).push(r);
+  });
+
+  const rows = Array.from(byCell.entries()).map(([cellNum, reps]) => {
+    let totalRoster = 0, plan = 0, reach = 0, friends = 0, sunday = 0, sundayFriends = 0, conv = 0;
+    const friendsReachMap = new Map(), friendsSundayMap = new Map();
+    reps.forEach(r => {
+      const s = r.formData?.attendanceSummary || {};
+      totalRoster   += Number(s.totalMembers || 0);
+      plan          += Number(s.planningMembersPresent  || 0);
+      reach         += Number(s.reachMembersPresent     || 0);
+      friends       += Number(s.reachFriendsPresent || s.visitors || 0);
+      sunday        += Number(s.sundayMembersPresent    || 0);
+      sundayFriends += Number(s.sundayFriendsPresent    || 0);
+      conv          += Number(s.reachConversions        || 0);
+      const vs = Array.isArray(r.formData?.visitors) ? r.formData.visitors : [];
+      vs.forEach(v => {
+        if (String(v?.kind || "amigo").toLowerCase() === "visita") return;
+        const nm = String(v?.name || "").trim();
+        if (!nm) return;
+        const k = nm.toLowerCase();
+        if (v.reachAttended)  friendsReachMap.set(k,  (friendsReachMap.get(k)  || nm));
+        if (v.sundayAttended) friendsSundayMap.set(k, (friendsSundayMap.get(k) || nm));
+      });
+    });
+    const reachNames  = [...friendsReachMap.values()].sort((a, b) => a.localeCompare(b));
+    const sundayNames = [...friendsSundayMap.values()].sort((a, b) => a.localeCompare(b));
+    return {
+      cellNum, label: cellLabelMap.get(cellNum) || "", weeks: reps.length,
+      totalRoster, plan, reach, friends, sunday, sundayFriends, conv,
+      friendsUniqReach: reachNames.length,
+      friendsUniqSunday: sundayNames.length,
+      reachNames, sundayNames,
+    };
+  }).sort((a, b) => (Number(a.cellNum) || 0) - (Number(b.cellNum) || 0));
+
+  const totals = rows.reduce((a, r) => ({
+    plan: a.plan + r.plan, reach: a.reach + r.reach, sunday: a.sunday + r.sunday,
+    roster: a.roster + r.totalRoster, friends: a.friends + r.friends,
+    sundayFriends: a.sundayFriends + r.sundayFriends, conv: a.conv + r.conv,
+    uniqReach: a.uniqReach + r.friendsUniqReach, uniqSunday: a.uniqSunday + r.friendsUniqSunday,
+  }), { plan: 0, reach: 0, sunday: 0, roster: 0, friends: 0, sundayFriends: 0, conv: 0, uniqReach: 0, uniqSunday: 0 });
+
+  dashboardMetricsBody.innerHTML = `
+    <div class="trend-table-wrap">
+      <table class="trend-table">
+        <thead><tr>
+          <th class="trend-th-week">Célula</th>
+          <th class="trend-th-ev trend-th-section">Hermanos</th>
+          <th class="trend-th-ev"></th>
+          <th class="trend-th-ev"></th>
+          <th class="trend-th-ev trend-th-section trend-th-friends">Amigos</th>
+          <th class="trend-th-ev trend-th-friends"></th>
+          <th class="trend-th-ev trend-th-friends"></th>
+        </tr>
+        <tr class="trend-subhead">
+          <th></th>
+          <th>Plan.</th>
+          <th>Alcance</th>
+          <th>${t('met.cultoBrosShort')}</th>
+          <th title="Personas distintas que asistieron al alcance">Amigos únicos</th>
+          <th title="Personas distintas que pasaron del alcance al culto">Retención (únicos)</th>
+          <th title="Decisiones de fe registradas">Conv.</th>
+        </tr></thead>
+        <tbody>${rows.map(r => {
+          const reachPop  = r.reachNames.length  ? `<span class="trend-pop"><span class="trend-pop-title">Amigos al alcance (${r.reachNames.length})</span>${r.reachNames.map(n => `<span class="trend-pop-name${r.sundayNames.some(s => s.toLowerCase() === n.toLowerCase()) ? ' is-sunday' : ''}">${n}</span>`).join("")}</span>` : '';
+          const sundayPop = r.sundayNames.length ? `<span class="trend-pop"><span class="trend-pop-title">Llegaron al culto (${r.sundayNames.length})</span>${r.sundayNames.map(n => `<span class="trend-pop-name is-sunday">${n}</span>`).join("")}</span>` : '';
+          return `
+          <tr class="trend-row">
+            <td class="trend-week-cell"><strong>Célula ${r.cellNum}</strong><span class="trend-date">${r.weeks} sem · ${r.label || ""}</span></td>
+            <td>${_trendMiniDonut(r.plan,    r.totalRoster, "plan")}</td>
+            <td>${_trendMiniDonut(r.reach,   r.totalRoster, "reach")}</td>
+            <td>${_trendMiniDonut(r.sunday,  r.totalRoster, "sunday")}</td>
+            <td class="trend-td-hover">${_trendMiniDonut(r.friendsUniqReach, 0, "friends")}${r.friends !== r.friendsUniqReach ? `<div class="trend-names">${r.friends} visitas</div>` : ''}${reachPop}</td>
+            <td class="trend-td-hover">${_trendMiniDonut(r.friendsUniqSunday, r.friendsUniqReach, "friends")}${sundayPop}</td>
+            <td>${_trendMiniDonut(r.conv, 0, "friends")}</td>
+          </tr>`;
+        }).join("")}</tbody>
+        <tfoot><tr class="trend-avg-row">
+          <td class="trend-avg-label">Total</td>
+          <td class="trend-avg-val">${totals.plan}</td>
+          <td class="trend-avg-val">${totals.reach}</td>
+          <td class="trend-avg-val">${totals.sunday}</td>
+          <td class="trend-avg-val">${totals.uniqReach}</td>
+          <td class="trend-avg-val">${totals.uniqReach > 0 ? Math.round(totals.uniqSunday / totals.uniqReach * 100) + "%" : "–"}</td>
+          <td class="trend-avg-val">${totals.conv}</td>
+        </tr></tfoot>
+      </table>
+    </div>`;
+}
+
 // ── Metrics: week-by-week trend (quarter scope) ───────────────────────────────
 function renderMetricsTrend(reports) {
   if (!dashboardMetricsBody) return;
   if (!reports.length) {
     dashboardMetricsBody.innerHTML = `<div class="quick-list-empty">${t('empty.noData')}</div>`;
+    return;
+  }
+
+  // Si hay múltiples células en el conjunto (vista coord/supervisor), agrupar por célula
+  const distinctCells = new Set(
+    reports.map(r => String(r.cellNumber || r.formData?.cellNumber || "")).filter(Boolean)
+  );
+  if (distinctCells.size > 1) {
+    renderMetricsTrendByCell(reports);
     return;
   }
 
@@ -3371,60 +3806,90 @@ function renderMetricsTrend(reports) {
     const s = r.formData?.attendanceSummary || {};
     const rd = r.formData?.reportDate || r.reportDate || "";
     const dateLabel = rd ? new Date(rd + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "";
+    const total = Number(s.totalMembers || 0);
+    const vs = Array.isArray(r.formData?.visitors) ? r.formData.visitors : [];
+    const friendsVs = vs.filter(v => String(v?.kind || "amigo").toLowerCase() !== "visita" && String(v?.name || "").trim());
     return {
       week:    getReportWeek(r),
       date:    dateLabel,
+      total,
       plan:    Number(s.planningMembersPresent  || 0),
       reach:   Number(s.reachMembersPresent     || 0),
       friends: Number(s.reachFriendsPresent || s.visitors || 0),
+      sundayFriends: Number(s.sundayFriendsPresent || 0),
       sunday:  Number(s.sundayMembersPresent    || 0),
+      conv:    Number(s.reachConversions        || 0),
+      friendsNames: friendsVs.map(v => String(v.name).trim()),
+      friendsReachNames:  friendsVs.filter(v => v.reachAttended ).map(v => String(v.name).trim()),
+      friendsSundayNames: friendsVs.filter(v => v.sundayAttended).map(v => String(v.name).trim()),
     };
   });
 
-  const maxPlan    = Math.max(1, ...rows.map(r => r.plan));
-  const maxReach   = Math.max(1, ...rows.map(r => r.reach));
-  const maxFriends = Math.max(1, ...rows.map(r => r.friends));
-  const maxSunday  = Math.max(1, ...rows.map(r => r.sunday));
-  const n = rows.length;
-  const avg = arr => n > 0 ? (arr.reduce((a, v) => a + v, 0) / n).toFixed(1) : "–";
+  const uniq = arr => new Set(arr.map(n => n.toLowerCase())).size;
+  const allFriendsReach  = rows.flatMap(r => r.friendsReachNames);
+  const allFriendsSunday = rows.flatMap(r => r.friendsSundayNames);
+  const uniqReach  = uniq(allFriendsReach);
+  const uniqSunday = uniq(allFriendsSunday);
 
-  const avgPlan    = avg(rows.map(r => r.plan));
-  const avgReach   = avg(rows.map(r => r.reach));
-  const avgFriends = avg(rows.map(r => r.friends));
-  const avgSunday  = avg(rows.map(r => r.sunday));
+  const totals = rows.reduce((a, r) => ({
+    plan: a.plan + r.plan, reach: a.reach + r.reach, sunday: a.sunday + r.sunday,
+    friends: a.friends + r.friends, sundayFriends: a.sundayFriends + r.sundayFriends,
+    conv: a.conv + r.conv,
+  }), { plan: 0, reach: 0, sunday: 0, friends: 0, sundayFriends: 0, conv: 0 });
 
-  const miniBar = (val, max, cls) =>
-    `<div class="trend-cell">
-      <div class="trend-bar-track"><div class="trend-bar trend-bar-${cls}" style="width:${max > 0 ? Math.round((val / max) * 100) : 0}%"></div></div>
-      <span class="trend-num">${val}</span>
-    </div>`;
+  const miniDonut = _trendMiniDonut;
+  const uniqRetention = uniqReach > 0 ? Math.round(uniqSunday / uniqReach * 100) + "%" : "–";
 
   dashboardMetricsBody.innerHTML = `
     <div class="trend-table-wrap">
       <table class="trend-table">
         <thead><tr>
           <th class="trend-th-week">Sem.</th>
-          <th class="trend-th-ev">Plan. hermanos</th>
-          <th class="trend-th-ev">Alc. hermanos</th>
-          <th class="trend-th-ev">Amigos</th>
-          <th class="trend-th-ev">${t('met.cultoBrosShort')}</th>
+          <th class="trend-th-ev trend-th-section">Hermanos</th>
+          <th class="trend-th-ev"></th>
+          <th class="trend-th-ev"></th>
+          <th class="trend-th-ev trend-th-section trend-th-friends">Amigos</th>
+          <th class="trend-th-ev trend-th-friends"></th>
+          <th class="trend-th-ev trend-th-friends"></th>
+        </tr>
+        <tr class="trend-subhead">
+          <th></th>
+          <th>Plan.</th>
+          <th>Alcance</th>
+          <th>${t('met.cultoBrosShort')}</th>
+          <th title="Amigos que asistieron al alcance">Asistieron</th>
+          <th title="Amigos que pasaron del alcance al culto">Retención culto</th>
+          <th title="Decisiones de fe registradas">Conv.</th>
         </tr></thead>
         <tbody>${rows.map(r => `
           <tr class="trend-row">
             <td class="trend-week-cell"><strong>${r.week}</strong><span class="trend-date">${r.date}</span></td>
-            <td>${miniBar(r.plan,    maxPlan,    "plan")}</td>
-            <td>${miniBar(r.reach,   maxReach,   "reach")}</td>
-            <td>${miniBar(r.friends, maxFriends, "friends")}</td>
-            <td>${miniBar(r.sunday,  maxSunday,  "sunday")}</td>
+            <td>${miniDonut(r.plan,    r.total, "plan")}</td>
+            <td>${miniDonut(r.reach,   r.total, "reach")}</td>
+            <td>${miniDonut(r.sunday,  r.total, "sunday")}</td>
+            <td>${miniDonut(r.friends, 0, "friends")}${r.friendsReachNames.length ? `<div class="trend-names" title="${r.friendsReachNames.join(', ')}">${r.friendsReachNames.slice(0,3).join(', ')}${r.friendsReachNames.length>3?` +${r.friendsReachNames.length-3}`:''}</div>` : ''}</td>
+            <td>${miniDonut(r.sundayFriends, r.friends, "friends")}${r.friendsSundayNames.length ? `<div class="trend-names" title="${r.friendsSundayNames.join(', ')}">${r.friendsSundayNames.slice(0,3).join(', ')}${r.friendsSundayNames.length>3?` +${r.friendsSundayNames.length-3}`:''}</div>` : ''}</td>
+            <td>${miniDonut(r.conv, 0, "friends")}</td>
           </tr>`).join("")}
         </tbody>
-        <tfoot><tr class="trend-avg-row">
-          <td class="trend-avg-label">Promedio</td>
-          <td class="trend-avg-val">${avgPlan}</td>
-          <td class="trend-avg-val">${avgReach}</td>
-          <td class="trend-avg-val">${avgFriends}</td>
-          <td class="trend-avg-val">${avgSunday}</td>
-        </tr></tfoot>
+        <tfoot>
+          <tr class="trend-avg-row">
+            <td class="trend-avg-label">Total visitas</td>
+            <td class="trend-avg-val">${totals.plan}</td>
+            <td class="trend-avg-val">${totals.reach}</td>
+            <td class="trend-avg-val">${totals.sunday}</td>
+            <td class="trend-avg-val">${totals.friends}</td>
+            <td class="trend-avg-val">${totals.friends > 0 ? Math.round(totals.sundayFriends / totals.friends * 100) + "%" : "–"}</td>
+            <td class="trend-avg-val">${totals.conv}</td>
+          </tr>
+          <tr class="trend-avg-row trend-uniq-row">
+            <td class="trend-avg-label">Personas únicas</td>
+            <td class="trend-avg-val" colspan="3" style="text-align:right; color:var(--muted); font-weight:600;">amigos →</td>
+            <td class="trend-avg-val" title="Amigos distintos que asistieron al alcance en el período">${uniqReach}</td>
+            <td class="trend-avg-val" title="Retención del culto contando solo personas únicas">${uniqRetention}</td>
+            <td class="trend-avg-val">${uniqSunday}<small style="display:block; font-size:0.6rem; color:var(--muted); font-weight:500;">al culto</small></td>
+          </tr>
+        </tfoot>
       </table>
     </div>`;
 }
@@ -3475,20 +3940,27 @@ function renderMetricsYearSummary(reports) {
 
 function renderMetricsBlock(label, metrics) {
   const m = metrics;
+  const planAbsList   = Array.isArray(m.planningAbsentList) ? m.planningAbsentList : [];
+  const reachAbsList  = Array.isArray(m.reachAbsentList)    ? m.reachAbsentList    : [];
+  const sundayAbsList = Array.isArray(m.sundayAbsentList)   ? m.sundayAbsentList   : [];
+  const planAbsCount   = Math.max(0, Number(m.rosterSlots || 0) - Number(m.planningPresent || 0));
+  const reachAbsCount  = Math.max(0, Number(m.rosterSlots || 0) - Number(m.reachMembers   || 0));
+  const sundayAbsCount = Math.max(0, Number(m.rosterSlots || 0) - Number(m.sundayMembers  || 0));
   const events = [
     {
       title: t('dash.planning'), cls: "planning",
       rows: [
         [t('met.brothersPresent'), m.planningPresent],
-        [t('met.brothersAbsent'),  m.planningAbsent],
+        [t('met.brothersAbsent'),  planAbsCount, "", planAbsList],
       ],
     },
     {
       title: t('dash.reach'), cls: "reach",
       rows: [
         [t('met.brothersPresent'), m.reachMembers],
+        [t('met.brothersAbsent'),  reachAbsCount, "", reachAbsList],
         [t('met.privileged'),    m.reachPrivileged],
-        [t('met.friendsPresent'),   m.reachVisitors, (m.reachRestor || 0) > 0 ? `${m.reachFriends || 0} amigos · ${m.reachRestor} restauración` : ""],
+        [t('met.friendsPresent'),   m.reachVisitors, `${m.reachFriends || 0} amigos · ${m.reachRestor || 0} restauración`],
         [t('rcm.kidsPresent'),    m.reachKids],
         [t('met.conversions'),       m.reachConversions],
       ],
@@ -3498,19 +3970,18 @@ function renderMetricsBlock(label, metrics) {
       rows: [
         [t('rcm.totalAttendees'), m.sundayTotal],
         [t('met.brothers'),         m.sundayMembers],
-        [t('dash.friends'),           m.sundayVisitors, (m.sundayRestor || 0) > 0 ? `${m.sundayFriends || 0} amigos · ${m.sundayRestor} restauración` : ""],
+        [t('met.brothersAbsent'),   sundayAbsCount, "", sundayAbsList],
+        [t('dash.friends'),           m.sundayVisitors, `${m.sundayFriends || 0} amigos · ${m.sundayRestor || 0} restauración`],
         [t('met.kids'),            m.sundayKids],
       ],
     },
   ];
-  const absRow = (m.absent + m.justified) > 0 ? `
-    <div class="metrics-event-block">
-      <div class="metrics-event-title metrics-event--absent">${t('met.absences')}</div>
-      <div class="metrics-event-rows">
-        <div class="metrics-event-row"><span>${t('met.absent')}</span><strong>${m.absent}</strong></div>
-        <div class="metrics-event-row"><span>${t('met.justified')}</span><strong>${m.justified}</strong></div>
-      </div>
-    </div>` : "";
+  const absRow = "";
+  const renderNamesDetails = (list) => {
+    if (!Array.isArray(list) || !list.length) return "";
+    const items = list.map(x => `<li>${escapeHtml(x.name)}${x.count > 1 ? ` <small>×${x.count}</small>` : ""}</li>`).join("");
+    return `<details class="metrics-names"><summary>Ver nombres</summary><ul class="metrics-names-list">${items}</ul></details>`;
+  };
   return `
     <div class="metrics-sector-block">
       ${label ? `<p class="metrics-sector-label">${escapeHtml(label)}</p>` : ""}
@@ -3519,10 +3990,10 @@ function renderMetricsBlock(label, metrics) {
           <div class="metrics-event-block">
             <div class="metrics-event-title metrics-event--${ev.cls}">${escapeHtml(ev.title)}</div>
             <div class="metrics-event-rows">
-              ${ev.rows.map(([name, val, sub]) => `
+              ${ev.rows.map(([name, val, sub, namesList]) => `
                 <div class="metrics-event-row${val === 0 ? " is-zero" : ""}">
                   <span>${escapeHtml(name)}${sub ? `<small class="metrics-event-sub"> · ${escapeHtml(sub)}</small>` : ""}</span><strong>${val}</strong>
-                </div>`).join("")}
+                </div>${val > 0 ? renderNamesDetails(namesList) : ""}`).join("")}
             </div>
           </div>`).join("")}
         ${absRow}
@@ -3579,208 +4050,186 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   }
 }
 
-// ── Tendencias del cuatrimestre (Chart.js) ──────────────────────────────────
+// ── Composición del cuatrimestre (Chart.js — doughnut) ─────────────────────
 // Reusa getScopedReports() para asegurar que cada rol solo vea lo que le toca.
 // Liders → su célula. Supervisores → su sector. Coordinadores → todos los sectores.
-let _trendChartInstance = null;
-let _trendActiveScope   = "auto";       // 'auto' | 'all' | 'sector:X' | 'cell:N'
-const _trendSeriesEnabled = { planning: true, reach: true, sunday: true, visitors: false, offering: false };
+const _donutChartInstances = {};   // {donutId: ChartInstance}
+let _trendActiveScope = "auto";    // 'auto' | 'all' | 'sector:X' | 'cell:N'
 
-const TREND_SERIES_DEFS = [
-  { key: "planning", color: "#1d4ed8", labelKey: "dash.trendPlanning", yAxis: "y" },
-  { key: "reach",    color: "#16a34a", labelKey: "dash.trendReach",    yAxis: "y" },
-  { key: "sunday",   color: "#9333ea", labelKey: "dash.trendSunday",   yAxis: "y" },
-  { key: "visitors", color: "#f97316", labelKey: "dash.trendVisitors", yAxis: "y" },
-  { key: "offering", color: "#0891b2", labelKey: "dash.trendOffering", yAxis: "y1" },
-];
+const DONUT_PALETTES = {
+  planning: ["#16a34a", "#dc2626"],                                     // presentes / ausentes
+  reach:    ["#1d4ed8", "#f97316", "#9333ea", "#0891b2"],               // miembros / amigos / restauración / niños
+  sunday:   ["#1d4ed8", "#f97316", "#0891b2"],                          // miembros / visitas / niños
+  sectors:  ["#1d4ed8", "#16a34a", "#f97316", "#9333ea", "#0891b2", "#dc2626", "#a16207", "#475569"],
+};
 
-function _trendSeriesValueFor(agg, key) {
-  switch (key) {
-    case "planning": return Number(agg.planningPresent || 0);
-    case "reach":    return Number(agg.reachMembers || 0) + Number(agg.reachFriends || 0) + Number(agg.reachRestor || 0) + Number(agg.reachKids || 0);
-    case "sunday":   return Number(agg.sundayTotal || (Number(agg.sundayMembers||0)+Number(agg.sundayVisitors||0)+Number(agg.sundayKids||0)));
-    case "visitors": return Number(agg.reachFriends || 0) + Number(agg.reachRestor || 0);
-    case "offering": return Number(agg.offering || 0);
-    default: return 0;
-  }
+function _donutBuildPlanning(agg) {
+  // Slices = totales (las proporciones son las mismas con totales o promedios).
+  // El centro muestra la tasa de asistencia (%), no la suma — la suma de 13 semanas no es interpretable.
+  return {
+    labels: [t('dash.slicePresent'), t('dash.sliceAbsent')],
+    values: [Number(agg.planningPresent || 0), Number(agg.planningAbsent || 0)],
+    colors: DONUT_PALETTES.planning,
+  };
 }
 
-function renderDashboardTrends(scopedReports, { selectedYear, selectedQuarter } = {}) {
-  const canvas    = document.getElementById("dashboard-trends-canvas");
-  const wrap      = document.getElementById("dashboard-trends-canvas-wrap");
-  const emptyMsg  = document.getElementById("dashboard-trends-empty");
-  const scopeWrap = document.getElementById("dashboard-trends-scope");
-  const scopeSel  = document.getElementById("dashboard-trends-scope-select");
+function _donutBuildReach(agg) {
+  return {
+    labels: [t('dash.sliceMembers'), t('dash.sliceFriends'), t('dash.sliceRestor'), t('dash.sliceKids')],
+    values: [
+      Number(agg.reachMembers || 0),
+      Number(agg.reachFriends || 0),
+      Number(agg.reachRestor || 0),
+      Number(agg.reachKids || 0),
+    ],
+    colors: DONUT_PALETTES.reach,
+  };
+}
+
+function _donutBuildSunday(agg) {
+  return {
+    labels: [t('dash.sliceMembers'), t('dash.sliceVisits'), t('dash.sliceKids')],
+    values: [
+      Number(agg.sundayMembers || 0),
+      Number(agg.sundayVisitors || 0),
+      Number(agg.sundayKids || 0),
+    ],
+    colors: DONUT_PALETTES.sunday,
+  };
+}
+
+function _donutBuildSectors(reportsByScope) {
+  // reportsByScope: Map(sector → reports[])
+  const labels = [];
+  const values = [];
+  const sortedSectors = [...reportsByScope.keys()].sort((a, b) => a.localeCompare(b, "es"));
+  sortedSectors.forEach(sector => {
+    const reps = reportsByScope.get(sector) || [];
+    const agg = aggregateMetrics(reps);
+    // Asistencia total = alcance + culto (miembros + visitas + niños de ambos)
+    const total =
+      Number(agg.reachMembers || 0) + Number(agg.reachFriends || 0) + Number(agg.reachRestor || 0) + Number(agg.reachKids || 0) +
+      Number(agg.sundayMembers || 0) + Number(agg.sundayVisitors || 0) + Number(agg.sundayKids || 0);
+    labels.push(`Sector ${sector}`);
+    values.push(total);
+  });
+  return {
+    labels,
+    values,
+    colors: DONUT_PALETTES.sectors,
+  };
+}
+
+function _renderDonut(canvasId, titleText, dataset, totalLabel, centerOverride) {
+  const canvas = document.getElementById(canvasId);
   if (!canvas || typeof Chart === "undefined") return;
-
-  // Verificación dura: aunque ya recibimos scopedReports, re-aplicamos el filtro
-  // por rol para defender contra llamadas mal escopadas. Defensa en profundidad.
-  const safeReports = getScopedReports(scopedReports || []);
-  const year    = String(selectedYear    || new Date().getFullYear());
-  const quarter = String(selectedQuarter || getCurrentQuarter());
-
-  // ── Construir selector de ámbito según rol ──────────────────────────────
-  const isAdmin      = !!currentUser?.isAdmin;
-  const isSupervisor = !!(currentUser?.isSupervisor && currentUser?.supervisedSector);
-  const myCellNum    = String(currentUser?.assignedCellNumber || "").trim();
-  const mySector     = String(currentUser?.supervisedSector || "").trim();
-
-  // Lista de sectores visibles para este usuario
-  let visibleSectors = [];
-  if (isAdmin) {
-    visibleSectors = [...new Set((catalogs.cells || []).map(c => String(c.sector || "").trim()).filter(Boolean))].sort();
-  } else if (isSupervisor) {
-    visibleSectors = [mySector];
+  if (_donutChartInstances[canvasId]) {
+    _donutChartInstances[canvasId].destroy();
+    delete _donutChartInstances[canvasId];
   }
-
-  // Render del select solo si hay opciones reales (más de una)
-  const scopeOptions = [];
-  if (isAdmin) {
-    scopeOptions.push({ value: "all", label: t('dash.trendScopeAll') });
-    visibleSectors.forEach(s => scopeOptions.push({ value: `sector:${s}`, label: t('dash.trendScopeSector', { n: s }) }));
-  } else if (isSupervisor) {
-    scopeOptions.push({ value: `sector:${mySector}`, label: t('dash.trendScopeMine') });
-    if (myCellNum) scopeOptions.push({ value: `cell:${myCellNum}`, label: t('dash.trendScopeMyCell') });
-  }
-  // Líderes sin rol extra: no hay selector (siempre su célula)
-
-  if (scopeWrap && scopeSel) {
-    if (scopeOptions.length > 1) {
-      scopeWrap.hidden = false;
-      const currentVal = _trendActiveScope === "auto" ? scopeOptions[0].value : _trendActiveScope;
-      scopeSel.innerHTML = scopeOptions.map(o => `<option value="${o.value}" ${o.value === currentVal ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
-      _trendActiveScope = scopeSel.value;
-      if (!scopeSel.dataset.wired) {
-        scopeSel.addEventListener("change", () => {
-          _trendActiveScope = scopeSel.value;
-          renderDashboardTrends(reportsData, { selectedYear: year, selectedQuarter: quarter });
-        });
-        scopeSel.dataset.wired = "1";
-      }
-    } else {
-      scopeWrap.hidden = true;
-      _trendActiveScope = scopeOptions[0]?.value || "auto";
-    }
-  }
-
-  // ── Aplicar filtro de ámbito (validado contra lo permitido por el rol) ──
-  let filteredReports = safeReports;
-  const scope = _trendActiveScope;
-  if (scope && scope.startsWith("sector:")) {
-    const wantedSector = scope.slice(7);
-    // Solo aceptamos si el rol lo permite (admin: cualquiera; supervisor: solo el suyo)
-    const allowed = isAdmin || (isSupervisor && wantedSector === mySector);
-    if (allowed) {
-      const cellsInSector = new Set((catalogs.cells || []).filter(c => String(c.sector || "").trim() === wantedSector).map(c => String(c.cellNumber)));
-      filteredReports = safeReports.filter(r => cellsInSector.has(String(r.cellNumber || r.formData?.cellNumber || "")));
-    }
-  } else if (scope && scope.startsWith("cell:")) {
-    const wantedCell = scope.slice(5);
-    // Solo aceptamos si el rol lo permite (admin: cualquiera; supervisor: cells de su sector; líder: su propia célula)
-    const cell = (catalogs.cells || []).find(c => String(c.cellNumber) === wantedCell);
-    const cellSector = String(cell?.sector || "").trim();
-    const allowed = isAdmin
-      || (isSupervisor && cellSector === mySector)
-      || (!isAdmin && !isSupervisor && wantedCell === myCellNum);
-    if (allowed) {
-      filteredReports = safeReports.filter(r => String(r.cellNumber || r.formData?.cellNumber || "") === wantedCell);
-    }
-  }
-
-  // ── Reducir al cuatrimestre seleccionado ────────────────────────────────
-  const quarterReports = filteredReports.filter(r =>
-    getReportYear(r) === year && String(getReportQuarter(r)) === quarter
-  );
-
-  if (!quarterReports.length) {
-    if (emptyMsg) emptyMsg.hidden = false;
-    if (wrap) wrap.style.display = "none";
-    if (_trendChartInstance) { _trendChartInstance.destroy(); _trendChartInstance = null; }
+  const total = dataset.values.reduce((a, b) => a + Number(b || 0), 0);
+  // Si todo es cero, dejar el canvas vacío
+  if (total === 0) {
+    const ctx2 = canvas.getContext("2d");
+    ctx2.clearRect(0, 0, canvas.width, canvas.height);
     return;
   }
-  if (emptyMsg) emptyMsg.hidden = true;
-  if (wrap) wrap.style.display = "";
-
-  // ── Agrupar por semana (1..16) y agregar ────────────────────────────────
-  const WEEKS = Array.from({ length: 16 }, (_, i) => i + 1);
-  const reportsByWeek = new Map();
-  quarterReports.forEach(r => {
-    const w = parseInt(getReportWeek(r), 10);
-    if (!w || w < 1 || w > 16) return;
-    if (!reportsByWeek.has(w)) reportsByWeek.set(w, []);
-    reportsByWeek.get(w).push(r);
-  });
-
-  const labels = WEEKS.map(w => t('dash.trendWeekShort', { n: w }));
-  const aggByWeek = WEEKS.map(w => {
-    const reps = reportsByWeek.get(w) || [];
-    return reps.length ? aggregateMetrics(reps) : null;
-  });
-
-  // ── Construir datasets según series activas ─────────────────────────────
-  const datasets = TREND_SERIES_DEFS
-    .filter(def => _trendSeriesEnabled[def.key])
-    .map(def => ({
-      label: t(def.labelKey),
-      data: aggByWeek.map(a => a ? _trendSeriesValueFor(a, def.key) : null),
-      borderColor: def.color,
-      backgroundColor: def.color + "22",
-      tension: 0.3,
-      spanGaps: true,
-      yAxisID: def.yAxis,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      borderWidth: 2,
-    }));
-
-  // ── Destruir gráfica previa y crear nueva ───────────────────────────────
-  if (_trendChartInstance) { _trendChartInstance.destroy(); _trendChartInstance = null; }
   const ctx = canvas.getContext("2d");
-  _trendChartInstance = new Chart(ctx, {
-    type: "line",
-    data: { labels, datasets },
+  _donutChartInstances[canvasId] = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: dataset.labels,
+      datasets: [{
+        data: dataset.values,
+        backgroundColor: dataset.colors,
+        borderColor: "#fff",
+        borderWidth: 2,
+      }],
+    },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
+      cutout: "62%",
       plugins: {
-        legend: { position: "bottom" },
+        legend: {
+          position: "bottom",
+          labels: { boxWidth: 12, padding: 8, font: { size: 11 } },
+        },
         tooltip: {
           callbacks: {
             label: (ctx) => {
-              const v = ctx.parsed.y;
-              if (v == null) return `${ctx.dataset.label}: —`;
-              if (ctx.dataset.yAxisID === "y1") return `${ctx.dataset.label}: $${v.toLocaleString()}`;
-              return `${ctx.dataset.label}: ${v}`;
+              const v = Number(ctx.parsed || 0);
+              const pct = total ? Math.round((v / total) * 100) : 0;
+              return `${ctx.label}: ${v} (${pct}%)`;
             },
           },
         },
       },
-      scales: {
-        y:  { beginAtZero: true, ticks: { precision: 0 } },
-        y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false },
-              ticks: { callback: (v) => "$" + Number(v).toLocaleString() } },
-      },
     },
   });
-
-  // Wire de checkboxes (una sola vez por sesión)
-  if (!document.body.dataset.trendChecksWired) {
-    document.querySelectorAll('[data-trend-series]').forEach(chk => {
-      chk.addEventListener("change", () => {
-        const key = chk.dataset.trendSeries;
-        if (!(key in _trendSeriesEnabled)) return;
-        _trendSeriesEnabled[key] = !!chk.checked;
-        renderDashboardTrends(reportsData, { selectedYear: year, selectedQuarter: quarter });
-      });
-    });
-    document.body.dataset.trendChecksWired = "1";
+  // Pintar el total en el centro de la dona
+  const centerEl = document.getElementById(canvasId + "-center");
+  if (centerEl) {
+    if (centerOverride && centerOverride.value != null) {
+      centerEl.innerHTML = `<strong>${escapeHtml(String(centerOverride.value))}</strong><span>${escapeHtml(String(centerOverride.label || totalLabel || ""))}</span>`;
+    } else {
+      centerEl.innerHTML = `<strong>${total}</strong><span>${totalLabel}</span>`;
+    }
   }
-  // Asegurar que el estado visual de los checks coincida con _trendSeriesEnabled
-  document.querySelectorAll('[data-trend-series]').forEach(chk => {
-    const key = chk.dataset.trendSeries;
-    if (key in _trendSeriesEnabled) chk.checked = _trendSeriesEnabled[key];
-  });
+}
+
+function renderDashboardTrends(scopedReports, { selectedYear, selectedQuarter } = {}) {
+  const container = document.getElementById("dashboard-trends-donuts");
+  const emptyMsg  = document.getElementById("dashboard-trends-empty");
+  const scopeWrap = document.getElementById("dashboard-trends-scope");
+  if (!container || typeof Chart === "undefined") return;
+
+  // Las pestañas globales del Dashboard ya filtran el ámbito; ocultamos el selector
+  // duplicado de este panel.
+  if (scopeWrap) { scopeWrap.hidden = true; scopeWrap.innerHTML = ""; }
+
+  // Defensa en profundidad: re-aplicamos el filtro por rol y por sub-pestaña.
+  // El llamador ya pasa los reportes filtrados por la pestaña de tiempo activa
+  // (semana/cuatrimestre/año), así que NO volvemos a filtrar por cuatrimestre aquí.
+  const safeReports = applyDashboardScopeFilter(getScopedReports(scopedReports || []));
+
+  if (!safeReports.length) {
+    if (emptyMsg) emptyMsg.hidden = false;
+    container.innerHTML = "";
+    Object.keys(_donutChartInstances).forEach(id => { _donutChartInstances[id].destroy(); delete _donutChartInstances[id]; });
+    return;
+  }
+  if (emptyMsg) emptyMsg.hidden = true;
+
+  // ── Construir UNA dona resumen ─────────────────────────────────────────
+  // Composición consolidada (alcance + culto) en una sola dona, para no saturar
+  // de gráficas redundantes (la tarjeta de Métricas ya muestra el desglose detallado).
+  container.innerHTML = `
+    <div class="donut-card donut-card-summary">
+      <h3 class="donut-card-title">${escapeHtml(t('dash.donutSummary'))}</h3>
+      <div class="donut-canvas-wrap">
+        <canvas id="donut-summary" aria-label="${escapeHtml(t('dash.donutSummary'))}"></canvas>
+        <div class="donut-center" id="donut-summary-center"></div>
+      </div>
+    </div>
+  `;
+
+  const agg = aggregateMetrics(safeReports);
+  _renderDonut(
+    "donut-summary",
+    t('dash.donutSummary'),
+    {
+      labels: [t('dash.sliceMembers'), t('dash.sliceFriends'), t('dash.sliceRestor'), t('dash.sliceKids')],
+      values: [
+        Number(agg.reachMembers || 0) + Number(agg.sundayMembers || 0),
+        Number(agg.reachFriends || 0) + Number(agg.sundayFriends || 0),
+        Number(agg.reachRestor  || 0) + Number(agg.sundayRestor  || 0),
+        Number(agg.reachKids    || 0) + Number(agg.sundayKids    || 0),
+      ],
+      colors: ["#1d4ed8", "#f97316", "#9333ea", "#0891b2"],
+    },
+    t('dash.donutTotal')
+  );
 }
 
 function renderDashboardBaptisms(scopedReports) {
@@ -3888,6 +4337,7 @@ function renderDashboardBaptisms(scopedReports) {
 
 function handleDashboardPeriodChange() {
   activeDashboardPeriod = dashboardPeriodSelect.value;
+  dashboardPeriodByScope[activeDashboardTimeScope] = activeDashboardPeriod;
   renderDashboard(reportsData);
 }
 
@@ -5296,16 +5746,16 @@ function renderSeguimiento(reports) {
       if (rcsActivity) {
         rcsActivity.innerHTML = weeklyReps.length
           ? weeklyReps.map(r => {
-              const s = getReportAttendanceSummary(r);
               const leader = r.leaderName || r.formData?.leaderName || "-";
               const cell   = r.cellNumber || r.formData?.cellNumber || "-";
+              const initials = leader.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w.charAt(0).toUpperCase()).join(".") + (leader && leader !== "-" ? "." : "");
               const isDraft = isReportEffectivelyDraft(r);
               const chipCls = isDraft ? "rcs-chip-draft" : "rcs-chip-done";
               const draftMark = isDraft ? " · borrador" : "";
               const titleTxt = isDraft
                 ? `Borrador en curso de Célula ${cell}`
                 : `Ver Célula ${cell} en el grid`;
-              return `<span class="rcs-chip ${chipCls}" data-goto-cell="${escapeHtml(String(cell))}" role="button" tabindex="0" title="${escapeHtml(titleTxt)}">Célula ${escapeHtml(String(cell))} · ${escapeHtml(leader)} · ${s.present} asis.${s.visitors ? ` · ${s.visitors} vis.` : ""}${draftMark}</span>`;
+              return `<span class="rcs-chip ${chipCls}" data-goto-cell="${escapeHtml(String(cell))}" role="button" tabindex="0" title="${escapeHtml(titleTxt)} — ${escapeHtml(leader)}">Célula ${escapeHtml(String(cell))}<span class="rcs-leader-full"> · ${escapeHtml(leader)}</span>${draftMark}</span>`;
             }).join("")
           : `<span class="rcs-empty">${t('dash.noneYet')}</span>`;
 
