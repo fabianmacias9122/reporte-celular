@@ -937,6 +937,131 @@ def create_app() -> Flask:
             return jsonify({"message": "Reporte no encontrado."}), 404
         return Response(status=204)
 
+    # ── Weekly approvals (supervisor → coordinator workflow) ──────────────────
+    def _serialize_approval(row) -> dict:
+        return {
+            "id": row["id"],
+            "sector": row["sector"] or "",
+            "year": row["year"] or "",
+            "quarter": row["quarter"] or "",
+            "week": row["week"] or "",
+            "state": row["state"] or "pendiente",
+            "supervisorName": row["supervisor_name"] or "",
+            "supervisorAt": row["supervisor_at"] or "",
+            "supervisorNotes": row["supervisor_notes"] or "",
+            "coordinatorName": row["coordinator_name"] or "",
+            "coordinatorAt": row["coordinator_at"] or "",
+            "coordinatorNotes": row["coordinator_notes"] or "",
+            "updatedAt": row["updated_at"] or "",
+        }
+
+    @app.get("/api/approvals")
+    def list_approvals() -> Response:
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM weekly_approvals ORDER BY year DESC, quarter DESC, week DESC, sector"
+            ).fetchall()
+        return jsonify({"approvals": [_serialize_approval(r) for r in rows]})
+
+    @app.post("/api/approvals")
+    def upsert_approval() -> Response:
+        payload = read_payload()
+        if not isinstance(payload, dict):
+            return jsonify({"message": "Payload inválido."}), 400
+
+        sector  = str(payload.get("sector", "")).strip()
+        year    = str(payload.get("year", "")).strip()
+        quarter = str(payload.get("quarter", "")).strip()
+        week    = str(payload.get("week", "")).strip()
+        action  = str(payload.get("action", "")).strip()
+        actor   = str(payload.get("actor", "")).strip()
+        notes   = str(payload.get("notes", "")).strip()
+
+        if not (sector and year and quarter and week and action):
+            return jsonify({"message": "Faltan campos requeridos (sector, year, quarter, week, action)."}), 400
+        if action not in ("supervisor_review", "coordinator_approve", "return_pending"):
+            return jsonify({"message": "Acción inválida."}), 400
+
+        now = utc_now_iso()
+        with get_connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM weekly_approvals WHERE sector=? AND year=? AND quarter=? AND week=?",
+                (sector, year, quarter, week),
+            ).fetchone()
+
+            current_state = row["state"] if row else "pendiente"
+
+            # Transiciones permitidas
+            if action == "supervisor_review":
+                if current_state == "aprobado_coordinador":
+                    return jsonify({"message": "Ya aprobado por coordinador. Regresa a pendiente primero."}), 409
+                new_state = "revisado_supervisor"
+            elif action == "coordinator_approve":
+                if current_state != "revisado_supervisor":
+                    return jsonify({"message": "El supervisor debe revisar antes de aprobar."}), 409
+                new_state = "aprobado_coordinador"
+            else:  # return_pending
+                new_state = "pendiente"
+
+            if row is None:
+                connection.execute(
+                    """
+                    INSERT INTO weekly_approvals
+                    (sector, year, quarter, week, state,
+                     supervisor_name, supervisor_at, supervisor_notes,
+                     coordinator_name, coordinator_at, coordinator_notes, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        sector, year, quarter, week, new_state,
+                        actor if action == "supervisor_review" else "",
+                        now if action == "supervisor_review" else "",
+                        notes if action == "supervisor_review" else "",
+                        actor if action == "coordinator_approve" else "",
+                        now if action == "coordinator_approve" else "",
+                        notes if action == "coordinator_approve" else "",
+                        now,
+                    ),
+                )
+            else:
+                if action == "supervisor_review":
+                    connection.execute(
+                        """
+                        UPDATE weekly_approvals
+                        SET state=?, supervisor_name=?, supervisor_at=?, supervisor_notes=?, updated_at=?
+                        WHERE id=?
+                        """,
+                        (new_state, actor, now, notes, now, row["id"]),
+                    )
+                elif action == "coordinator_approve":
+                    connection.execute(
+                        """
+                        UPDATE weekly_approvals
+                        SET state=?, coordinator_name=?, coordinator_at=?, coordinator_notes=?, updated_at=?
+                        WHERE id=?
+                        """,
+                        (new_state, actor, now, notes, now, row["id"]),
+                    )
+                else:  # return_pending
+                    connection.execute(
+                        """
+                        UPDATE weekly_approvals
+                        SET state=?, supervisor_at='', supervisor_notes='',
+                            coordinator_name='', coordinator_at='', coordinator_notes='',
+                            updated_at=?
+                        WHERE id=?
+                        """,
+                        (new_state, now, row["id"]),
+                    )
+            connection.commit()
+
+            updated = connection.execute(
+                "SELECT * FROM weekly_approvals WHERE sector=? AND year=? AND quarter=? AND week=?",
+                (sector, year, quarter, week),
+            ).fetchone()
+
+        return jsonify({"ok": True, "approval": _serialize_approval(updated)})
+
     @app.get("/api/settings")
     def get_settings() -> Response:
         with get_connection() as connection:
@@ -1049,6 +1174,26 @@ def initialize_database() -> None:
                 must_change INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS weekly_approvals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sector TEXT NOT NULL,
+                year TEXT NOT NULL,
+                quarter TEXT NOT NULL,
+                week TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT 'pendiente',
+                supervisor_name TEXT NOT NULL DEFAULT '',
+                supervisor_at TEXT NOT NULL DEFAULT '',
+                supervisor_notes TEXT NOT NULL DEFAULT '',
+                coordinator_name TEXT NOT NULL DEFAULT '',
+                coordinator_at TEXT NOT NULL DEFAULT '',
+                coordinator_notes TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                UNIQUE (sector, year, quarter, week)
             )
             """
         )

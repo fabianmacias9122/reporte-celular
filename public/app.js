@@ -333,6 +333,7 @@ let currentVisitors = [];
 let currentKids = [];
 let currentBaptisms = [];
 let reportsData = [];
+let approvalsData = [];
 let activeDashboardPeriod = "";
 
 // ── AUTH ──────────────────────────────────────────────────────────────────
@@ -397,6 +398,10 @@ function applyUserSession(user) {
   const segSubTab = document.querySelector(".seg-view-tab[data-segtab='seguimiento']");
   if (segSubTab) {
     segSubTab.hidden = !(user.isAdmin || user.isSupervisor);
+  }
+  const supSubTab = document.querySelector(".seg-view-tab[data-segtab='supervisor']");
+  if (supSubTab) {
+    supSubTab.hidden = !(user.isAdmin || user.isSupervisor);
   }
   // Settings visible a todos los usuarios logueados
   if (showSettingsViewButton) {
@@ -700,16 +705,19 @@ const topbarRouteLabel = document.querySelector("#topbar-route-label");
 function activateSegTab(tabName) {
   // Regular users (no admin, no supervisor) can only see dashboard sub-tab
   const canSeeSeg = currentUser?.isAdmin || currentUser?.isSupervisor;
-  if (tabName === "seguimiento" && !canSeeSeg) tabName = "dashboard";
+  if ((tabName === "seguimiento" || tabName === "supervisor") && !canSeeSeg) tabName = "dashboard";
 
   const tabs = document.querySelectorAll("#seg-view-tab-bar .seg-view-tab");
   tabs.forEach(btn => btn.classList.toggle("is-active", btn.dataset.segtab === tabName));
   const segPanel = document.getElementById("seg-tab-seguimiento");
+  const supPanel = document.getElementById("seg-tab-supervisor");
   const dashPanel = document.getElementById("seg-tab-dashboard");
   if (segPanel)  segPanel.hidden  = tabName !== "seguimiento";
+  if (supPanel)  supPanel.hidden  = tabName !== "supervisor";
   if (dashPanel) dashPanel.hidden = tabName !== "dashboard";
   if (tabName === "dashboard") renderDashboard(reportsData);
   if (tabName === "seguimiento") renderSeguimiento(reportsData);
+  if (tabName === "supervisor")  renderSeguimientoSupervisor(reportsData);
 }
 
 function showView(viewName) {
@@ -5023,6 +5031,11 @@ function renderSeguimiento(reports) {
           .localeCompare(String(b.cellNumber || b.formData?.cellNumber || ""), "es", { numeric: true })
       );
     const reportedSet  = new Set(weeklyReps.map(r => String(r.cellNumber || r.formData?.cellNumber || "")));
+    const draftCellSet = new Set(
+      weeklyReps
+        .filter(r => isReportEffectivelyDraft(r))
+        .map(r => String(r.cellNumber || r.formData?.cellNumber || ""))
+    );
     const pendingCells = getScopedCells().filter(c => !reportedSet.has(String(c.cellNumber)));
 
     if (dashboardPendingEyebrow) {
@@ -5079,7 +5092,13 @@ function renderSeguimiento(reports) {
               const s = getReportAttendanceSummary(r);
               const leader = r.leaderName || r.formData?.leaderName || "-";
               const cell   = r.cellNumber || r.formData?.cellNumber || "-";
-              return `<span class="rcs-chip rcs-chip-done" data-goto-cell="${escapeHtml(String(cell))}" role="button" tabindex="0" title="Ver Célula ${escapeHtml(String(cell))} en el grid">Célula ${escapeHtml(String(cell))} · ${escapeHtml(leader)} · ${s.present} asis.${s.visitors ? ` · ${s.visitors} vis.` : ""}</span>`;
+              const isDraft = isReportEffectivelyDraft(r);
+              const chipCls = isDraft ? "rcs-chip-draft" : "rcs-chip-done";
+              const draftMark = isDraft ? " · borrador" : "";
+              const titleTxt = isDraft
+                ? `Borrador en curso de Célula ${cell}`
+                : `Ver Célula ${cell} en el grid`;
+              return `<span class="rcs-chip ${chipCls}" data-goto-cell="${escapeHtml(String(cell))}" role="button" tabindex="0" title="${escapeHtml(titleTxt)}">Célula ${escapeHtml(String(cell))} · ${escapeHtml(leader)} · ${s.present} asis.${s.visitors ? ` · ${s.visitors} vis.` : ""}${draftMark}</span>`;
             }).join("")
           : `<span class="rcs-empty">${t('dash.noneYet')}</span>`;
 
@@ -5102,6 +5121,343 @@ function renderSeguimiento(reports) {
     // ── Totals panel ────────────────────────────────────────────────────────
     renderSegTotalsPanel(weeklyReps);
   }
+}
+
+// ── Resumen por supervisor (sub-tab "supervisor") ──────────────────────────
+// Vista read-only que suma todas las células de un supervisor para una semana
+// dada. Es la base del flujo de aprobación supervisor → coordinador (los
+// botones de aprobación se agregarán en el siguiente paso).
+let supervisorViewState = { supervisorName: null, week: null };
+
+function getVisibleSupervisors() {
+  const supers = (catalogs.people || [])
+    .filter(p => p.supervisorSector)
+    .map(p => ({ name: p.name, sector: p.supervisorSector }));
+  if (currentUser?.isAdmin) return supers;
+  if (currentUser?.isSupervisor && currentUser.supervisedSector) {
+    return supers.filter(s => s.sector === currentUser.supervisedSector);
+  }
+  return [];
+}
+
+function getCellsForSupervisor(supervisor) {
+  if (!supervisor) return [];
+  return (catalogs.cells || [])
+    .filter(c => String(c.sector || "") === String(supervisor.sector || ""))
+    .sort((a, b) => Number(a.cellNumber) - Number(b.cellNumber));
+}
+
+function renderSeguimientoSupervisor(reports) {
+  const body = document.getElementById("seg-supervisor-body");
+  const supSelect = document.getElementById("sup-supervisor-select");
+  const weekSelect = document.getElementById("sup-week-select");
+  if (!body || !supSelect || !weekSelect) return;
+
+  const supervisors = getVisibleSupervisors();
+  if (!supervisors.length) {
+    supSelect.innerHTML = "";
+    weekSelect.innerHTML = "";
+    body.innerHTML = `<p class="empty-state" style="padding:16px 0">${t('sup.noSupervisors')}</p>`;
+    return;
+  }
+
+  // Poblar selector de supervisores
+  if (!supervisorViewState.supervisorName ||
+      !supervisors.some(s => s.name === supervisorViewState.supervisorName)) {
+    supervisorViewState.supervisorName = supervisors[0].name;
+  }
+  supSelect.innerHTML = supervisors.map(s =>
+    `<option value="${escapeHtml(s.name)}"${s.name === supervisorViewState.supervisorName ? " selected" : ""}>${escapeHtml(s.name)} · Sector ${escapeHtml(s.sector)}</option>`
+  ).join("");
+  if (currentUser?.isAdmin && supervisors.length > 1) {
+    supSelect.disabled = false;
+  } else {
+    supSelect.disabled = true;
+  }
+
+  // Poblar selector de semana — solo semanas ya transcurridas.
+  // Por defecto seleccionamos la semana anterior (los líderes reportan la
+  // semana pasada). La semana en curso se omite porque aún no tiene datos
+  // cargados completos.
+  const totalWeeks = getRcmTotalWeeks();
+  const currentWeekNum = Math.max(1, Math.min(totalWeeks, getQuarterWeekNumber()));
+  const lastSelectable = Math.max(1, currentWeekNum - 1); // semana anterior (o 1 si vamos en sem.1)
+  if (!supervisorViewState.week || Number(supervisorViewState.week) > lastSelectable) {
+    supervisorViewState.week = String(lastSelectable);
+  }
+  weekSelect.innerHTML = Array.from({ length: lastSelectable }, (_, i) => {
+    const w = String(i + 1);
+    const info = getRcmWeekInfo(w);
+    const verb = info?.verb ? ` · ${info.verb}` : "";
+    return `<option value="${w}"${w === supervisorViewState.week ? " selected" : ""}>Sem. ${w}${verb}</option>`;
+  }).join("");
+
+  // Bind listeners (una sola vez)
+  if (!supSelect.dataset.bound) {
+    supSelect.dataset.bound = "1";
+    supSelect.addEventListener("change", () => {
+      supervisorViewState.supervisorName = supSelect.value;
+      renderSeguimientoSupervisor(reportsData);
+    });
+  }
+  if (!weekSelect.dataset.bound) {
+    weekSelect.dataset.bound = "1";
+    weekSelect.addEventListener("change", () => {
+      supervisorViewState.week = weekSelect.value;
+      renderSeguimientoSupervisor(reportsData);
+    });
+  }
+  if (!body.dataset.apprBound) {
+    body.dataset.apprBound = "1";
+    body.addEventListener("click", (ev) => {
+      // Botón ojito → abrir vista previa del reporte en modal
+      const peek = ev.target.closest("[data-sup-view-report]");
+      if (peek) {
+        const reportId = peek.dataset.supViewReport;
+        openSupervisorReportPreview(reportId);
+        return;
+      }
+      // Descargar tarjeta del supervisor como PNG
+      const dlBtn = ev.target.closest("[data-sup-download]");
+      if (dlBtn) {
+        const capture = dlBtn.closest('.sup-capture');
+        const sector  = capture?.dataset.supSector || 'supervisor';
+        const week    = capture?.dataset.supWeek   || '';
+        downloadElementAsPng(capture, `reporte-${sanitizeFileName(sector)}-S${week}.png`);
+        return;
+      }
+      // Compartir resumen del supervisor por WhatsApp
+      const waBtn = ev.target.closest("[data-sup-whatsapp]");
+      if (waBtn) {
+        const capture = waBtn.closest('.sup-capture');
+        const sector  = capture?.dataset.supSector || '';
+        const week    = capture?.dataset.supWeek   || supervisorViewState.week;
+        const sup = supervisors.find(s => String(s.sector) === String(sector));
+        if (sup) shareSupervisorOnWhatsApp(sup, reportsData, week);
+        return;
+      }
+      const btn = ev.target.closest("[data-appr-action]");
+      if (!btn) return;
+      const action = btn.dataset.apprAction;
+      const sector = btn.dataset.apprSector;
+      const week   = btn.dataset.apprWeek;
+      const year    = String(new Date().getFullYear());
+      const quarter = String(getCurrentQuarter());
+      btn.disabled = true;
+      postApprovalAction(sector, week, year, quarter, action).finally(() => {
+        btn.disabled = false;
+      });
+    });
+  }
+
+  const supervisor = supervisors.find(s => s.name === supervisorViewState.supervisorName);
+  const cells = getCellsForSupervisor(supervisor);
+  if (!cells.length) {
+    body.innerHTML = `<p class="empty-state" style="padding:16px 0">${t('sup.noCells')}</p>`;
+    return;
+  }
+
+  body.innerHTML = renderSupervisorSummaryTable(supervisor, cells, reports, supervisorViewState.week);
+}
+
+function renderSupervisorSummaryTable(supervisor, cells, reports, week) {
+  const weekStr = String(week);
+  const curYear = String(new Date().getFullYear());
+  const curQuarter = String(getCurrentQuarter());
+  const cellNums = cells.map(c => String(c.cellNumber));
+  const cellSet = new Set(cellNums);
+
+  // Reportes de las células de este supervisor en la semana indicada
+  const visibleReports = (reports || []).filter(r => {
+    const cn = String(r.cellNumber || r.formData?.cellNumber || "");
+    if (!cellSet.has(cn)) return false;
+    if (getReportWeek(r) !== weekStr) return false;
+    if (getReportYear(r) !== curYear) return false;
+    if (String(getReportQuarter(r)) !== curQuarter) return false;
+    return true;
+  });
+
+  // Indexa reporte por número de célula (puede no haber para algunas)
+  const byCell = new Map();
+  visibleReports.forEach(r => {
+    byCell.set(String(r.cellNumber || r.formData?.cellNumber || ""), r);
+  });
+
+  // Métricas por célula
+  const perCellMetrics = cellNums.map(cn => {
+    const rep = byCell.get(cn);
+    return rep ? aggregateMetrics([rep]) : null;
+  });
+
+  // Acumulado total
+  const totals = aggregateMetrics(visibleReports);
+
+  // Verbo de la semana
+  const weekInfo = getRcmWeekInfo(weekStr);
+  const verbLabel = weekInfo?.verb || "—";
+
+  // Helpers de render
+  const cellHeaderCols = cellNums.map(cn => {
+    const rep = byCell.get(cn);
+    const eye = rep
+      ? `<button type="button" class="sup-cell-peek" data-sup-view-report="${escapeHtml(String(rep.id))}" title="${t('sup.viewReport')}" aria-label="${t('sup.viewReport')}">🔍</button>`
+      : "";
+    return `<th class="sup-cell-col" data-cell="${escapeHtml(cn)}"><span class="sup-cell-col-num">${escapeHtml(cn)}</span>${eye}</th>`;
+  }).join("");
+  const moneyFmt = (n) => `$${Number(n || 0).toFixed(2)}`;
+
+  const rowNum = (label, getter, opts = {}) => {
+    const tds = perCellMetrics.map((m, i) => {
+      const cn = cellNums[i];
+      if (!m) return `<td class="sup-empty" data-cell="${escapeHtml(cn)}" title="${t('sup.noReportCellTitle')}">—</td>`;
+      const v = getter(m);
+      return `<td data-cell="${escapeHtml(cn)}">${opts.money ? moneyFmt(v) : escapeHtml(String(v))}</td>`;
+    }).join("");
+    const total = visibleReports.length
+      ? (opts.money ? moneyFmt(getter(totals)) : escapeHtml(String(getter(totals))))
+      : "—";
+    return `<tr>
+      <td class="sup-metric-label">${escapeHtml(label)}</td>
+      ${tds}
+      <td class="sup-total-col"><strong>${total}</strong></td>
+    </tr>`;
+  };
+
+  const sectionHeader = (label, modifier) => `
+    <tr class="sup-section-header sup-section-${modifier}">
+      <td colspan="${cellNums.length + 2}">${escapeHtml(label)}</td>
+    </tr>`;
+
+  const reportedCount = visibleReports.length;
+  const totalCells    = cellNums.length;
+
+  // ── Aprobación (sector,año,quarter,semana) ────────────────────────────────
+  const approval = findApproval(supervisor.sector, weekStr, curYear, curQuarter);
+  const state    = approval?.state || "pendiente";
+  const isAdmin      = !!(currentUser && currentUser.isAdmin);
+  const isSupervisor = !!(currentUser && currentUser.isSupervisor &&
+                          String(currentUser.supervisedSector || "") === String(supervisor.sector));
+  // Rol efectivo para esta vista: si es supervisor del sector, actúa como
+  // supervisor (aunque también sea coordinador). En cualquier otro caso, si
+  // es admin, actúa como coordinador.
+  const isCoordinatorOnly = isAdmin && !isSupervisor;
+
+  const stateLabelMap = {
+    pendiente:             t('appr.state.pending'),
+    revisado_supervisor:   t('appr.state.reviewed'),
+    aprobado_coordinador:  t('appr.state.approved'),
+  };
+  const stateClassMap = {
+    pendiente:             'pending',
+    revisado_supervisor:   'reviewed',
+    aprobado_coordinador:  'approved',
+  };
+  const stateBadge = `<span class="appr-badge appr-badge--${stateClassMap[state]}">${escapeHtml(stateLabelMap[state] || state)}</span>`;
+
+  const metaLines = [];
+  if (approval?.supervisorName && approval?.supervisorAt) {
+    metaLines.push(`<span class="appr-meta-line">${t('appr.reviewedBy', { who: escapeHtml(approval.supervisorName), when: escapeHtml(approval.supervisorAt.slice(0,16).replace('T',' ')) })}</span>`);
+  }
+  if (approval?.coordinatorName && approval?.coordinatorAt) {
+    metaLines.push(`<span class="appr-meta-line">${t('appr.approvedBy', { who: escapeHtml(approval.coordinatorName), when: escapeHtml(approval.coordinatorAt.slice(0,16).replace('T',' ')) })}</span>`);
+  }
+
+  const buttons = [];
+  // Solo el supervisor del sector puede revisar y enviar al coordinador
+  if (state === 'pendiente' && isSupervisor) {
+    buttons.push(`<button type="button" class="btn btn-sm btn-primary" data-appr-action="supervisor_review" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">${t('appr.btnReview')}</button>`);
+  }
+  // Solo el coordinador aprueba (cuando el supervisor ya envió)
+  if (state === 'revisado_supervisor' && isAdmin) {
+    buttons.push(`<button type="button" class="btn btn-sm btn-success" data-appr-action="coordinator_approve" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">${t('appr.btnApprove')}</button>`);
+  }
+  // Regresar a pendiente: supervisor (si está enviado) o admin (cualquier estado ≠ pendiente)
+  if (state !== 'pendiente' && ((isSupervisor && state === 'revisado_supervisor') || isAdmin)) {
+    buttons.push(`<button type="button" class="btn btn-sm btn-ghost" data-appr-action="return_pending" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">${t('appr.btnReturn')}</button>`);
+  }
+
+  const approvalBar = `
+    <div class="appr-bar appr-bar--${stateClassMap[state]}">
+      <div class="appr-status">
+        <span class="appr-status-label">${t('appr.status')}:</span>
+        ${stateBadge}
+        ${metaLines.length ? `<span class="appr-meta">${metaLines.join('<span class="appr-meta-sep">·</span>')}</span>` : ''}
+      </div>
+      <div class="appr-actions">${buttons.join('')}</div>
+    </div>`;
+
+  // Si el usuario actúa solo como coordinador y el supervisor aún no ha enviado,
+  // ocultamos los datos detallados — el coordinador solo debe ver lo que el
+  // supervisor ya revisó y envió.
+  const hideDetailForCoordinator = isCoordinatorOnly && state === 'pendiente';
+
+  const header = `
+    <div class="sup-card-head">
+      <div class="sup-card-meta">
+        <span class="sup-meta-label">${t('sup.supervisor')}:</span>
+        <strong>${escapeHtml(supervisor.name)}</strong>
+        <span class="sup-meta-sep">·</span>
+        <span class="sup-meta-label">${t('sup.sector')}:</span>
+        <strong>${escapeHtml(supervisor.sector)}</strong>
+        <span class="sup-meta-sep">·</span>
+        <span class="sup-meta-label">${t('sup.verb')}:</span>
+        <strong>${escapeHtml(verbLabel)}</strong>
+      </div>
+      <div class="sup-card-actions">
+        <span class="sup-coverage-chip">${reportedCount}/${totalCells} ${t('sup.cellsReported')}</span>
+        <button type="button" class="btn btn-sm btn-ghost" data-sup-download title="${t('share.downloadPng')}" aria-label="${t('share.downloadPng')}">⬇️ PNG</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-sup-whatsapp title="${t('share.whatsapp')}" aria-label="${t('share.whatsapp')}">${whatsappIconSvg(14)} WhatsApp</button>
+      </div>
+    </div>
+    ${approvalBar}`;
+
+  if (hideDetailForCoordinator) {
+    return `<div class="sup-capture" data-sup-sector="${escapeHtml(supervisor.sector)}" data-sup-week="${escapeHtml(weekStr)}">${header}
+      <div class="appr-waiting">
+        <div class="appr-waiting-icon">⏳</div>
+        <p class="appr-waiting-title">${t('appr.waitingTitle')}</p>
+        <p class="appr-waiting-msg">${t('appr.waitingMsg', { who: escapeHtml(supervisor.name) })}</p>
+      </div></div>`;
+  }
+
+  return `<div class="sup-capture" data-sup-sector="${escapeHtml(supervisor.sector)}" data-sup-week="${escapeHtml(weekStr)}">${header}
+    <div class="sup-table-wrap">
+      <table class="sup-table">
+        <thead>
+          <tr>
+            <th class="sup-metric-label">${t('sup.meetings')}</th>
+            <th colspan="${cellNums.length}" class="sup-cells-group">${t('sup.cell')}</th>
+            <th rowspan="2" class="sup-total-col">${t('sup.total')}</th>
+          </tr>
+          <tr>
+            <th></th>
+            ${cellHeaderCols}
+          </tr>
+        </thead>
+        <tbody>
+          ${sectionHeader(t('dash.planning'), 'planning')}
+          ${rowNum(t('sup.membersBaptized'),   m => m.cellMembersUnique)}
+          ${rowNum(t('sup.membersAttending'),  m => m.planningPresent)}
+          ${rowNum(t('sup.membersAbsent'),     m => m.planningAbsent)}
+
+          ${sectionHeader(t('dash.reach'), 'reach')}
+          ${rowNum(t('sup.membersAttending'),  m => m.reachMembers)}
+          ${rowNum(t('sup.membersPrivileged'), m => m.reachPrivileged)}
+          ${rowNum(t('sup.friendsPresent'),    m => m.reachFriends)}
+          ${rowNum(t('sup.restorPresent'),     m => m.reachRestor)}
+          ${rowNum(t('sup.kidsPresent'),       m => m.reachKids)}
+          ${rowNum(t('sup.offering'),          m => m.offering, { money: true })}
+
+          ${sectionHeader(t('sup.cultoInspirador'), 'sunday')}
+          ${rowNum(t('sup.membersAttending'),  m => m.sundayMembers)}
+          ${rowNum(t('sup.friends'),           m => m.sundayFriends)}
+          ${rowNum(t('sup.restor'),            m => m.sundayRestor)}
+          ${rowNum(t('sup.kidsPresent'),       m => m.sundayKids)}
+        </tbody>
+      </table>
+    </div>
+    <p class="sup-footnote">${t('sup.footnote')}</p>
+  </div>`;
 }
 
 function renderReportCellMembers(cell) {
@@ -5768,6 +6124,7 @@ async function loadReports() {
     reportsData = (currentUser && !currentUser.isAdmin && !currentUser.isSupervisor && currentUser.assignedCellNumber)
       ? allReports.filter(r => String(r.cellNumber || r.formData?.cellNumber || "") === String(currentUser.assignedCellNumber))
       : allReports;
+    await loadApprovals();
     renderVisitorHistoryOptions();
     renderReports(reportsData);
     renderSeguimiento(reportsData);
@@ -5780,6 +6137,210 @@ async function loadReports() {
     }
   } catch (error) {
     setFeedback(error.message, true);
+  }
+}
+
+async function loadApprovals() {
+  try {
+    const payload = await request("/api/approvals");
+    approvalsData = payload.approvals || [];
+  } catch (e) {
+    approvalsData = [];
+  }
+}
+
+function findApproval(sector, week, year, quarter) {
+  return approvalsData.find(a =>
+    String(a.sector) === String(sector) &&
+    String(a.week)   === String(week) &&
+    String(a.year)   === String(year) &&
+    String(a.quarter)=== String(quarter)
+  ) || null;
+}
+
+async function postApprovalAction(sector, week, year, quarter, action, notes = "") {
+  const actor = (currentUser && (currentUser.displayName || currentUser.name || currentUser.username)) || "";
+  try {
+    const res = await request("/api/approvals", {
+      method: "POST",
+      body: JSON.stringify({ sector, year, quarter, week, action, actor, notes }),
+    });
+    if (res && res.approval) {
+      // upsert in local cache
+      const idx = approvalsData.findIndex(a => a.id === res.approval.id);
+      if (idx >= 0) approvalsData[idx] = res.approval;
+      else approvalsData.push(res.approval);
+    } else {
+      await loadApprovals();
+    }
+    renderSeguimientoSupervisor(reportsData);
+  } catch (e) {
+    alert(e.message || "Error al actualizar aprobación.");
+  }
+}
+
+// ── Compartir / descargar reportes ──────────────────────────────────────
+function sanitizeFileName(s) {
+  return String(s || 'reporte').replace(/[^a-z0-9\-_]+/gi, '_').slice(0, 60);
+}
+
+async function downloadElementAsPng(el, filename) {
+  if (!el) return;
+  if (typeof window.html2canvas !== 'function') {
+    alert('No se pudo cargar la utilidad de captura (html2canvas). Verifica tu conexión.');
+    return;
+  }
+  el.classList.add('is-capturing');
+  try {
+    const canvas = await window.html2canvas(el, {
+      backgroundColor: '#ffffff',
+      scale: Math.min(2, window.devicePixelRatio || 1) || 1,
+      useCORS: true,
+      logging: false,
+    });
+    const link = document.createElement('a');
+    link.download = filename || 'reporte.png';
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (e) {
+    alert('No se pudo generar la imagen: ' + (e.message || e));
+  } finally {
+    el.classList.remove('is-capturing');
+  }
+}
+
+function openWhatsApp(text) {
+  const url = 'https://wa.me/?text=' + encodeURIComponent(text || '');
+  window.open(url, '_blank', 'noopener');
+}
+
+// SVG oficial-ish del logo de WhatsApp (Simple Icons, dominio público).
+function whatsappIconSvg(size = 14) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" aria-hidden="true" style="vertical-align:-2px;display:inline-block">
+    <path fill="#25D366" d="M16 .395C7.164.395 0 7.559 0 16.395c0 2.84.74 5.598 2.146 8.025L0 32l7.832-2.054a16.073 16.073 0 0 0 8.168 2.244h.007C24.844 32.19 32 25.026 32 16.19 32 7.355 24.836.394 16 .394Z"/>
+    <path fill="#FFF" d="M23.42 19.396c-.314-.158-1.86-.918-2.149-1.022-.288-.105-.498-.158-.708.157-.21.314-.812 1.022-.996 1.232-.184.21-.367.236-.681.078-.314-.157-1.327-.489-2.527-1.56-.935-.834-1.567-1.864-1.751-2.179-.184-.314-.02-.484.138-.641.142-.142.314-.367.472-.55.158-.184.21-.315.314-.524.105-.21.053-.394-.026-.551-.078-.157-.708-1.708-.97-2.339-.255-.613-.515-.53-.708-.54-.184-.01-.394-.012-.604-.012-.21 0-.55.079-.838.393-.288.314-1.1 1.075-1.1 2.625 0 1.55 1.126 3.049 1.283 3.259.158.21 2.215 3.379 5.367 4.741.75.324 1.337.518 1.793.663.753.24 1.438.206 1.98.125.604-.09 1.86-.76 2.122-1.494.262-.733.262-1.36.184-1.494-.078-.131-.288-.21-.602-.367Z"/>
+  </svg>`;
+}
+// Expone helper para usos fuera de módulo (footer del modal)
+window.whatsappIconSvg = whatsappIconSvg;
+
+function buildSupervisorWhatsAppText(supervisor, reports, week) {
+  const weekStr  = String(week);
+  const curYear  = String(new Date().getFullYear());
+  const curQ     = String(getCurrentQuarter());
+  const cells    = getCellsForSupervisor(supervisor);
+  const cellNums = cells.map(c => String(c.cellNumber));
+  const cellSet  = new Set(cellNums);
+  const visible  = (reports || []).filter(r => {
+    const cn = String(r.cellNumber || r.formData?.cellNumber || '');
+    if (!cellSet.has(cn)) return false;
+    if (getReportWeek(r) !== weekStr) return false;
+    if (getReportYear(r) !== curYear) return false;
+    if (String(getReportQuarter(r)) !== curQ) return false;
+    return true;
+  });
+  const totals = aggregateMetrics(visible);
+  const verb = getRcmWeekInfo(weekStr)?.verb || '';
+  const reported = visible.length;
+  const lines = [];
+  lines.push(`📊 *Reporte semanal · Sector ${supervisor.sector}*`);
+  lines.push(`Supervisor: ${supervisor.name}`);
+  lines.push(`Semana ${weekStr}${verb ? ' · ' + verb : ''}`);
+  lines.push(`Células reportadas: ${reported}/${cellNums.length}`);
+  lines.push('');
+  lines.push('*PLANEACIÓN*');
+  lines.push(`• Miembros bautizados: ${totals.cellMembersUnique}`);
+  lines.push(`• Miembros asistentes: ${totals.planningPresent}`);
+  lines.push(`• Miembros ausentes: ${totals.planningAbsent}`);
+  lines.push('');
+  lines.push('*ALCANCE*');
+  lines.push(`• Miembros asistentes: ${totals.reachMembers}`);
+  lines.push(`• Con privilegios: ${totals.reachPrivileged}`);
+  lines.push(`• Amigos: ${totals.reachFriends}`);
+  lines.push(`• En restauración: ${totals.reachRestor}`);
+  lines.push(`• Niños: ${totals.reachKids}`);
+  lines.push(`• Ofrenda: $${Number(totals.offering || 0).toFixed(2)}`);
+  lines.push('');
+  lines.push('*CULTO INSPIRADOR*');
+  lines.push(`• Miembros: ${totals.sundayMembers}`);
+  lines.push(`• Amigos: ${totals.sundayFriends}`);
+  lines.push(`• En restauración: ${totals.sundayRestor}`);
+  lines.push(`• Niños: ${totals.sundayKids}`);
+  return lines.join('\n');
+}
+
+function shareSupervisorOnWhatsApp(supervisor, reports, week) {
+  openWhatsApp(buildSupervisorWhatsAppText(supervisor, reports, week));
+}
+
+function buildReportWhatsAppText(report) {
+  const fd = report?.formData || {};
+  const s  = fd.attendanceSummary || {};
+  const cell = String(report.cellNumber || fd.cellNumber || '—');
+  const week = String(fd.week || report.week || '—');
+  const leader = String(fd.leaderName || report.leaderName || '');
+  const totals = aggregateMetrics([report]);
+  const lines = [];
+  lines.push(`📋 *Reporte célula ${cell} · Semana ${week}*`);
+  if (leader) lines.push(`Líder: ${leader}`);
+  lines.push('');
+  lines.push('*PLANEACIÓN*');
+  lines.push(`• Miembros bautizados: ${totals.cellMembersUnique}`);
+  lines.push(`• Asistentes: ${totals.planningPresent}`);
+  lines.push(`• Ausentes: ${totals.planningAbsent}`);
+  lines.push('');
+  lines.push('*ALCANCE*');
+  lines.push(`• Miembros: ${totals.reachMembers}`);
+  lines.push(`• Con privilegios: ${totals.reachPrivileged}`);
+  lines.push(`• Amigos: ${totals.reachFriends}`);
+  lines.push(`• En restauración: ${totals.reachRestor}`);
+  lines.push(`• Niños: ${totals.reachKids}`);
+  lines.push(`• Ofrenda: $${Number(totals.offering || 0).toFixed(2)}`);
+  lines.push('');
+  lines.push('*CULTO INSPIRADOR*');
+  lines.push(`• Miembros: ${totals.sundayMembers}`);
+  lines.push(`• Amigos: ${totals.sundayFriends}`);
+  lines.push(`• En restauración: ${totals.sundayRestor}`);
+  lines.push(`• Niños: ${totals.sundayKids}`);
+  return lines.join('\n');
+}
+
+async function openSupervisorReportPreview(reportId) {
+  if (!reportPreviewDialog) return;
+  try {
+    const payload = await request(`/api/reports/${reportId}`);
+    const report  = payload.report;
+    const cell = String(report.cellNumber || report.formData?.cellNumber || "—");
+    const week = String(report.formData?.week || report.week || "—");
+    if (previewDialogTitle) previewDialogTitle.textContent = t('preview.cellWeekTitle', { c: cell, w: week });
+    if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
+    // Footer en modo solo-lectura (sin botón de editar — el supervisor solo revisa)
+    if (previewDialogFooter) previewDialogFooter.hidden = false;
+    const cancelBtn      = document.getElementById("preview-cancel-btn");
+    const confirmBtn     = document.getElementById("preview-confirm-btn");
+    const editFromSegBtn = document.getElementById("preview-edit-from-seg-btn");
+    const dlBtn          = document.getElementById("preview-download-btn");
+    const waBtn          = document.getElementById("preview-whatsapp-btn");
+    if (cancelBtn)      cancelBtn.hidden      = true;
+    if (confirmBtn)     confirmBtn.hidden     = true;
+    if (editFromSegBtn) editFromSegBtn.hidden = true;
+    if (dlBtn) {
+      dlBtn.hidden = false;
+      dlBtn.onclick = () => {
+        downloadElementAsPng(previewDialogBody, `reporte-celula${cell}-S${week}.png`);
+      };
+    }
+    if (waBtn) {
+      waBtn.hidden = false;
+      waBtn.onclick = () => {
+        openWhatsApp(buildReportWhatsAppText(report));
+      };
+    }
+    reportPreviewDialog.showModal();
+  } catch (err) {
+    setFeedback(err.message, true);
   }
 }
 
@@ -8132,6 +8693,16 @@ function openReportPreviewDialog() {
 
 if (reportPreviewOpenBtn)  reportPreviewOpenBtn.addEventListener("click",  openReportPreviewDialog);
 if (previewCloseBtn  && reportPreviewDialog) previewCloseBtn.addEventListener("click",  () => reportPreviewDialog.close());
+// Resetear botones de compartir/descargar al cerrar el modal de preview,
+// para que no aparezcan en otras vistas previas que no los necesiten.
+if (reportPreviewDialog) {
+  reportPreviewDialog.addEventListener('close', () => {
+    const dl = document.getElementById('preview-download-btn');
+    const wa = document.getElementById('preview-whatsapp-btn');
+    if (dl) { dl.hidden = true; dl.onclick = null; }
+    if (wa) { wa.hidden = true; wa.onclick = null; }
+  });
+}
 if (previewCancelBtn && reportPreviewDialog) previewCancelBtn.addEventListener("click", () => reportPreviewDialog.close());
 if (reportPreviewDialog) reportPreviewDialog.addEventListener("click", (e) => { if (e.target === reportPreviewDialog) reportPreviewDialog.close(); });
 if (previewConfirmBtn) previewConfirmBtn.addEventListener("click", () => {
@@ -8186,9 +8757,16 @@ function buildReportPreviewHtmlFromData(report) {
     </div>` : "";
 
   // helper: chip for a member showing status icon
-  function memberChip(member, attended, extra) {
-    const cls = extra === "privileged" ? "privileged" : attended ? "attended" : "missed";
-    const icon = extra === "privileged" ? "★" : attended ? "✓" : "✗";
+  function memberChip(member, attended, extra, status) {
+    const isJustified = !attended && String(status || "").toLowerCase() === "justified";
+    const cls  = extra === "privileged" ? "privileged"
+               : attended               ? "attended"
+               : isJustified            ? "justified"
+               : "missed";
+    const icon = extra === "privileged" ? "★"
+               : attended               ? "✓"
+               : isJustified            ? "J"
+               : "✗";
     return `<div class="ev-chip ev-chip--${cls}"><span class="ev-chip-icon">${icon}</span><span>${escapeHtml(member.name || "")}</span></div>`;
   }
 
@@ -8202,7 +8780,7 @@ function buildReportPreviewHtmlFromData(report) {
         <span class="ev-count">${planCount} / ${planTotal} hermanos</span>
       </div>
       <div class="ev-body">
-        ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.planningAttended, null)).join("")}</div>` : "<p class='preview-empty-note'>Sin registro de asistencia</p>"}
+        ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.planningAttended, null, m.planningStatus)).join("")}</div>` : "<p class='preview-empty-note'>Sin registro de asistencia</p>"}
         ${fd.planningNotes ? `<p class="ev-notes">${escapeHtml(fd.planningNotes)}</p>` : ""}
       </div>
     </div>`;
@@ -8256,7 +8834,7 @@ function buildReportPreviewHtmlFromData(report) {
         <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""} · ${friendsCount} amigos${restorCount ? ` · ${restorCount} restauración` : ""} · ${namedKids.length} niños</span>
       </div>
       <div class="ev-body">
-        ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.reachAttended, m.reachPrivileged ? "privileged" : null)).join("")}</div>` : ""}
+        ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.reachAttended, m.reachPrivileged ? "privileged" : null, m.reachStatus)).join("")}</div>` : ""}
         ${visitorsHtml}
         ${kidsHtml}
         ${reachOfrenda ? `<p class="ev-offering">Ofrenda alcance: $${reachOfrenda.toFixed(0)}</p>` : ""}
@@ -8276,7 +8854,7 @@ function buildReportPreviewHtmlFromData(report) {
         <span class="ev-count">${t('preview.cultoCount', { tot: sundayTotal, b: sundayMembersCount, f: sundayVisitorsCount, k: sundayKidsCount })}</span>
       </div>
       <div class="ev-body">
-        ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.sundayAttended, null)).join("")}</div>` : "<p class='preview-empty-note'>Sin registro de asistencia</p>"}
+        ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.sundayAttended, null, m.sundayStatus)).join("")}</div>` : "<p class='preview-empty-note'>Sin registro de asistencia</p>"}
         ${fd.cultoNotes ? `<p class="ev-notes">${escapeHtml(fd.cultoNotes)}</p>` : ""}
       </div>
     </div>`;

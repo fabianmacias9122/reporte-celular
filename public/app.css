@@ -1387,6 +1387,8 @@ tr.people-group-header + tr td { border-top: none; }
 .rcs-chip-pending { background: rgba(210,60,30,0.07); color: #b83a10; border: 1px solid rgba(210,60,30,0.18); }
 .rcs-chip-done    { background: rgba(26,125,85,0.07);  color: #1a6a44; border: 1px solid rgba(26,125,85,0.18); cursor: pointer; }
 .rcs-chip-done:hover { background: rgba(26,125,85,0.15); }
+.rcs-chip-draft   { background: rgba(214,158,46,0.10); color: #8a5a08; border: 1px solid rgba(214,158,46,0.30); cursor: pointer; }
+.rcs-chip-draft:hover { background: rgba(214,158,46,0.20); }
 .rcs-empty { font-size: 0.72rem; color: var(--muted); font-style: italic; }
 /* Cycle card highlight on scroll-to */
 @keyframes cycle-flash { 0%,100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px rgba(26,125,85,0.5); } }
@@ -2583,3 +2585,159 @@ body.force-mobile-preview button, body.force-mobile-preview button.secondary,
 body.force-mobile-preview input, body.force-mobile-preview select, body.force-mobile-preview textarea { font-size: 16px; }
 body.force-mobile-preview h1 { font-size: 1.65rem; }
 body.force-mobile-preview h2 { font-size: 1rem; }
+
+/* Supervisor summary table (sub-tab "supervisor") */
+.sup-card-head {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; margin: 4px 0 14px;
+  padding: 10px 12px; background: var(--panel-soft);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.sup-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .9rem; }
+.sup-meta-label { color: var(--muted); font-size: .8rem; }
+.sup-meta-sep { color: var(--muted); margin: 0 4px; }
+.sup-coverage-chip {
+  font-size: .78rem; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+  background: var(--brand); color: #fff;
+}
+.sup-card-actions {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.sup-card-actions .btn { white-space: nowrap; }
+/* En captura PNG, esconder los botones de acción para que no aparezcan en la imagen */
+.sup-capture.is-capturing .sup-card-actions .btn { display: none; }
+.sup-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sup-table {
+  width: 100%; min-width: 480px; border-collapse: collapse;
+  font-size: .88rem; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+.sup-table th, .sup-table td {
+  padding: 7px 10px; border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.sup-table thead th {
+  background: var(--panel-soft); font-weight: 700; font-size: .82rem;
+}
+.sup-table .sup-metric-label { text-align: left; font-weight: 500; }
+.sup-table .sup-cells-group { font-weight: 700; }
+.sup-table .sup-total-col { background: var(--panel-soft); font-weight: 700; color: var(--brand); }
+.sup-table .sup-empty { color: var(--muted); }
+.sup-section-header td {
+  font-weight: 700; text-align: left;
+  font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
+  padding: 6px 10px;
+}
+.sup-section-planning td { background: #e8efff; color: #2a3d8c; }
+.sup-section-reach td    { background: #fff1e0; color: #8a4a0d; }
+.sup-section-sunday td   { background: #e8f7ee; color: #1f6b3a; }
+.sup-footnote { margin-top: 10px; font-size: .78rem; color: var(--muted); font-style: italic; }
+
+/* ── Approval bar (supervisor → coordinator workflow) ──────────────── */
+.appr-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 14px; margin: 8px 0 14px;
+  border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb;
+}
+.appr-bar--pending  { background: #fff7ed; border-color: #fdba74; }
+.appr-bar--reviewed { background: #eff6ff; border-color: #93c5fd; }
+.appr-bar--approved { background: #ecfdf5; border-color: #6ee7b7; }
+.appr-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.92rem; }
+.appr-status-label { color: #6b7280; font-weight: 500; }
+.appr-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
+.appr-badge--pending  { background: #fb923c; color: white; }
+.appr-badge--reviewed { background: #3b82f6; color: white; }
+.appr-badge--approved { background: #10b981; color: white; }
+.appr-meta { color: #4b5563; font-size: 0.85rem; }
+.appr-meta-line { display: inline; }
+.appr-meta-sep { margin: 0 6px; color: #9ca3af; }
+.appr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.appr-actions .btn-sm { padding: 4px 10px; font-size: 0.85rem; }
+.appr-actions .btn-success { background: #10b981; color: white; border: 0; border-radius: 6px; cursor: pointer; }
+.appr-actions .btn-success:hover:not(:disabled) { background: #059669; }
+.appr-actions .btn-ghost { background: transparent; color: #6b7280; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; padding: 4px 10px; }
+.appr-actions .btn-ghost:hover:not(:disabled) { background: #f3f4f6; }
+.appr-actions button:disabled { opacity: 0.6; cursor: wait; }
+
+.appr-waiting { text-align: center; padding: 40px 20px; color: #6b7280; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 8px; margin: 8px 0 14px; }
+.appr-waiting-icon { font-size: 2.4rem; margin-bottom: 8px; }
+.appr-waiting-title { margin: 0 0 6px; font-weight: 600; color: #374151; font-size: 1.05rem; }
+.appr-waiting-msg { margin: 0; font-size: 0.92rem; max-width: 480px; margin-inline: auto; }
+
+.sup-cell-col { vertical-align: middle; }
+.sup-cell-col-num { display: inline-block; }
+.sup-cell-peek {
+  margin-left: 4px; background: transparent; border: 0;
+  cursor: pointer; padding: 2px 4px; border-radius: 4px;
+  opacity: 0.45; transition: opacity .15s, background .15s;
+  font-size: 0.85em; line-height: 1; vertical-align: middle;
+}
+.sup-cell-peek:hover { opacity: 1; background: rgba(0,0,0,0.06); }
+.sup-cell-peek:focus-visible { outline: 2px solid #3b82f6; outline-offset: 1px; opacity: 1; }
+
+/* Touch-friendly: agrandar 🔍 en dispositivos sin hover (móviles) */
+@media (hover: none) and (pointer: coarse) {
+  .sup-cell-peek { opacity: 0.7; padding: 8px 10px; font-size: 1em; min-width: 36px; min-height: 36px; }
+  /* Header del preview en 1 columna en pantallas chicas para no apretar */
+  .preview-header-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .preview-header-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Supervisor: tabla con primera columna "en elevación" en móvil ────── */
+@media (max-width: 720px) {
+  .sup-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    /* Scrollbar invisible */
+    scrollbar-width: none;       /* Firefox */
+    -ms-overflow-style: none;    /* IE/Edge legacy */
+  }
+  .sup-table-wrap::-webkit-scrollbar { display: none; width: 0; height: 0; } /* WebKit */
+
+  /* IMPORTANTE: quitar overflow:hidden de la tabla para que funcione sticky */
+  .sup-table { font-size: 0.85rem; overflow: visible; border-radius: 0; }
+  .sup-table th, .sup-table td { padding: 6px 8px; white-space: nowrap; }
+
+  /* Primera columna (etiqueta de métrica) elevada: sombra a la derecha
+     para que las demás columnas se vean "pasar por debajo" al scrollear. */
+  .sup-table th.sup-metric-label,
+  .sup-table td.sup-metric-label {
+    position: sticky; left: 0; z-index: 2;
+    background: #fff;
+    box-shadow: 6px 0 6px -4px rgba(0,0,0,0.18);
+    min-width: 140px; max-width: 160px;
+    white-space: normal; line-height: 1.2;
+  }
+  /* Encabezado de la columna fija un poco más arriba en z */
+  .sup-table thead th.sup-metric-label { z-index: 3; background: var(--panel-soft, #f9fafb); }
+
+  /* Las filas de sección (Planeación / Alcance / Culto) usan colspan;
+     mantenemos su primera celda también sticky para consistencia visual. */
+  .sup-table tr.sup-section-header td {
+    position: sticky; left: 0; z-index: 2;
+    box-shadow: 6px 0 6px -4px rgba(0,0,0,0.18);
+  }
+  /* Heredan fondo de la sección (planning/reach/sunday) */
+  .sup-table tr.sup-section-planning td { background: #e8efff; }
+  .sup-table tr.sup-section-reach td    { background: #fff1e0; }
+  .sup-table tr.sup-section-sunday td   { background: #e6f7ef; }
+
+  /* Columnas de células un poco más compactas */
+  .sup-table .sup-cell-col { min-width: 54px; text-align: center; }
+
+  /* Columna Total: sticky a la derecha con sombra a la izquierda */
+  .sup-table th.sup-total-col,
+  .sup-table td.sup-total-col {
+    position: sticky; right: 0; z-index: 2;
+    background: var(--panel-soft, #f0f3ff);
+    box-shadow: -6px 0 6px -4px rgba(0,0,0,0.18);
+    min-width: 60px; font-weight: 700;
+  }
+  .sup-table thead th.sup-total-col { z-index: 3; }
+
+  /* 🔍 más fácil de tocar */
+  .sup-cell-peek { padding: 6px 8px; font-size: 0.95em; }
+}

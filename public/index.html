@@ -805,6 +805,7 @@
         <!-- Sub-tab bar -->
         <div class="seg-view-tabs" id="seg-view-tab-bar">
           <button type="button" class="seg-view-tab is-active" data-segtab="seguimiento" data-i18n="nav.seguimiento">Seguimiento</button>
+          <button type="button" class="seg-view-tab" data-segtab="supervisor" data-i18n="sup.tab" hidden>Consolidado semanal</button>
           <button type="button" class="seg-view-tab" data-segtab="dashboard" data-i18n="nav.dashboard">Dashboard</button>
         </div>
 
@@ -875,6 +876,32 @@
             <div id="seguimiento-cycles-list"></div>
           </section>
 
+        </div>
+
+        <!-- Tab: Resumen por supervisor -->
+        <div id="seg-tab-supervisor" class="seg-tab-panel" hidden>
+          <section class="panel panel-soft full-width">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="sup.eyebrow">Visión consolidada</p>
+                <h2 data-i18n="sup.title">Consolidado semanal</h2>
+              </div>
+              <div class="sup-controls" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <label class="sup-control" style="display:flex;align-items:center;gap:6px;font-size:.85rem">
+                  <span data-i18n="sup.supervisor">Supervisor</span>
+                  <select id="sup-supervisor-select" class="form-select" style="height:32px;padding:2px 8px;font-size:.85rem"></select>
+                </label>
+                <label class="sup-control" style="display:flex;align-items:center;gap:6px;font-size:.85rem">
+                  <span data-i18n="sup.week">Semana</span>
+                  <select id="sup-week-select" class="form-select" style="height:32px;padding:2px 8px;font-size:.85rem"></select>
+                </label>
+              </div>
+            </div>
+            <p class="sup-hint" id="sup-hint" data-i18n="sup.hint" style="margin:0 0 12px 0;font-size:.85rem;color:var(--text-muted)">
+              Suma de todas las células del supervisor en la semana seleccionada. El supervisor revisa estos números antes de que el coordinador los apruebe.
+            </p>
+            <div id="seg-supervisor-body"></div>
+          </section>
         </div>
 
         <!-- Tab: Dashboard -->
@@ -1300,6 +1327,8 @@
     <div class="dialog-footer" id="preview-dialog-footer">
       <button id="preview-cancel-btn" type="button" class="btn btn-ghost" data-i18n="prev.keepEditing">Seguir editando</button>
       <button id="preview-edit-from-seg-btn" type="button" class="btn btn-ghost" data-i18n="prev.editReport" hidden>Editar reporte</button>
+      <button id="preview-download-btn" type="button" class="btn btn-ghost" hidden>⬇️ <span data-i18n="share.downloadPng">Descargar PNG</span></button>
+      <button id="preview-whatsapp-btn" type="button" class="btn btn-ghost" hidden><svg viewBox="0 0 32 32" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;display:inline-block"><path fill="#25D366" d="M16 .395C7.164.395 0 7.559 0 16.395c0 2.84.74 5.598 2.146 8.025L0 32l7.832-2.054a16.073 16.073 0 0 0 8.168 2.244h.007C24.844 32.19 32 25.026 32 16.19 32 7.355 24.836.394 16 .394Z"/><path fill="#FFF" d="M23.42 19.396c-.314-.158-1.86-.918-2.149-1.022-.288-.105-.498-.158-.708.157-.21.314-.812 1.022-.996 1.232-.184.21-.367.236-.681.078-.314-.157-1.327-.489-2.527-1.56-.935-.834-1.567-1.864-1.751-2.179-.184-.314-.02-.484.138-.641.142-.142.314-.367.472-.55.158-.184.21-.315.314-.524.105-.21.053-.394-.026-.551-.078-.157-.708-1.708-.97-2.339-.255-.613-.515-.53-.708-.54-.184-.01-.394-.012-.604-.012-.21 0-.55.079-.838.393-.288.314-1.1 1.075-1.1 2.625 0 1.55 1.126 3.049 1.283 3.259.158.21 2.215 3.379 5.367 4.741.75.324 1.337.518 1.793.663.753.24 1.438.206 1.98.125.604-.09 1.86-.76 2.122-1.494.262-.733.262-1.36.184-1.494-.078-.131-.288-.21-.602-.367Z"/></svg> <span data-i18n="share.whatsapp">WhatsApp</span></button>
       <button id="preview-confirm-btn" type="button" class="btn btn-primary" data-tooltip="Confirmar y enviar el reporte"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span data-i18n="prev.confirmSave">Confirmar y guardar</span></button>
     </div>
   </dialog>
@@ -1359,6 +1388,8 @@
     </div>
   </dialog>
 
-  <script type="module" src="./app.js?v=20260515-064"></script>
+  <!-- html2canvas para descargar reportes como PNG -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script type="module" src="./app.js?v=20260515-065"></script>
 </body>
 </html>
