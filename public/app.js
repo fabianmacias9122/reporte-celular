@@ -5226,14 +5226,18 @@ function renderSeguimientoSupervisor(reports) {
         downloadElementAsPng(capture, `reporte-${sanitizeFileName(sector)}-S${week}.png`);
         return;
       }
-      // Compartir resumen del supervisor por WhatsApp
+      // Compartir resumen del supervisor por WhatsApp (imagen + texto)
       const waBtn = ev.target.closest("[data-sup-whatsapp]");
       if (waBtn) {
         const capture = waBtn.closest('.sup-capture');
         const sector  = capture?.dataset.supSector || '';
         const week    = capture?.dataset.supWeek   || supervisorViewState.week;
         const sup = supervisors.find(s => String(s.sector) === String(sector));
-        if (sup) shareSupervisorOnWhatsApp(sup, reportsData, week);
+        if (sup) {
+          const text = buildSupervisorWhatsAppText(sup, reportsData, week);
+          const fname = `reporte-${sanitizeFileName(sector)}-S${week}.png`;
+          shareElementWithText(capture, text, fname);
+        }
         return;
       }
       const btn = ev.target.closest("[data-appr-action]");
@@ -6185,10 +6189,23 @@ function sanitizeFileName(s) {
 }
 
 async function downloadElementAsPng(el, filename) {
-  if (!el) return;
+  const blob = await renderElementToPngBlob(el);
+  if (!blob) return;
+  const link = document.createElement('a');
+  link.download = filename || 'reporte.png';
+  link.href = URL.createObjectURL(blob);
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+  link.remove();
+}
+
+// Genera un Blob PNG del nodo (oculta botones de acción durante la captura)
+async function renderElementToPngBlob(el) {
+  if (!el) return null;
   if (typeof window.html2canvas !== 'function') {
     alert('No se pudo cargar la utilidad de captura (html2canvas). Verifica tu conexión.');
-    return;
+    return null;
   }
   el.classList.add('is-capturing');
   try {
@@ -6198,14 +6215,10 @@ async function downloadElementAsPng(el, filename) {
       useCORS: true,
       logging: false,
     });
-    const link = document.createElement('a');
-    link.download = filename || 'reporte.png';
-    link.href = canvas.toDataURL('image/png');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    return await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/png'));
   } catch (e) {
     alert('No se pudo generar la imagen: ' + (e.message || e));
+    return null;
   } finally {
     el.classList.remove('is-capturing');
   }
@@ -6214,6 +6227,37 @@ async function downloadElementAsPng(el, filename) {
 function openWhatsApp(text) {
   const url = 'https://wa.me/?text=' + encodeURIComponent(text || '');
   window.open(url, '_blank', 'noopener');
+}
+
+// Comparte imagen + texto usando Web Share API (móvil/Android/iOS modernos).
+// Si no es posible compartir archivos, descarga la imagen y abre WhatsApp con
+// el texto, avisando al usuario que adjunte la imagen recién descargada.
+async function shareElementWithText(el, text, filename) {
+  const blob = await renderElementToPngBlob(el);
+  if (!blob) return;
+  const file = new File([blob], filename || 'reporte.png', { type: 'image/png' });
+
+  // 1) Intento moderno: compartir archivo + texto (móvil)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], text });
+      return;
+    } catch (e) {
+      // Usuario canceló o falló — caer al fallback
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+
+  // 2) Fallback escritorio: descargar PNG + abrir WhatsApp con texto
+  const link = document.createElement('a');
+  link.download = filename || 'reporte.png';
+  link.href = URL.createObjectURL(blob);
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+  link.remove();
+  alert('Se descargó la imagen. Ahora se abrirá WhatsApp Web — adjunta la imagen manualmente con el clip 📎.');
+  openWhatsApp(text);
 }
 
 // SVG oficial-ish del logo de WhatsApp (Simple Icons, dominio público).
@@ -6335,7 +6379,8 @@ async function openSupervisorReportPreview(reportId) {
     if (waBtn) {
       waBtn.hidden = false;
       waBtn.onclick = () => {
-        openWhatsApp(buildReportWhatsAppText(report));
+        const text = buildReportWhatsAppText(report);
+        shareElementWithText(previewDialogBody, text, `reporte-celula${cell}-S${week}.png`);
       };
     }
     reportPreviewDialog.showModal();
