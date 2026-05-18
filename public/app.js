@@ -8138,8 +8138,19 @@ adminSectionNav?.addEventListener("click", (event) => {
   }
   goToAdminSection(button.dataset.adminTarget);
 });
-resetButton.addEventListener("click", () => {
+resetButton.addEventListener("click", async () => {
   clearFeedback();
+  // Confirmar solo si hay algo en juego: un reporte en edición o datos capturados
+  // en cualquiera de las etapas. Evita perder un borrador por un tap accidental.
+  const hasInMemoryData =
+    (Array.isArray(currentVisitors) && currentVisitors.some(v => String(v?.name || "").trim())) ||
+    (Array.isArray(currentMemberAttendance) && currentMemberAttendance.length > 0) ||
+    (Array.isArray(currentKids) && currentKids.some(k => String(k?.name || "").trim())) ||
+    (Array.isArray(currentBaptisms) && currentBaptisms.some(b => String(b?.name || "").trim()));
+  if (editingReportId || hasInMemoryData) {
+    const ok = await appConfirm(t('conf.resetFormMsg'), t('conf.resetForm'));
+    if (!ok) return;
+  }
   resetReportForm();
 });
 peopleResetButton.addEventListener("click", () => {
