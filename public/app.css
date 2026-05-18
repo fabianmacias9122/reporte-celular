@@ -2830,15 +2830,19 @@ body.force-mobile-preview h2 { font-size: 1rem; }
 /* Supervisor summary table (sub-tab "supervisor") */
 .sup-card-head {
   display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: 10px; margin: 4px 0 14px;
-  padding: 10px 12px; background: var(--panel-soft);
-  border: 1px solid var(--line); border-radius: 8px;
+  flex-wrap: wrap; gap: 12px; margin: 4px 0 14px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px;
 }
-.sup-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .9rem; }
-.sup-meta-label { color: var(--muted); font-size: .8rem; }
-.sup-meta-sep { color: var(--muted); margin: 0 4px; }
+.sup-card-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; font-size: .92rem;
+}
+.sup-meta-label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.sup-meta-sep { color: var(--line); margin: 0 2px; font-weight: 400; }
+.sup-card-meta strong { color: var(--text); font-weight: 700; }
 .sup-coverage-chip {
-  font-size: .78rem; font-weight: 600; padding: 4px 10px; border-radius: 99px;
+  font-size: .78rem; font-weight: 600; padding: 4px 11px; border-radius: 99px;
   background: var(--brand); color: #fff;
 }
 .sup-card-actions {
@@ -2867,57 +2871,82 @@ body.force-mobile-preview h2 { font-size: 1rem; }
   position: static !important;
   box-shadow: none !important;
 }
-.sup-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sup-table-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
+}
 .sup-table {
-  width: 100%; min-width: 480px; border-collapse: collapse;
-  font-size: .88rem; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  width: 100%; min-width: 480px; border-collapse: separate; border-spacing: 0;
+  font-size: .9rem; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  font-variant-numeric: tabular-nums;
 }
 .sup-table th, .sup-table td {
-  padding: 7px 10px; border-bottom: 1px solid var(--line);
+  padding: 9px 12px; border-bottom: 1px solid var(--line);
   text-align: center;
 }
+.sup-table tbody tr:last-child td { border-bottom: none; }
 .sup-table thead th {
-  background: var(--panel-soft); font-weight: 700; font-size: .82rem;
+  background: #f8fafc;
+  font-weight: 700; font-size: .8rem;
+  color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--line);
 }
-.sup-table .sup-metric-label { text-align: left; font-weight: 500; }
+.sup-table .sup-metric-label {
+  text-align: left; font-weight: 500; color: var(--text);
+  padding-left: 16px;
+}
+.sup-table tbody tr:not(.sup-section-header):hover td { background: #f8fafc; }
 .sup-table .sup-cells-group { font-weight: 700; }
-.sup-table .sup-total-col { background: var(--panel-soft); font-weight: 700; color: var(--brand); }
-.sup-table .sup-empty { color: var(--muted); }
+.sup-table .sup-total-col {
+  background: #f8fafc;
+  font-weight: 700; color: var(--brand);
+  border-left: 1px solid var(--line);
+}
+.sup-table thead th.sup-total-col { background: #f1f5f9; color: var(--brand); }
+.sup-table .sup-empty { color: var(--muted); opacity: .6; }
 .sup-section-header td {
   font-weight: 700; text-align: left;
-  font-size: .8rem; text-transform: uppercase; letter-spacing: .04em;
-  padding: 6px 10px;
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  padding: 6px 14px;
+  border-top: 1px solid var(--line);
 }
-.sup-section-planning td { background: #e8efff; color: #2a3d8c; }
-.sup-section-reach td    { background: #fff1e0; color: #8a4a0d; }
-.sup-section-sunday td   { background: #e8f7ee; color: #1f6b3a; }
+.sup-section-header td::before {
+  content: ""; display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  margin-right: 8px; vertical-align: middle;
+  background: currentColor;
+}
+.sup-section-planning td { background: #f5f7ff; color: #4f46e5; }
+.sup-section-reach td    { background: #fff7ed; color: #c2410c; }
+.sup-section-sunday td   { background: #f0fdf4; color: #15803d; }
 .sup-footnote { margin-top: 10px; font-size: .78rem; color: var(--muted); font-style: italic; }
 
 /* ── Approval bar (supervisor → coordinator workflow) ──────────────── */
 .appr-bar {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 12px; padding: 10px 14px; margin: 8px 0 14px;
-  border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb;
+  border-radius: 10px; border: 1px solid #e5e7eb; background: #fafafa;
 }
-.appr-bar--pending  { background: #fff7ed; border-color: #fdba74; }
-.appr-bar--reviewed { background: #eff6ff; border-color: #93c5fd; }
-.appr-bar--approved { background: #ecfdf5; border-color: #6ee7b7; }
-.appr-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.92rem; }
-.appr-status-label { color: #6b7280; font-weight: 500; }
-.appr-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
-.appr-badge--pending  { background: #fb923c; color: white; }
-.appr-badge--reviewed { background: #3b82f6; color: white; }
-.appr-badge--approved { background: #10b981; color: white; }
+.appr-bar--pending  { background: #fff7ed; border-color: #fed7aa; }
+.appr-bar--reviewed { background: #eff6ff; border-color: #bfdbfe; }
+.appr-bar--approved { background: #ecfdf5; border-color: #a7f3d0; }
+.appr-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.92rem; }
+.appr-status-label { color: #6b7280; font-weight: 600; text-transform: uppercase; font-size: .72rem; letter-spacing: .05em; }
+.appr-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 999px; font-size: 0.82rem; font-weight: 600; }
+.appr-badge--pending  { background: #f97316; color: white; }
+.appr-badge--reviewed { background: #2563eb; color: white; }
+.appr-badge--approved { background: #059669; color: white; }
 .appr-meta { color: #4b5563; font-size: 0.85rem; }
 .appr-meta-line { display: inline; }
 .appr-meta-sep { margin: 0 6px; color: #9ca3af; }
-.appr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.appr-actions .btn-sm { padding: 4px 10px; font-size: 0.85rem; }
-.appr-actions .btn-success { background: #10b981; color: white; border: 0; border-radius: 6px; cursor: pointer; }
-.appr-actions .btn-success:hover:not(:disabled) { background: #059669; }
-.appr-actions .btn-ghost { background: transparent; color: #6b7280; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; padding: 4px 10px; }
-.appr-actions .btn-ghost:hover:not(:disabled) { background: #f3f4f6; }
+.appr-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.appr-actions .btn-sm { padding: 5px 12px; font-size: 0.85rem; font-weight: 600; }
+.appr-actions .btn-success { background: #059669; color: white; border: 0; border-radius: 6px; cursor: pointer; transition: background .15s; }
+.appr-actions .btn-success:hover:not(:disabled) { background: #047857; }
+.appr-actions .btn-ghost { background: #fff; color: #4b5563; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; padding: 5px 11px; transition: background .15s, border-color .15s; }
+.appr-actions .btn-ghost:hover:not(:disabled) { background: #f3f4f6; border-color: #9ca3af; }
 .appr-actions button:disabled { opacity: 0.6; cursor: wait; }
 
 .appr-waiting { text-align: center; padding: 40px 20px; color: #6b7280; background: #fafafa; border: 1px dashed #d1d5db; border-radius: 8px; margin: 8px 0 14px; }
@@ -2948,6 +2977,47 @@ body.force-mobile-preview h2 { font-size: 1rem; }
 
 /* ── Supervisor: tabla con primera columna "en elevación" en móvil ────── */
 @media (max-width: 720px) {
+  /* Header card del supervisor: layout vertical y compacto */
+  .sup-card-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+  .sup-card-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    font-size: .88rem;
+    align-items: baseline;
+  }
+  .sup-card-meta .sup-meta-sep { display: none; }
+  .sup-card-meta .sup-meta-label { white-space: nowrap; }
+  .sup-card-meta strong { text-align: left; }
+  .sup-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+  .sup-coverage-chip { flex: 0 0 auto; }
+  .sup-card-actions .btn { flex: 1 1 auto; justify-content: center; }
+
+  /* Approval bar: estado arriba, acción abajo a ancho completo */
+  .appr-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+  .appr-status { font-size: .9rem; }
+  .appr-actions { width: 100%; }
+  .appr-actions .btn-sm { flex: 1 1 auto; text-align: center; }
+
+  /* Controles superiores (Supervisor / Semana) a ancho completo */
+  .sup-controls { width: 100%; }
+  .sup-control { flex: 1 1 100%; justify-content: space-between; }
+  .sup-control select { flex: 1 1 auto; min-width: 0; max-width: 70%; }
+
   .sup-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;

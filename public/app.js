@@ -6092,11 +6092,11 @@ function renderSupervisorSummaryTable(supervisor, cells, reports, week) {
   const buttons = [];
   // Solo el supervisor del sector puede revisar y enviar al coordinador
   if (state === 'pendiente' && isSupervisor) {
-    buttons.push(`<button type="button" class="btn btn-sm btn-primary" data-appr-action="supervisor_review" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">${t('appr.btnReview')}</button>`);
+    buttons.push(`<button type="button" class="btn btn-sm btn-success" data-appr-action="supervisor_review" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">✓ ${t('appr.btnReview')}</button>`);
   }
   // Solo el coordinador aprueba (cuando el supervisor ya envió)
   if (state === 'revisado_supervisor' && isAdmin) {
-    buttons.push(`<button type="button" class="btn btn-sm btn-success" data-appr-action="coordinator_approve" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">${t('appr.btnApprove')}</button>`);
+    buttons.push(`<button type="button" class="btn btn-sm btn-success" data-appr-action="coordinator_approve" data-appr-sector="${escapeHtml(supervisor.sector)}" data-appr-week="${escapeHtml(weekStr)}">✓ ${t('appr.btnApprove')}</button>`);
   }
   // Regresar a pendiente: supervisor (si está enviado) o admin (cualquier estado ≠ pendiente)
   if (state !== 'pendiente' && ((isSupervisor && state === 'revisado_supervisor') || isAdmin)) {
@@ -6132,7 +6132,7 @@ function renderSupervisorSummaryTable(supervisor, cells, reports, week) {
       </div>
       <div class="sup-card-actions">
         <span class="sup-coverage-chip">${reportedCount}/${totalCells} ${t('sup.cellsReported')}</span>
-        <button type="button" class="btn btn-sm btn-ghost" data-sup-download title="${t('share.downloadPng')}" aria-label="${t('share.downloadPng')}">⬇️ PNG</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-sup-download title="${t('share.downloadPng')}" aria-label="${t('share.downloadPng')}">${downloadIconSvg(14)} PNG</button>
         <button type="button" class="btn btn-sm btn-ghost" data-sup-whatsapp title="${t('share.whatsapp')}" aria-label="${t('share.whatsapp')}">${whatsappIconSvg(14)} WhatsApp</button>
       </div>
     </div>
@@ -7014,6 +7014,15 @@ function whatsappIconSvg(size = 14) {
 }
 // Expone helper para usos fuera de módulo (footer del modal)
 window.whatsappIconSvg = whatsappIconSvg;
+
+function downloadIconSvg(size = 14) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;display:inline-block">
+    <path d="M12 3v12"/>
+    <path d="m7 10 5 5 5-5"/>
+    <path d="M5 21h14"/>
+  </svg>`;
+}
+window.downloadIconSvg = downloadIconSvg;
 
 function buildSupervisorWhatsAppText(supervisor, reports, week) {
   const weekStr  = String(week);
