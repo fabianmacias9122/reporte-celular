@@ -1450,6 +1450,20 @@ tr.people-group-header + tr td { border-top: none; }
 .metrics-stat-value { font-size: 1.45rem; font-weight: 800; line-height: 1; color: var(--brand-deep); }
 .metrics-stat-label { font-size: 0.74rem; color: var(--muted); }
 
+/* DASHBOARD TRENDS (Chart.js) */
+.dashboard-trends-scope select { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; font-size: 0.85rem; color: var(--text); cursor: pointer; }
+.dashboard-trends-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 6px 0 14px; }
+.trend-series-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted); cursor: pointer; user-select: none; padding: 4px 10px; border-radius: 999px; background: var(--panel-soft); border: 1px solid var(--line); transition: background 0.15s; }
+.trend-series-toggle:hover { background: #eef2ff; }
+.trend-series-toggle input { accent-color: var(--brand); cursor: pointer; }
+.dashboard-trends-canvas-wrap { position: relative; height: 320px; width: 100%; }
+.dashboard-trends-empty { color: var(--muted); font-size: 0.9rem; padding: 24px 6px; text-align: center; }
+@media (max-width: 720px) {
+  .dashboard-trends-canvas-wrap { height: 260px; }
+  .dashboard-trends-controls { gap: 6px 8px; }
+  .trend-series-toggle { font-size: 0.78rem; padding: 3px 8px; }
+}
+
 /* MEMBER ADMIN */
 .member-admin { display: grid; gap: 12px; }
 

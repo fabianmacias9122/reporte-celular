@@ -2984,6 +2984,7 @@ function renderDashboardForLeader(reports) {
 
   // Metrics: scoped to this cell, selected time scope
   renderDashboardMetrics(scopeReports, t('cell.numbered', { n: cellNum }));
+  renderDashboardTrends(allCellReports, { selectedYear, selectedQuarter });
   renderDashboardBaptisms(allCellReports);
 }
 
@@ -3190,6 +3191,8 @@ function renderDashboard(reports) {
 
   // ── Métricas consolidadas ───────────────────────────────────────────────
   renderDashboardMetrics(scopeTimeReports, scopeLabel);
+  // ── Tendencias del cuatrimestre (gráficas) ──────────────────────────────
+  renderDashboardTrends(scopedReports, { selectedYear, selectedQuarter });
   // ── Bautismos ────────────────────────────────────────────────────────────
   renderDashboardBaptisms(scopedReports);
 }
@@ -3574,6 +3577,210 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   } else {
     dashboardMetricsBody.innerHTML = `<div class="metrics-breakdown-grid">${renderMetricsBlock("", aggregateMetrics(weeklyReports))}</div>`;
   }
+}
+
+// ── Tendencias del cuatrimestre (Chart.js) ──────────────────────────────────
+// Reusa getScopedReports() para asegurar que cada rol solo vea lo que le toca.
+// Liders → su célula. Supervisores → su sector. Coordinadores → todos los sectores.
+let _trendChartInstance = null;
+let _trendActiveScope   = "auto";       // 'auto' | 'all' | 'sector:X' | 'cell:N'
+const _trendSeriesEnabled = { planning: true, reach: true, sunday: true, visitors: false, offering: false };
+
+const TREND_SERIES_DEFS = [
+  { key: "planning", color: "#1d4ed8", labelKey: "dash.trendPlanning", yAxis: "y" },
+  { key: "reach",    color: "#16a34a", labelKey: "dash.trendReach",    yAxis: "y" },
+  { key: "sunday",   color: "#9333ea", labelKey: "dash.trendSunday",   yAxis: "y" },
+  { key: "visitors", color: "#f97316", labelKey: "dash.trendVisitors", yAxis: "y" },
+  { key: "offering", color: "#0891b2", labelKey: "dash.trendOffering", yAxis: "y1" },
+];
+
+function _trendSeriesValueFor(agg, key) {
+  switch (key) {
+    case "planning": return Number(agg.planningPresent || 0);
+    case "reach":    return Number(agg.reachMembers || 0) + Number(agg.reachFriends || 0) + Number(agg.reachRestor || 0) + Number(agg.reachKids || 0);
+    case "sunday":   return Number(agg.sundayTotal || (Number(agg.sundayMembers||0)+Number(agg.sundayVisitors||0)+Number(agg.sundayKids||0)));
+    case "visitors": return Number(agg.reachFriends || 0) + Number(agg.reachRestor || 0);
+    case "offering": return Number(agg.offering || 0);
+    default: return 0;
+  }
+}
+
+function renderDashboardTrends(scopedReports, { selectedYear, selectedQuarter } = {}) {
+  const canvas    = document.getElementById("dashboard-trends-canvas");
+  const wrap      = document.getElementById("dashboard-trends-canvas-wrap");
+  const emptyMsg  = document.getElementById("dashboard-trends-empty");
+  const scopeWrap = document.getElementById("dashboard-trends-scope");
+  const scopeSel  = document.getElementById("dashboard-trends-scope-select");
+  if (!canvas || typeof Chart === "undefined") return;
+
+  // Verificación dura: aunque ya recibimos scopedReports, re-aplicamos el filtro
+  // por rol para defender contra llamadas mal escopadas. Defensa en profundidad.
+  const safeReports = getScopedReports(scopedReports || []);
+  const year    = String(selectedYear    || new Date().getFullYear());
+  const quarter = String(selectedQuarter || getCurrentQuarter());
+
+  // ── Construir selector de ámbito según rol ──────────────────────────────
+  const isAdmin      = !!currentUser?.isAdmin;
+  const isSupervisor = !!(currentUser?.isSupervisor && currentUser?.supervisedSector);
+  const myCellNum    = String(currentUser?.assignedCellNumber || "").trim();
+  const mySector     = String(currentUser?.supervisedSector || "").trim();
+
+  // Lista de sectores visibles para este usuario
+  let visibleSectors = [];
+  if (isAdmin) {
+    visibleSectors = [...new Set((catalogs.cells || []).map(c => String(c.sector || "").trim()).filter(Boolean))].sort();
+  } else if (isSupervisor) {
+    visibleSectors = [mySector];
+  }
+
+  // Render del select solo si hay opciones reales (más de una)
+  const scopeOptions = [];
+  if (isAdmin) {
+    scopeOptions.push({ value: "all", label: t('dash.trendScopeAll') });
+    visibleSectors.forEach(s => scopeOptions.push({ value: `sector:${s}`, label: t('dash.trendScopeSector', { n: s }) }));
+  } else if (isSupervisor) {
+    scopeOptions.push({ value: `sector:${mySector}`, label: t('dash.trendScopeMine') });
+    if (myCellNum) scopeOptions.push({ value: `cell:${myCellNum}`, label: t('dash.trendScopeMyCell') });
+  }
+  // Líderes sin rol extra: no hay selector (siempre su célula)
+
+  if (scopeWrap && scopeSel) {
+    if (scopeOptions.length > 1) {
+      scopeWrap.hidden = false;
+      const currentVal = _trendActiveScope === "auto" ? scopeOptions[0].value : _trendActiveScope;
+      scopeSel.innerHTML = scopeOptions.map(o => `<option value="${o.value}" ${o.value === currentVal ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
+      _trendActiveScope = scopeSel.value;
+      if (!scopeSel.dataset.wired) {
+        scopeSel.addEventListener("change", () => {
+          _trendActiveScope = scopeSel.value;
+          renderDashboardTrends(reportsData, { selectedYear: year, selectedQuarter: quarter });
+        });
+        scopeSel.dataset.wired = "1";
+      }
+    } else {
+      scopeWrap.hidden = true;
+      _trendActiveScope = scopeOptions[0]?.value || "auto";
+    }
+  }
+
+  // ── Aplicar filtro de ámbito (validado contra lo permitido por el rol) ──
+  let filteredReports = safeReports;
+  const scope = _trendActiveScope;
+  if (scope && scope.startsWith("sector:")) {
+    const wantedSector = scope.slice(7);
+    // Solo aceptamos si el rol lo permite (admin: cualquiera; supervisor: solo el suyo)
+    const allowed = isAdmin || (isSupervisor && wantedSector === mySector);
+    if (allowed) {
+      const cellsInSector = new Set((catalogs.cells || []).filter(c => String(c.sector || "").trim() === wantedSector).map(c => String(c.cellNumber)));
+      filteredReports = safeReports.filter(r => cellsInSector.has(String(r.cellNumber || r.formData?.cellNumber || "")));
+    }
+  } else if (scope && scope.startsWith("cell:")) {
+    const wantedCell = scope.slice(5);
+    // Solo aceptamos si el rol lo permite (admin: cualquiera; supervisor: cells de su sector; líder: su propia célula)
+    const cell = (catalogs.cells || []).find(c => String(c.cellNumber) === wantedCell);
+    const cellSector = String(cell?.sector || "").trim();
+    const allowed = isAdmin
+      || (isSupervisor && cellSector === mySector)
+      || (!isAdmin && !isSupervisor && wantedCell === myCellNum);
+    if (allowed) {
+      filteredReports = safeReports.filter(r => String(r.cellNumber || r.formData?.cellNumber || "") === wantedCell);
+    }
+  }
+
+  // ── Reducir al cuatrimestre seleccionado ────────────────────────────────
+  const quarterReports = filteredReports.filter(r =>
+    getReportYear(r) === year && String(getReportQuarter(r)) === quarter
+  );
+
+  if (!quarterReports.length) {
+    if (emptyMsg) emptyMsg.hidden = false;
+    if (wrap) wrap.style.display = "none";
+    if (_trendChartInstance) { _trendChartInstance.destroy(); _trendChartInstance = null; }
+    return;
+  }
+  if (emptyMsg) emptyMsg.hidden = true;
+  if (wrap) wrap.style.display = "";
+
+  // ── Agrupar por semana (1..16) y agregar ────────────────────────────────
+  const WEEKS = Array.from({ length: 16 }, (_, i) => i + 1);
+  const reportsByWeek = new Map();
+  quarterReports.forEach(r => {
+    const w = parseInt(getReportWeek(r), 10);
+    if (!w || w < 1 || w > 16) return;
+    if (!reportsByWeek.has(w)) reportsByWeek.set(w, []);
+    reportsByWeek.get(w).push(r);
+  });
+
+  const labels = WEEKS.map(w => t('dash.trendWeekShort', { n: w }));
+  const aggByWeek = WEEKS.map(w => {
+    const reps = reportsByWeek.get(w) || [];
+    return reps.length ? aggregateMetrics(reps) : null;
+  });
+
+  // ── Construir datasets según series activas ─────────────────────────────
+  const datasets = TREND_SERIES_DEFS
+    .filter(def => _trendSeriesEnabled[def.key])
+    .map(def => ({
+      label: t(def.labelKey),
+      data: aggByWeek.map(a => a ? _trendSeriesValueFor(a, def.key) : null),
+      borderColor: def.color,
+      backgroundColor: def.color + "22",
+      tension: 0.3,
+      spanGaps: true,
+      yAxisID: def.yAxis,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      borderWidth: 2,
+    }));
+
+  // ── Destruir gráfica previa y crear nueva ───────────────────────────────
+  if (_trendChartInstance) { _trendChartInstance.destroy(); _trendChartInstance = null; }
+  const ctx = canvas.getContext("2d");
+  _trendChartInstance = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const v = ctx.parsed.y;
+              if (v == null) return `${ctx.dataset.label}: —`;
+              if (ctx.dataset.yAxisID === "y1") return `${ctx.dataset.label}: $${v.toLocaleString()}`;
+              return `${ctx.dataset.label}: ${v}`;
+            },
+          },
+        },
+      },
+      scales: {
+        y:  { beginAtZero: true, ticks: { precision: 0 } },
+        y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false },
+              ticks: { callback: (v) => "$" + Number(v).toLocaleString() } },
+      },
+    },
+  });
+
+  // Wire de checkboxes (una sola vez por sesión)
+  if (!document.body.dataset.trendChecksWired) {
+    document.querySelectorAll('[data-trend-series]').forEach(chk => {
+      chk.addEventListener("change", () => {
+        const key = chk.dataset.trendSeries;
+        if (!(key in _trendSeriesEnabled)) return;
+        _trendSeriesEnabled[key] = !!chk.checked;
+        renderDashboardTrends(reportsData, { selectedYear: year, selectedQuarter: quarter });
+      });
+    });
+    document.body.dataset.trendChecksWired = "1";
+  }
+  // Asegurar que el estado visual de los checks coincida con _trendSeriesEnabled
+  document.querySelectorAll('[data-trend-series]').forEach(chk => {
+    const key = chk.dataset.trendSeries;
+    if (key in _trendSeriesEnabled) chk.checked = _trendSeriesEnabled[key];
+  });
 }
 
 function renderDashboardBaptisms(scopedReports) {

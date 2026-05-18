@@ -962,6 +962,30 @@
             <div id="dashboard-metrics-body"></div>
           </section>
 
+          <!-- Tendencias del cuatrimestre (gráficas) -->
+          <section class="panel panel-soft" id="dashboard-trends-section">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" data-i18n="dash.trends">Tendencias</p>
+                <h2 data-i18n="dash.trendsTitle">Tendencias del cuatrimestre</h2>
+              </div>
+              <div id="dashboard-trends-scope" class="dashboard-trends-scope" hidden>
+                <select id="dashboard-trends-scope-select" aria-label="Ámbito de la gráfica"></select>
+              </div>
+            </div>
+            <div id="dashboard-trends-controls" class="dashboard-trends-controls">
+              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="planning" checked> <span data-i18n="dash.trendPlanning">Planeación</span></label>
+              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="reach" checked> <span data-i18n="dash.trendReach">Alcance</span></label>
+              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="sunday" checked> <span data-i18n="dash.trendSunday">Culto</span></label>
+              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="visitors"> <span data-i18n="dash.trendVisitors">Visitas</span></label>
+              <label class="trend-series-toggle"><input type="checkbox" data-trend-series="offering"> <span data-i18n="dash.trendOffering">Ofrenda</span></label>
+            </div>
+            <div id="dashboard-trends-canvas-wrap" class="dashboard-trends-canvas-wrap">
+              <canvas id="dashboard-trends-canvas" height="320" aria-label="Gráfica de tendencias del cuatrimestre"></canvas>
+            </div>
+            <p id="dashboard-trends-empty" class="dashboard-trends-empty" data-i18n="dash.trendsEmpty" hidden>Aún no hay reportes en este cuatrimestre.</p>
+          </section>
+
           <section class="panel panel-soft" id="dashboard-baptisms-section">
             <div class="panel-head">
               <div>
@@ -1390,6 +1414,8 @@
 
   <!-- html2canvas para descargar reportes como PNG -->
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <script type="module" src="./app.js?v=20260515-065"></script>
+  <!-- Chart.js para graficas del Dashboard -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script type="module" src="./app.js?v=20260518-001"></script>
 </body>
 </html>
