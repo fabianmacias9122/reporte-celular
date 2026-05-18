@@ -11,6 +11,9 @@ venv/
 
 # DB - se sube al repo para persistencia en Render free tier
 # data/*.db
+# Backups locales del .db (no subir, solo desarrollo)
+data/*.db.bak-*
+data/_archive/
 
 # OS
 .DS_Store
