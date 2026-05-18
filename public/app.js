@@ -5787,7 +5787,12 @@ function resetReportForm() {
   renderReportPersonSelects();
   renderCellOptions();
   if (catalogs.cells.length) {
-    const defaultCell = findFirstCellWithMembers() || catalogs.cells[0];
+    // Si el usuario tiene una célula asignada (líder/asistente), priorizarla
+    // sobre la primera célula del catálogo: así "Limpiar" no lo deja en una
+    // célula ajena (que dispara el banner de solo-lectura).
+    const ownCellNum = String(currentUser?.assignedCellNumber || "").trim();
+    const ownCell = ownCellNum ? findCellByNumber(ownCellNum) : null;
+    const defaultCell = ownCell || findFirstCellWithMembers() || catalogs.cells[0];
     cellField.value = defaultCell.cellNumber;
     syncReportWithCell(true);
   } else {
@@ -5799,6 +5804,12 @@ function resetReportForm() {
   }
   syncPhaseIndicator();
   renderBaptismTable();
+  // Refrescar permisos (oculta/show el banner de solo-lectura segun la celula activa)
+  applyReportFormPermissions();
+  // Llevar al usuario de regreso a la primera etapa (Inicio) para empezar limpio
+  showStage("encabezado", { skipWeekCheck: true });
+  // Scroll al inicio del formulario por comodidad
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* noop */ }
 }
 
 function getInvitedByPeople() {
