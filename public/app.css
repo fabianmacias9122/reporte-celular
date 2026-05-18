@@ -2687,6 +2687,7 @@ details.ev-section:not([open]) > .ev-body { display: none; }
 .trend-th-ev   { min-width: 88px; }
 .trend-th-section { text-align: center; color: var(--brand-deep); font-size: 0.7rem; letter-spacing: 0.06em; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
 .trend-th-friends { background: linear-gradient(180deg, rgba(99,102,241,0.06), transparent); }
+.trend-th-restor  { background: linear-gradient(180deg, rgba(147,51,234,0.07), transparent); color: #6a1b9a; }
 .trend-subhead th { font-size: 0.62rem; padding: 4px 8px; text-transform: none; letter-spacing: 0.02em; color: var(--muted); border-bottom: 2px solid var(--line); font-weight: 600; text-align: center; }
 .trend-subhead th:first-child { border-bottom-color: transparent; }
 .trend-table tfoot .trend-avg-row td { background: var(--soft, #f8f8fa); font-weight: 700; padding: 6px 8px; border-top: 2px solid var(--line); }
@@ -2696,13 +2697,14 @@ details.ev-section:not([open]) > .ev-body { display: none; }
 .trend-uniq-row td { background: rgba(99,102,241,0.06) !important; border-top: 1px dashed var(--line) !important; }
 .trend-td-hover { position: relative; cursor: help; }
 .trend-pop {
-  position: absolute; z-index: 50; left: 50%; top: 100%; transform: translate(-50%, 4px);
+  position: fixed; z-index: 9999;
+  left: var(--pop-left, -9999px); top: var(--pop-top, -9999px);
   background: #ffffff; border: 1px solid var(--line); border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  padding: 8px 10px; min-width: 160px; max-width: 240px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  padding: 8px 10px; min-width: 160px; max-width: min(280px, calc(100vw - 16px));
   display: none; pointer-events: none; text-align: left;
 }
-.trend-td-hover:hover .trend-pop { display: block; }
+.trend-td-hover.is-pop-open > .trend-pop { display: block; }
 .trend-pop-title { display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 700; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
 .trend-pop-name { display: block; font-size: 0.72rem; color: var(--text); padding: 1px 0; white-space: nowrap; }
 .trend-pop-name.is-sunday { color: var(--brand-deep); font-weight: 600; }
@@ -2741,6 +2743,7 @@ details.ev-section:not([open]) > .ev-body { display: none; }
 .trend-donut-reach   .trend-donut-fill { stroke: var(--success); }
 .trend-donut-friends .trend-donut-fill { stroke: #7a8fc0; }
 .trend-donut-sunday  .trend-donut-fill { stroke: #4a90d9; }
+.trend-donut-restor  .trend-donut-fill { stroke: #9333ea; }
 .trend-donut-text { font-size: 10px; font-weight: 800; fill: var(--text); font-family: inherit; }
 .trend-donut-sub  { font-size: 0.75rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
 

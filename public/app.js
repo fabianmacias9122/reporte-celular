@@ -3700,7 +3700,9 @@ function renderMetricsTrendByCell(reports) {
 
   const rows = Array.from(byCell.entries()).map(([cellNum, reps]) => {
     let totalRoster = 0, plan = 0, reach = 0, friends = 0, sunday = 0, sundayFriends = 0, conv = 0;
+    let restor = 0, sundayRestor = 0;
     const friendsReachMap = new Map(), friendsSundayMap = new Map();
+    const restorReachMap  = new Map(), restorSundayMap  = new Map();
     reps.forEach(r => {
       const s = r.formData?.attendanceSummary || {};
       totalRoster   += Number(s.totalMembers || 0);
@@ -3712,22 +3714,33 @@ function renderMetricsTrendByCell(reports) {
       conv          += Number(s.reachConversions        || 0);
       const vs = Array.isArray(r.formData?.visitors) ? r.formData.visitors : [];
       vs.forEach(v => {
-        if (String(v?.kind || "amigo").toLowerCase() === "visita") return;
         const nm = String(v?.name || "").trim();
         if (!nm) return;
         const k = nm.toLowerCase();
-        if (v.reachAttended)  friendsReachMap.set(k,  (friendsReachMap.get(k)  || nm));
-        if (v.sundayAttended) friendsSundayMap.set(k, (friendsSundayMap.get(k) || nm));
+        const isRestor = String(v?.kind || "amigo").toLowerCase() === "visita";
+        if (isRestor) {
+          if (v.reachAttended)  { restor++;       restorReachMap.set(k,  (restorReachMap.get(k)  || nm)); }
+          if (v.sundayAttended) { sundayRestor++; restorSundayMap.set(k, (restorSundayMap.get(k) || nm)); }
+        } else {
+          if (v.reachAttended)  friendsReachMap.set(k,  (friendsReachMap.get(k)  || nm));
+          if (v.sundayAttended) friendsSundayMap.set(k, (friendsSundayMap.get(k) || nm));
+        }
       });
     });
-    const reachNames  = [...friendsReachMap.values()].sort((a, b) => a.localeCompare(b));
-    const sundayNames = [...friendsSundayMap.values()].sort((a, b) => a.localeCompare(b));
+    const reachNames        = [...friendsReachMap.values()].sort((a, b) => a.localeCompare(b));
+    const sundayNames       = [...friendsSundayMap.values()].sort((a, b) => a.localeCompare(b));
+    const restorReachNames  = [...restorReachMap.values()].sort((a, b) => a.localeCompare(b));
+    const restorSundayNames = [...restorSundayMap.values()].sort((a, b) => a.localeCompare(b));
     return {
       cellNum, label: cellLabelMap.get(cellNum) || "", weeks: reps.length,
       totalRoster, plan, reach, friends, sunday, sundayFriends, conv,
       friendsUniqReach: reachNames.length,
       friendsUniqSunday: sundayNames.length,
       reachNames, sundayNames,
+      restor, sundayRestor,
+      restorUniqReach: restorReachNames.length,
+      restorUniqSunday: restorSundayNames.length,
+      restorReachNames, restorSundayNames,
     };
   }).sort((a, b) => (Number(a.cellNum) || 0) - (Number(b.cellNum) || 0));
 
@@ -3736,7 +3749,10 @@ function renderMetricsTrendByCell(reports) {
     roster: a.roster + r.totalRoster, friends: a.friends + r.friends,
     sundayFriends: a.sundayFriends + r.sundayFriends, conv: a.conv + r.conv,
     uniqReach: a.uniqReach + r.friendsUniqReach, uniqSunday: a.uniqSunday + r.friendsUniqSunday,
-  }), { plan: 0, reach: 0, sunday: 0, roster: 0, friends: 0, sundayFriends: 0, conv: 0, uniqReach: 0, uniqSunday: 0 });
+    restorUniqReach:  a.restorUniqReach  + r.restorUniqReach,
+    restorUniqSunday: a.restorUniqSunday + r.restorUniqSunday,
+    restor: a.restor + r.restor, sundayRestor: a.sundayRestor + r.sundayRestor,
+  }), { plan: 0, reach: 0, sunday: 0, roster: 0, friends: 0, sundayFriends: 0, conv: 0, uniqReach: 0, uniqSunday: 0, restorUniqReach: 0, restorUniqSunday: 0, restor: 0, sundayRestor: 0 });
 
   dashboardMetricsBody.innerHTML = `
     <div class="trend-table-wrap">
@@ -3748,6 +3764,8 @@ function renderMetricsTrendByCell(reports) {
           <th class="trend-th-ev"></th>
           <th class="trend-th-ev trend-th-section trend-th-friends">Amigos</th>
           <th class="trend-th-ev trend-th-friends"></th>
+          <th class="trend-th-ev trend-th-section trend-th-restor">Restauración</th>
+          <th class="trend-th-ev trend-th-restor"></th>
           <th class="trend-th-ev trend-th-friends"></th>
         </tr>
         <tr class="trend-subhead">
@@ -3757,6 +3775,8 @@ function renderMetricsTrendByCell(reports) {
           <th>${t('met.cultoBrosShort')}</th>
           <th title="Personas distintas que asistieron al alcance">Amigos únicos</th>
           <th title="Personas distintas que pasaron del alcance al culto">Retención (únicos)</th>
+          <th title="Hermanos en restauración únicos en el alcance">Rest. alcance</th>
+          <th title="Hermanos en restauración que pasaron del alcance al culto">Rest. culto</th>
           <th title="Decisiones de fe registradas">Conv.</th>
         </tr></thead>
         <tbody>${rows.map(r => {
@@ -3772,6 +3792,18 @@ function renderMetricsTrendByCell(reports) {
                  ${missedNames.length ? `<span class="trend-pop-section trend-pop-section-miss">No llegaron (${missedNames.length})</span>${missedNames.map(n => `<span class="trend-pop-name is-missed">${n}</span>`).join("")}` : ''}
                </span>`
             : '';
+          const restorSundayLowSet = new Set(r.restorSundayNames.map(n => n.toLowerCase()));
+          const restorMissedNames  = r.restorReachNames.filter(n => !restorSundayLowSet.has(n.toLowerCase()));
+          const restorReachPop = r.restorReachNames.length
+            ? `<span class="trend-pop"><span class="trend-pop-title">Restauración al alcance (${r.restorReachNames.length})</span>${r.restorReachNames.map(n => `<span class="trend-pop-name${restorSundayLowSet.has(n.toLowerCase()) ? ' is-sunday' : ''}">${n}</span>`).join("")}</span>`
+            : '';
+          const restorRetPct = r.restorUniqReach > 0 ? Math.round(r.restorUniqSunday / r.restorUniqReach * 100) : 0;
+          const restorSundayPop = r.restorReachNames.length
+            ? `<span class="trend-pop trend-pop-wide"><span class="trend-pop-title">Restauración al culto · ${r.restorUniqSunday}/${r.restorUniqReach} (${restorRetPct}%)</span>
+                 ${r.restorSundayNames.length ? `<span class="trend-pop-section trend-pop-section-ok">Llegaron (${r.restorSundayNames.length})</span>${r.restorSundayNames.map(n => `<span class="trend-pop-name is-sunday">${n}</span>`).join("")}` : ''}
+                 ${restorMissedNames.length ? `<span class="trend-pop-section trend-pop-section-miss">No llegaron (${restorMissedNames.length})</span>${restorMissedNames.map(n => `<span class="trend-pop-name is-missed">${n}</span>`).join("")}` : ''}
+               </span>`
+            : '';
           return `
           <tr class="trend-row">
             <td class="trend-week-cell"><strong>Célula ${r.cellNum}</strong><span class="trend-date">${r.weeks} sem · ${r.label || ""}</span></td>
@@ -3780,6 +3812,8 @@ function renderMetricsTrendByCell(reports) {
             <td>${_trendMiniDonut(r.sunday,  r.totalRoster, "sunday")}</td>
             <td class="trend-td-hover">${_trendMiniDonut(r.friendsUniqReach, 0, "friends")}${r.friends !== r.friendsUniqReach ? `<div class="trend-names">${r.friends} visitas</div>` : ''}${reachPop}</td>
             <td class="trend-td-hover">${_trendMiniDonut(r.friendsUniqSunday, r.friendsUniqReach, "friends")}${sundayPop}</td>
+            <td class="trend-td-hover">${_trendMiniDonut(r.restorUniqReach, 0, "restor")}${r.restor !== r.restorUniqReach ? `<div class="trend-names">${r.restor} visitas</div>` : ''}${restorReachPop}</td>
+            <td class="trend-td-hover">${_trendMiniDonut(r.restorUniqSunday, r.restorUniqReach, "restor")}${restorSundayPop}</td>
             <td>${_trendMiniDonut(r.conv, 0, "friends")}</td>
           </tr>`;
         }).join("")}</tbody>
@@ -3790,6 +3824,8 @@ function renderMetricsTrendByCell(reports) {
           <td class="trend-avg-val">${totals.sunday}</td>
           <td class="trend-avg-val">${totals.uniqReach}</td>
           <td class="trend-avg-val">${totals.uniqReach > 0 ? Math.round(totals.uniqSunday / totals.uniqReach * 100) + "%" : "–"}</td>
+          <td class="trend-avg-val">${totals.restorUniqReach}</td>
+          <td class="trend-avg-val">${totals.restorUniqReach > 0 ? Math.round(totals.restorUniqSunday / totals.restorUniqReach * 100) + "%" : "–"}</td>
           <td class="trend-avg-val">${totals.conv}</td>
         </tr></tfoot>
       </table>
@@ -9923,3 +9959,50 @@ try {
     }
   });
 })();
+
+// --- Trend popover positioning (clamp to viewport, escape overflow containers) ---
+function _positionTrendPop(cell) {
+  const pop = cell.querySelector('.trend-pop');
+  if (!pop) return;
+  cell.classList.add('is-pop-open');
+  // Reset for measurement
+  pop.style.setProperty('--pop-left', '-9999px');
+  pop.style.setProperty('--pop-top', '-9999px');
+  // Measure after display
+  requestAnimationFrame(() => {
+    const cr = cell.getBoundingClientRect();
+    const pr = pop.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 8;
+    let left = cr.left + cr.width / 2 - pr.width / 2;
+    left = Math.max(margin, Math.min(left, vw - pr.width - margin));
+    let top = cr.bottom + 6;
+    if (top + pr.height > vh - margin) {
+      const above = cr.top - pr.height - 6;
+      if (above >= margin) top = above;
+      else top = Math.max(margin, vh - pr.height - margin);
+    }
+    pop.style.setProperty('--pop-left', left + 'px');
+    pop.style.setProperty('--pop-top', top + 'px');
+  });
+}
+function _hideTrendPop(cell) {
+  cell.classList.remove('is-pop-open');
+  const pop = cell.querySelector('.trend-pop');
+  if (pop) {
+    pop.style.removeProperty('--pop-left');
+    pop.style.removeProperty('--pop-top');
+  }
+}
+document.addEventListener('pointerenter', (e) => {
+  const cell = e.target.closest && e.target.closest('.trend-td-hover');
+  if (cell) _positionTrendPop(cell);
+}, true);
+document.addEventListener('pointerleave', (e) => {
+  const cell = e.target.closest && e.target.closest('.trend-td-hover');
+  if (cell) _hideTrendPop(cell);
+}, true);
+window.addEventListener('scroll', () => {
+  document.querySelectorAll('.trend-td-hover.is-pop-open').forEach(_hideTrendPop);
+}, true);
