@@ -6208,12 +6208,23 @@ async function renderElementToPngBlob(el) {
     return null;
   }
   el.classList.add('is-capturing');
+  // Permite que el navegador aplique el layout expandido antes de medir
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
+    // Tomar el tamaño REAL del contenido expandido (no el visible del scroll)
+    const fullWidth  = Math.max(el.scrollWidth,  el.offsetWidth,  el.clientWidth);
+    const fullHeight = Math.max(el.scrollHeight, el.offsetHeight, el.clientHeight);
     const canvas = await window.html2canvas(el, {
       backgroundColor: '#ffffff',
       scale: Math.min(2, window.devicePixelRatio || 1) || 1,
       useCORS: true,
       logging: false,
+      width:  fullWidth,
+      height: fullHeight,
+      windowWidth:  Math.max(fullWidth,  window.innerWidth),
+      windowHeight: Math.max(fullHeight, window.innerHeight),
+      scrollX: 0,
+      scrollY: -window.scrollY,
     });
     return await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/png'));
   } catch (e) {

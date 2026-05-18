@@ -2606,6 +2606,26 @@ body.force-mobile-preview h2 { font-size: 1rem; }
 .sup-card-actions .btn { white-space: nowrap; }
 /* En captura PNG, esconder los botones de acción para que no aparezcan en la imagen */
 .sup-capture.is-capturing .sup-card-actions .btn { display: none; }
+/* En captura PNG, expandir la tabla a su ancho natural para que la imagen
+   incluya TODAS las células (no solo lo visible del scroll horizontal).
+   También se neutraliza el sticky de las columnas fijas y las sombras. */
+.sup-capture.is-capturing .sup-table-wrap {
+  overflow: visible !important;
+  max-width: none !important;
+  width: max-content !important;
+}
+.sup-capture.is-capturing .sup-table {
+  width: max-content !important;
+  min-width: 0 !important;
+}
+.sup-capture.is-capturing .sup-table th.sup-metric-label,
+.sup-capture.is-capturing .sup-table td.sup-metric-label,
+.sup-capture.is-capturing .sup-table th.sup-total-col,
+.sup-capture.is-capturing .sup-table td.sup-total-col,
+.sup-capture.is-capturing .sup-table tr.sup-section-header td {
+  position: static !important;
+  box-shadow: none !important;
+}
 .sup-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .sup-table {
   width: 100%; min-width: 480px; border-collapse: collapse;
