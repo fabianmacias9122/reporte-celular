@@ -4981,6 +4981,14 @@ function renderPeopleRcmPanel(person) {
       <div class="rcm-panel-bar"><div class="rcm-panel-bar-fill" style="width:${pct}%"></div></div>
     </div>
     <div class="rcm-panel-body">${sectionHtml}</div>`;
+
+  // Bind handlers directly on each button (mobile-safe; evita problemas con delegacion en <dialog>)
+  peopleRcmPanel.querySelectorAll("button.rcm-milestone-toggle").forEach((btn) => {
+    btn.addEventListener("click", handleRcmMilestoneClick);
+  });
+  peopleRcmPanel.querySelectorAll("input.rcm-date-input").forEach((inp) => {
+    inp.addEventListener("change", handleRcmDateChange);
+  });
 }
 
 function renderVisitorTable() {
@@ -7756,6 +7764,7 @@ async function handleRcmMilestoneClick(event) {
     renderPeopleRows();
   } catch (err) {
     setFeedback(err.message, true);
+    alert("RCM: " + (err.message || "no se pudo guardar"));
   }
 }
 
