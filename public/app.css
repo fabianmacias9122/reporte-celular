@@ -1799,7 +1799,10 @@ input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
   .catalog-head-actions button { font-size: 0.8rem; padding: 7px 12px; }
   .catalog-list-controls { flex-wrap: wrap; gap: 8px; }
   .catalog-list-controls .search-field { flex: 1 1 100%; width: 100%; min-width: 0; }
-  .catalog-list-controls .search-field input { width: 100%; min-width: 0; box-sizing: border-box; }
+  .catalog-list-controls .search-field input { width: 100%; min-width: 0; box-sizing: border-box; font-size: 16px; }
+  /* Evitar auto-zoom de iOS en cualquier input/select del catalogo */
+  .catalog-card input, .catalog-card select, .catalog-card textarea { font-size: 16px; }
+  .people-filter-select { font-size: 16px; }
   .table-wrap { overflow: visible; }
   .table-wrap table, .table-wrap thead, .table-wrap tbody, .table-wrap tr, .table-wrap td,
   .weekly-table-wrap table, .weekly-table-wrap thead, .weekly-table-wrap tbody, .weekly-table-wrap tr, .weekly-table-wrap td { display: block; width: 100%; }
