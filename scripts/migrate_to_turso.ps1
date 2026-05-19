@@ -103,8 +103,8 @@ $data = $jsonOut | ConvertFrom-Json
 Write-Host "`nMigrando people_catalog ($($data.people_catalog.Count) registros)..." -ForegroundColor Yellow
 foreach ($r in $data.people_catalog) {
     $res = Exec-Turso `
-        "INSERT OR IGNORE INTO people_catalog (id,name,role,phone,email,guardian_person_id,guardian_name,supervisor_sector,is_coordinator,rcm_progress,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)" `
-        @($r.id, $r.name, $r.role, $r.phone, $r.email, $r.guardian_person_id, $r.guardian_name, $r.supervisor_sector, $r.is_coordinator, $r.rcm_progress, $r.created_at, $r.updated_at)
+        "INSERT OR IGNORE INTO people_catalog (id,name,role,phone,email,guardian_person_id,guardian_name,supervisor_sector,is_coordinator,visit_count,rcm_progress,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)" `
+        @($r.id, $r.name, $r.role, $r.phone, $r.email, $r.guardian_person_id, $r.guardian_name, $r.supervisor_sector, $r.is_coordinator, $(if ($null -ne $r.visit_count) { $r.visit_count } else { 0 }), $r.rcm_progress, $r.created_at, $r.updated_at)
     if ($res -eq "SKIP") { Write-Host "  SKIP (ya existe): $($r.name)" -ForegroundColor DarkGray }
     else { Write-Host "  + $($r.name)" -ForegroundColor Green }
 }

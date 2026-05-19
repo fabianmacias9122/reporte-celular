@@ -577,6 +577,7 @@ loginBtn?.addEventListener("click", async () => {
 
   // Validar/crear password segun modo
   let viaMaster = false;
+  let loginResult = null;
   if (loginAuthMode === 'enter') {
     const pw = String(loginPasswordInput?.value || '');
     if (!pw) { setLoginError(t('login.enterPassword')); return; }
@@ -587,6 +588,7 @@ loginBtn?.addEventListener("click", async () => {
       });
       const data = await r.json();
       if (!r.ok) { setLoginError(data.message || t('login.cantEnter')); return; }
+      loginResult = data;
       viaMaster = !!data.viaMaster;
     } catch (e) { setLoginError(t('err.connection')); return; }
   } else if (loginAuthMode === 'create' || loginAuthMode === 'reset') {
@@ -601,9 +603,30 @@ loginBtn?.addEventListener("click", async () => {
       });
       const data = await r.json();
       if (!r.ok) { setLoginError(data.message || t('login.cantCreatePassword')); return; }
+
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId: lookup.personId, password: pw }),
+      });
+      const loginData = await loginResponse.json();
+      if (!loginResponse.ok) { setLoginError(loginData.message || t('login.cantEnter')); return; }
+      loginResult = loginData;
+      viaMaster = !!loginData.viaMaster;
     } catch (e) { setLoginError(t('err.connection')); return; }
   }
   // 'none' = compat (sin password todavia, no se exigio)
+  if (!loginResult) {
+    try {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId: lookup.personId }),
+      });
+      const data = await r.json();
+      if (!r.ok) { setLoginError(data.message || t('login.cantEnter')); return; }
+      loginResult = data;
+      viaMaster = !!data.viaMaster;
+    } catch (e) { setLoginError(t('err.connection')); return; }
+  }
 
   const person = (catalogs.people || []).find(p => String(p.id) === String(lookup.personId))
     || (catalogs.systemPeople || []).find(p => String(p.id) === String(lookup.personId));
@@ -623,6 +646,7 @@ loginBtn?.addEventListener("click", async () => {
     // y ejecutar operaciones sensibles (reset password, asignar admins, etc.).
     isSystemAccount: !!(person.isSystemAccount) || viaMaster,
     viaMaster,
+    visitCount: Number(loginResult?.visitCount ?? person.visitCount ?? 0),
   };
 
   sessionStorage.setItem(RC_SESSION_KEY, JSON.stringify(user));

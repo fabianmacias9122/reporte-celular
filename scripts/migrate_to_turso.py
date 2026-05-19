@@ -103,9 +103,9 @@ def main():
     tables = {
         "people_catalog": (
             "INSERT OR IGNORE INTO people_catalog "
-            "(id,name,role,phone,email,guardian_person_id,guardian_name,supervisor_sector,is_coordinator,rcm_progress,created_at,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            lambda r: [r["id"],r["name"],r["role"],r["phone"],r["email"],r["guardian_person_id"],r["guardian_name"],r["supervisor_sector"],r["is_coordinator"],r["rcm_progress"],r["created_at"],r["updated_at"]]
+            "(id,name,role,phone,email,guardian_person_id,guardian_name,supervisor_sector,is_coordinator,visit_count,rcm_progress,created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            lambda r: [r["id"],r["name"],r["role"],r["phone"],r["email"],r["guardian_person_id"],r["guardian_name"],r["supervisor_sector"],r["is_coordinator"],r["visit_count"] if "visit_count" in r.keys() else 0,r["rcm_progress"],r["created_at"],r["updated_at"]]
         ),
         "cell_catalog": (
             "INSERT OR IGNORE INTO cell_catalog "

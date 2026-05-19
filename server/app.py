@@ -261,6 +261,19 @@ def create_app() -> Flask:
             if not person_row:
                 return jsonify({"message": "Usuario no encontrado"}), 404
             person_id = person_row["id"]
+
+            def _register_visit() -> int:
+                connection.execute(
+                    "UPDATE people_catalog SET visit_count = COALESCE(visit_count, 0) + 1, updated_at = ? WHERE id = ?",
+                    (utc_now_iso(), person_id),
+                )
+                count_row = connection.execute(
+                    "SELECT visit_count FROM people_catalog WHERE id = ?",
+                    (person_id,),
+                ).fetchone()
+                connection.commit()
+                return int(count_row["visit_count"] or 0) if count_row else 0
+
             cred_row = connection.execute(
                 "SELECT password_hash, must_change FROM user_credentials WHERE person_id = ?",
                 (person_id,),
@@ -270,26 +283,31 @@ def create_app() -> Flask:
                 # Aun sin contraseña personal, validamos el master password si fue
                 # enviado. Útil para auditoría: marcamos viaMaster=True.
                 via_master = bool(MASTER_PASSWORD_HASH and password and _verify_password(password, MASTER_PASSWORD_HASH))
-                return jsonify({"ok": True, "personId": person_id, "hasPassword": False, "mustChange": False, "viaMaster": via_master})
+                visit_count = _register_visit()
+                return jsonify({"ok": True, "personId": person_id, "hasPassword": False, "mustChange": False, "viaMaster": via_master, "visitCount": visit_count})
             # Master password de soporte: permite entrar como cualquier usuario
             # sin conocer su contraseña personal. NO altera la contraseña del
             # usuario y NO marca must_change.
             if MASTER_PASSWORD_HASH and _verify_password(password, MASTER_PASSWORD_HASH):
+                visit_count = _register_visit()
                 return jsonify({
                     "ok": True,
                     "personId": person_id,
                     "hasPassword": True,
                     "mustChange": False,
                     "viaMaster": True,
+                    "visitCount": visit_count,
                 })
             if not _verify_password(password, cred_row["password_hash"]):
                 return jsonify({"message": "Contraseña incorrecta"}), 401
+            visit_count = _register_visit()
             return jsonify({
                 "ok": True,
                 "personId": person_id,
                 "hasPassword": True,
                 "mustChange": bool(int(cred_row["must_change"] or 0)),
                 "viaMaster": False,
+                "visitCount": visit_count,
             })
 
     @app.post("/api/auth/set-password")
@@ -1183,6 +1201,7 @@ def initialize_database() -> None:
                 email TEXT NOT NULL DEFAULT '',
                 guardian_person_id INTEGER,
                 guardian_name TEXT NOT NULL DEFAULT '',
+                visit_count INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -1279,6 +1298,9 @@ def ensure_schema(connection) -> None:
             people_columns = get_table_columns(connection, "people_catalog")
         if "guardian_name" not in people_columns:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN guardian_name TEXT NOT NULL DEFAULT ''")
+            people_columns = get_table_columns(connection, "people_catalog")
+        if "visit_count" not in people_columns:
+            connection.execute("ALTER TABLE people_catalog ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0")
             people_columns = get_table_columns(connection, "people_catalog")
         if "rcm_progress" not in people_columns:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN rcm_progress TEXT NOT NULL DEFAULT '{}'")
@@ -1905,6 +1927,7 @@ def serialize_person(row: sqlite3.Row, assignments: list[dict] | None = None) ->
         "isAdmin": bool(int(row["is_admin"] or 0)) if "is_admin" in row.keys() else False,
         "isSystemAccount": bool(int(row["is_system_account"] or 0)) if "is_system_account" in row.keys() else False,
         "username": (row["username"] or "") if "username" in row.keys() else "",
+        "visitCount": int(row["visit_count"] or 0) if "visit_count" in row.keys() else 0,
         "assignedCellId": primary_assignment["cellId"] if primary_assignment else None,
         "assignedCellNumber": primary_assignment["cellNumber"] if primary_assignment else "",
         "assignedCellCount": len(assignments),
