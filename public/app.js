@@ -1,4 +1,4 @@
-import { t, setLang, currentLang, applyStaticTranslations } from './i18n.js?v=20260515-047';
+import { t, setLang, currentLang, applyStaticTranslations } from './i18n.js?v=20260518-team-compact';
 
 const API_BASE_URL = window.location.origin;
 
@@ -178,6 +178,13 @@ const resetVisitorQuickButton = document.querySelector("#reset-visitor-quick-but
 const visitorQuickEvent = document.querySelector("#visitor-quick-event");
 const visitorEventToggleField = document.querySelector("#visitor-event-toggle-field");
 const visitorEventToggleLabel = document.querySelector("#visitor-event-toggle-label");
+const kidQuickForm = document.querySelector("#kid-quick-form");
+const kidQuickName = document.querySelector("#kid-quick-name");
+const kidQuickGuardian = document.querySelector("#kid-quick-guardian");
+const kidQuickReach = document.querySelector("#kid-quick-reach");
+const kidQuickSunday = document.querySelector("#kid-quick-sunday");
+const addKidQuickButton = document.querySelector("#add-kid-quick-button");
+const resetKidQuickButton = document.querySelector("#reset-kid-quick-button");
 const visitorEventColHeader = document.querySelector("#visitor-event-col-header");
 const fillPlanningMembersButton = document.querySelector("#fill-planning-members");
 const fillReachMembersButton = document.querySelector("#fill-reach-members");
@@ -320,7 +327,7 @@ const AUTO_FIELDS = new Set([
   "baptismFirstQuarter", "baptismSecondQuarter", "baptismThirdQuarter", "baptismYearTotal",
 ]);
 
-let catalogs = { people: [], cells: [] };
+let catalogs = { people: [], systemPeople: [], cells: [] };
 let appSettings = {};   // loaded from /api/settings
 let historyScope = (typeof localStorage !== "undefined" && (localStorage.getItem("historyScope") === "all" || localStorage.getItem("historyScope") === "current"))
   ? localStorage.getItem("historyScope")
@@ -422,6 +429,12 @@ function applyUserSession(user) {
     verbsCard.hidden = !user.isAdmin;
     if (user.isAdmin) renderRcmVerbsTable();
   }
+  // Re-render tablas que dependen de los permisos del usuario actual
+  // (botones de reset-pwd, pestaña de cuentas de sistema, etc.) — si no se
+  // hace, el usuario debe presionar F5 para verlas.
+  try { renderPeopleRows(); } catch (_e) { /* puede no estar listo aún */ }
+  try { renderSystemAccountsTable(); } catch (_e) { /* idem */ }
+  try { renderCellsTable(); } catch (_e) { /* idem */ }
 }
 
 function restrictCellFieldToUser(user) {
@@ -592,7 +605,8 @@ loginBtn?.addEventListener("click", async () => {
   }
   // 'none' = compat (sin password todavia, no se exigio)
 
-  const person = (catalogs.people || []).find(p => String(p.id) === String(lookup.personId));
+  const person = (catalogs.people || []).find(p => String(p.id) === String(lookup.personId))
+    || (catalogs.systemPeople || []).find(p => String(p.id) === String(lookup.personId));
   if (!person) { setLoginError(t('login.personNotFound')); return; }
   const user = {
     personId: person.id,
@@ -600,11 +614,14 @@ loginBtn?.addEventListener("click", async () => {
     role: person.role,
     assignedCellNumber: getCellForPerson(person.id) || person.assignedCellNumber || null,
     supervisedSector: person.supervisorSector || null,
-    isAdmin: !!(person.isCoordinator) || viaMaster,
+    // Una cuenta de sistema implica automáticamente permisos de admin
+    // (no necesita marcarse además como coordinador o admin).
+    isAdmin: !!(person.isCoordinator || person.isAdmin || person.isSystemAccount) || viaMaster,
     isSupervisor: !!(person.supervisorSector),
     // Master-password elevación: el operador de soporte recibe permisos de
-    // super-admin para poder editar/eliminar reportes de cualquier célula.
-    isSuperAdmin: !!(person.isSuperAdmin) || viaMaster,
+    // cuenta de sistema para poder editar/eliminar reportes de cualquier célula
+    // y ejecutar operaciones sensibles (reset password, asignar admins, etc.).
+    isSystemAccount: !!(person.isSystemAccount) || viaMaster,
     viaMaster,
   };
 
@@ -1971,7 +1988,7 @@ function renderPeopleRows() {
       <td data-label="Acciones">
         <div class="row-actions">
           <button type="button" data-action="edit-person" data-id="${person.id}" data-tooltip="Editar datos de ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Editar</button>
-          ${(currentUser?.isSuperAdmin && canPersonLogin(person)) ? `<button type="button" data-action="reset-password" data-id="${person.id}" data-tooltip="Resetear contraseña de ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Resetear pwd</button>` : ""}
+          ${(currentUser?.isSystemAccount && canPersonLogin(person)) ? `<button type="button" data-action="reset-password" data-id="${person.id}" data-tooltip="Resetear contraseña de ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Resetear pwd</button>` : ""}
           <button type="button" class="danger" data-action="delete-person" data-id="${person.id}" data-tooltip="Eliminar permanentemente a ${escapeHtml(person.name)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> Eliminar</button>
         </div>
       </td>
@@ -2000,7 +2017,7 @@ function renderPeopleRows() {
         </button>` : ""}
         <div class="pc-actions">
           <button type="button" class="pc-icon-btn" data-action="edit-person" data-id="${person.id}" title="Editar datos de ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>
-          ${(currentUser?.isSuperAdmin && canPersonLogin(person)) ? `<button type="button" class="pc-icon-btn" data-action="reset-password" data-id="${person.id}" title="Resetear contraseña de ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>` : ""}
+          ${(currentUser?.isSystemAccount && canPersonLogin(person)) ? `<button type="button" class="pc-icon-btn" data-action="reset-password" data-id="${person.id}" title="Resetear contraseña de ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>` : ""}
           <button type="button" class="pc-icon-btn danger" data-action="delete-person" data-id="${person.id}" title="Eliminar a ${escapeHtml(person.name)}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
         </div>
       </div>
@@ -2011,6 +2028,45 @@ function renderPeopleRows() {
   peopleTableBody.innerHTML = visiblePeople.map(buildRow).join("");
   const peopleCardGrid = document.getElementById("people-card-grid");
   if (peopleCardGrid) peopleCardGrid.innerHTML = visiblePeople.map(buildPersonCard).join("");
+}
+
+function renderSystemAccountsTable() {
+  const tbody = document.getElementById("system-accounts-table-body");
+  const tab = document.getElementById("admin-system-tab");
+  const section = document.getElementById("admin-system-section");
+  const list = catalogs.systemPeople || [];
+  const isSuper = !!currentUser?.isSystemAccount;
+  // Solo cuenta de sistema ve la pestaña y la sección
+  if (tab) tab.classList.toggle("is-hidden", !isSuper);
+  if (section && !isSuper) {
+    section.classList.add("is-hidden");
+    section.hidden = true;
+  }
+  if (!tbody) return;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${escapeHtml(t('admin.noSystemAccounts') || 'Sin cuentas de sistema.')}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((p) => {
+    const perms = [];
+    if (p.isSystemAccount) perms.push('<span class="fn-tag fn-tag--leader">Cuenta sistema</span>');
+    if (p.isAdmin) perms.push('<span class="fn-tag fn-tag--leader">Administrador</span>');
+    if (p.isCoordinator) perms.push('<span class="fn-tag fn-tag--assistant">Coord.</span>');
+    if (p.supervisorSector) perms.push(`<span class="fn-tag">Sup. ${escapeHtml(p.supervisorSector)}</span>`);
+    return `<tr>
+      <td data-label="Nombre"><strong>${escapeHtml(p.name)}</strong></td>
+      <td data-label="Usuario"><code>${escapeHtml(p.username || '—')}</code></td>
+      <td data-label="Rol">${escapeHtml(formatRole(p.role) || p.role || '—')}</td>
+      <td data-label="Permisos">${perms.join(' ') || '<span class="muted">—</span>'}</td>
+      <td data-label="Acciones">
+        <div class="row-actions">
+          <button type="button" data-action="edit-person" data-id="${p.id}">Editar</button>
+          ${isSuper ? `<button type="button" data-action="reset-password" data-id="${p.id}">Resetear pwd</button>` : ''}
+          ${isSuper ? `<button type="button" data-action="toggle-system-account" data-id="${p.id}">Volver a miembro real</button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function renderPeopleFilterTabs() {
@@ -5081,6 +5137,7 @@ function applyWeeklyCollectionsForCell(cell, savedData = null) {
   currentKids = buildDefaultKidsAttendance(cell, savedData?.kids);
   currentBaptisms = normalizeBaptisms(savedData?.baptisms);
   resetVisitorQuickForm();
+  resetKidQuickForm();
   renderAttendanceTable();
   renderVisitorTable();
   renderKidsTable();
@@ -5506,7 +5563,7 @@ let seguimientoWeekOffset = -1;
 //  - Resto (supervisores, coordinadores, miembros): solo ven finalizados.
 function filterVisibleReports(list) {
   if (!Array.isArray(list)) return list;
-  if (currentUser?.isSuperAdmin) return list;
+  if (currentUser?.isAdmin) return list;
   const myCell = String(currentUser?.assignedCellNumber || "");
   return list.filter(r => {
     const isDraft = r.formData?._draft === true || r.formData?._draft === "true";
@@ -5665,11 +5722,11 @@ function renderSeguimiento(reports) {
           const wNum = Number(w);
           const minOpen = inGrace ? Math.max(1, realWeek - 1) : realWeek;
           const weekOpen = wNum >= minOpen && wNum <= realWeek;
-          // Solo el lider de la celula (o super-admin) puede capturar el reporte
-          // de esa celula. Supervisores y coordinadores ven la semana pendiente
-          // pero el chip queda deshabilitado para evitar que entren a capturar
-          // un reporte que no les pertenece.
-          const canCapture = currentUser?.isSuperAdmin
+          // Solo el lider de la celula (o admin) puede capturar el reporte
+          // de esa celula. Supervisores ven la semana pendiente pero el chip
+          // queda deshabilitado para evitar que entren a capturar un reporte
+          // que no les pertenece.
+          const canCapture = currentUser?.isAdmin
             || String(currentUser?.assignedCellNumber || "") === String(cell);
           if (weekOpen && canCapture) {
             return `<button type="button" class="cycle-week-chip is-pending is-capturable"
@@ -6187,16 +6244,23 @@ function renderSupervisorSummaryTable(supervisor, cells, reports, week) {
   </div>`;
 }
 
+function compactPersonName(full) {
+  const parts = String(full || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+}
+
 function renderReportCellMembers(cell) {
   const members = getCellMembers(cell);
   const kids = getCellKids(cell);
   memberCountChip.textContent = `${members.length} miembro${members.length === 1 ? "" : "s"}`;
   reportMemberPills.innerHTML = members.length
-    ? members.map((member) => `<span class="pill">${escapeHtml(member.name)}</span>`).join("")
+    ? members.map((member) => `<span class="pill pill-compact" title="${escapeHtml(member.name)}">${escapeHtml(compactPersonName(member.name))}</span>`).join("")
     : '<span class="member-admin-caption">Sin miembros asignados.</span>';
   if (reportKidPills) {
     reportKidPills.innerHTML = kids.length
-      ? kids.map((kid) => `<span class="pill">${escapeHtml(kid.name)}${getGuardianDisplay(kid) ? ` · ${escapeHtml(getGuardianDisplay(kid))}` : ""}</span>`).join("")
+      ? kids.map((kid) => `<span class="pill pill-compact" title="${escapeHtml(kid.name)}">${escapeHtml(compactPersonName(kid.name))}${getGuardianDisplay(kid) ? ` · ${escapeHtml(compactPersonName(getGuardianDisplay(kid)))}` : ""}</span>`).join("")
       : '<span class="member-admin-caption">Sin niños precargados.</span>';
   }
 }
@@ -6324,7 +6388,7 @@ function syncReportWithCell(force = false, savedData = null) {
 // evitar que modifiquen reportes de células ajenas por error.
 function canEditCurrentReport() {
   if (!currentUser) return false;
-  if (currentUser.isSuperAdmin) return true;
+  if (currentUser.isAdmin) return true;
   const activeCell = String(cellField?.value || "").trim();
   if (!activeCell) return true; // no cell selected yet → no restricción aún
   const ownCell = String(currentUser.assignedCellNumber || "").trim();
@@ -6377,16 +6441,28 @@ function populatePeopleForm(person = null) {
   }
   const coordCheck = /** @type {HTMLInputElement|null} */ (document.querySelector("#people-is-coordinator"));
   if (coordCheck) coordCheck.checked = !!(person?.isCoordinator);
-  // Username (solo super-admin)
+  // Username (solo cuenta de sistema)
   const usernameField = document.getElementById("people-username-field");
   const usernameInput = /** @type {HTMLInputElement|null} */ (document.getElementById("people-username"));
   if (usernameField && usernameInput) {
-    if (currentUser?.isSuperAdmin) {
+    if (currentUser?.isSystemAccount) {
       usernameField.hidden = false;
       usernameInput.value = person?.username || "";
     } else {
       usernameField.hidden = true;
       usernameInput.value = "";
+    }
+  }
+  // Flag de administrador (solo cuenta de sistema puede asignar)
+  const adminField = document.getElementById("people-admin-field");
+  const adminInput = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-admin"));
+  if (adminField && adminInput) {
+    if (currentUser?.isSystemAccount) {
+      adminField.hidden = false;
+      adminInput.checked = !!(person?.isAdmin);
+    } else {
+      adminField.hidden = true;
+      adminInput.checked = false;
     }
   }
   syncPeopleGuardianFields();
@@ -6556,8 +6632,13 @@ function populateVisitorInvitedBySelect() {
 
 async function loadCatalogs() {
   const payload = await request("/api/catalogs");
+  const allPeople = Array.isArray(payload.people) ? payload.people : [];
+  // Las cuentas de sistema (fabian.admin y similares) se mantienen aparte:
+  // no aparecen en listados, conteos, RCM ni reportes — solo en la
+  // sub-sección "Cuentas de sistema" (visible para super admins).
   catalogs = {
-    people: Array.isArray(payload.people) ? payload.people : [],
+    people: allPeople.filter(p => !p.isSystemAccount),
+    systemPeople: allPeople.filter(p => p.isSystemAccount),
     cells: Array.isArray(payload.cells) ? payload.cells : [],
   };
   renderGuardianSelect(peopleEditId.value);
@@ -6567,6 +6648,7 @@ async function loadCatalogs() {
   renderCellOptions();
   renderCellsTable();
   renderPeopleRows();
+  renderSystemAccountsTable();
   populateVisitorInvitedBySelect();
   syncReportWithCell(false);
 }
@@ -7210,12 +7292,21 @@ async function handlePeopleSubmit(event) {
   // Map isKid checkbox to role field (all adults are just "member")
   payload.role = payload.isKid === "on" ? "kid" : "member";
   delete payload.isKid;
+  // Normalize boolean-like fields from form
+  payload.isCoordinator = payload.isCoordinator === "on";
+  // Solo enviamos isAdmin si el usuario actual es cuenta de sistema (el backend lo valida igual)
+  if (currentUser?.isSystemAccount) {
+    payload.isAdmin = payload.isAdmin === "on";
+  } else {
+    delete payload.isAdmin;
+  }
   const editId = peopleEditId.value;
 
   // Read desired cell and role from outside-form controls
   const newCellId   = peopleDialogCellSelect?.value || "";
   const newCellRole = peopleDialogCellRoleSelect?.value || ""; // "leader"|"assistant"|"host"|""
-  const person      = catalogs.people.find(p => String(p.id) === editId);
+  const person      = catalogs.people.find(p => String(p.id) === editId)
+    || (catalogs.systemPeople || []).find(p => String(p.id) === editId);
   const oldCellId   = String(person?.assignedCellId || "");
   const cellChanged = newCellId !== oldCellId;
 
@@ -7259,11 +7350,14 @@ async function handlePeopleSubmit(event) {
     const actorHeaders = currentUser?.personId
       ? { "X-Acting-Person-Id": String(currentUser.personId) }
       : {};
-    if (!currentUser?.isSuperAdmin) {
+    if (!currentUser?.isSystemAccount) {
       delete payload.username;
     } else {
-      // Super-admin: si el campo no cambio respecto al original, no lo enviamos
-      const originalUsername = (catalogs.people.find(p => String(p.id) === editId)?.username) || "";
+      // Cuenta de sistema: si el campo no cambio respecto al original, no lo enviamos
+      const originalUsername = (
+        catalogs.people.find(p => String(p.id) === editId)
+        || (catalogs.systemPeople || []).find(p => String(p.id) === editId)
+      )?.username || "";
       const submittedUsername = String(payload.username || "");
       if (editId && submittedUsername === originalUsername) {
         delete payload.username;
@@ -7284,6 +7378,18 @@ async function handlePeopleSubmit(event) {
       });
       savedPersonId = String(created.id);
       setFeedback("Persona agregada.");
+    }
+
+    // Si la cuenta de sistema tocó el flag is_admin, aplicarlo en endpoint dedicado
+    if (currentUser?.isSystemAccount && savedPersonId && typeof payload.isAdmin === "boolean") {
+      const currentVal = !!person?.isAdmin;
+      if (currentVal !== payload.isAdmin) {
+        await request(`/api/catalogs/people/${savedPersonId}/admin`, {
+          method: "PATCH",
+          headers: actorHeaders,
+          body: JSON.stringify({ isAdmin: payload.isAdmin }),
+        });
+      }
     }
 
     // Handle cell membership change
@@ -7500,8 +7606,8 @@ async function handleMemberSubmit(event) {
 //   - Adicionalmente, la semana del reporte debe ser la semana actual, o
 //     bien estar dentro del periodo de gracia de la semana anterior.
 function isReportEditable(report) {
-  // Permission check: solo líder/asistente de la célula (o super-admin)
-  if (currentUser && !currentUser.isSuperAdmin) {
+  // Permission check: solo líder/asistente de la célula (o admin)
+  if (currentUser && !currentUser.isAdmin) {
     const reportCell = String(
       report?.cellNumber ?? report?.formData?.cellNumber ?? ""
     ).trim();
@@ -7556,11 +7662,11 @@ async function handleReportTableClick(event) {
     }
 
     if (button.dataset.action === "delete-report") {
-      // Solo líder/asistente de la célula (o super-admin) puede eliminar
+      // Solo líder/asistente de la célula (o admin) puede eliminar
       try {
         const payload = await request(`/api/reports/${reportId}`);
         const report = payload.report;
-        if (currentUser && !currentUser.isSuperAdmin) {
+        if (currentUser && !currentUser.isAdmin) {
           const reportCell = String(report?.cellNumber ?? report?.formData?.cellNumber ?? "").trim();
           const ownCell = String(currentUser.assignedCellNumber || "").trim();
           if (!ownCell || ownCell !== reportCell) {
@@ -7743,7 +7849,8 @@ async function handlePeopleTableClick(event) {
   if (!button) {
     return;
   }
-  const person = catalogs.people.find((item) => String(item.id) === button.dataset.id);
+  const person = catalogs.people.find((item) => String(item.id) === button.dataset.id)
+    || (catalogs.systemPeople || []).find((item) => String(item.id) === button.dataset.id);
   if (!person) {
     return;
   }
@@ -7767,7 +7874,7 @@ async function handlePeopleTableClick(event) {
       setFeedback("Persona eliminada.");
     }
     if (button.dataset.action === "reset-password") {
-      if (!currentUser?.isSuperAdmin) return;
+      if (!currentUser?.isSystemAccount) return;
       const ok = await appConfirm(t('conf.resetPasswordMsg', { name: person.name }), t('conf.resetPassword'));
       if (!ok) return;
       const resp = await fetch(`/api/auth/admin-reset/${person.id}`, {
@@ -7777,6 +7884,24 @@ async function handlePeopleTableClick(event) {
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) { setFeedback(data.message || "No se pudo resetear.", true); return; }
       setFeedback(t('fb.passwordResetOf', { name: person.name }));
+    }
+    if (button.dataset.action === "toggle-system-account") {
+      if (!currentUser?.isSystemAccount) return;
+      const becoming = !person.isSystemAccount;
+      const msg = becoming
+        ? `¿Convertir a "${person.name}" en cuenta de sistema? Dejará de aparecer en listados, RCM y reportes.`
+        : `¿Convertir a "${person.name}" en miembro real? Volverá a aparecer en listados, RCM y reportes.`;
+      const ok = await appConfirm(msg, becoming ? "Convertir en cuenta de sistema" : "Convertir en miembro real");
+      if (!ok) return;
+      const resp = await fetch(`/api/catalogs/people/${person.id}/system-account`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-Acting-Person-Id": String(currentUser.personId || "") },
+        body: JSON.stringify({ isSystemAccount: becoming }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { setFeedback(data.message || "No se pudo cambiar el estado.", true); return; }
+      await loadCatalogs();
+      setFeedback(becoming ? "Convertida en cuenta de sistema." : "Convertida en miembro real.");
     }
   } catch (error) {
     setFeedback(error.message, true);
@@ -8063,9 +8188,71 @@ function handleAddVisitorClick() {
   renderVisitorTable();
 }
 
+function resetKidQuickForm() {
+  if (!kidQuickForm) return;
+  if (kidQuickName instanceof HTMLInputElement) kidQuickName.value = "";
+  if (kidQuickGuardian instanceof HTMLInputElement) kidQuickGuardian.value = "";
+  if (kidQuickReach instanceof HTMLInputElement) kidQuickReach.checked = true;
+  if (kidQuickSunday instanceof HTMLInputElement) kidQuickSunday.checked = false;
+}
+
 function handleAddKidClick() {
-  currentKids.push({ personId: null, name: "", guardianName: "", source: "visit", reachAttended: true, sundayAttended: false, note: "" });
+  const name = String(kidQuickName?.value || "").trim();
+  if (!name) {
+    setFeedback("Escribe el nombre del niño para agregarlo.", true);
+    kidQuickName?.focus();
+    return;
+  }
+
+  // Dedupe insensible a mayúsculas / acentos / espacios
+  const normalizeName = (s) => String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/\s+/g, " ").trim();
+  const key = normalizeName(name);
+  const dupKid = currentKids.find((k) => normalizeName(k.name) === key);
+  if (dupKid) {
+    setFeedback(`Ya hay un niño registrado con el nombre "${dupKid.name}". Usa un nombre distinto (p. ej. agrega apellido).`, true);
+    kidQuickName?.focus();
+    kidQuickName?.select?.();
+    return;
+  }
+
+  clearFeedback();
+  currentKids.push({
+    personId: null,
+    name,
+    guardianName: String(kidQuickGuardian?.value || "").trim(),
+    source: "visit",
+    reachAttended: Boolean(kidQuickReach?.checked),
+    sundayAttended: Boolean(kidQuickSunday?.checked),
+    note: "",
+  });
   renderKidsTable();
+  resetKidQuickForm();
+  // Resaltar la fila recién agregada
+  if (kidsTableBody) {
+    const rows = kidsTableBody.querySelectorAll("tr");
+    const lastRow = rows[rows.length - 1];
+    if (lastRow) {
+      lastRow.classList.add("is-just-added");
+      setTimeout(() => lastRow.classList.remove("is-just-added"), 1800);
+    }
+  }
+  setFeedback(`Niño "${name}" agregado.`);
+  kidQuickName?.focus();
+}
+
+async function handleKidQuickReset() {
+  const hasData = String(kidQuickName?.value || "").trim() || String(kidQuickGuardian?.value || "").trim();
+  if (hasData) {
+    const ok = await appConfirm(
+      "¿Vaciar los campos del formulario rápido?\nNo afecta a la tabla de niños.",
+      "Vaciar formulario"
+    );
+    if (!ok) return;
+  }
+  resetKidQuickForm();
+  clearFeedback();
 }
 
 function handleAddBaptismClick() {
@@ -8090,6 +8277,28 @@ function handleVisitorQuickSubmit() {
   if (!name) {
     setFeedback("Escribe el nombre de la visita para agregarla.", true);
     visitorQuickName?.focus();
+    return;
+  }
+
+  // Validación duplicados (case + acentos insensibles, espacios normalizados)
+  const normalizeName = (s) => String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/\s+/g, " ").trim();
+  const key = normalizeName(name);
+  const dupVisitor = currentVisitors.find((v) => normalizeName(v.name) === key);
+  if (dupVisitor) {
+    setFeedback(`Ya hay una visita registrada con el nombre "${dupVisitor.name}". Revisa la tabla o usa un nombre distinto (p. ej. agrega apellido).`, true);
+    visitorQuickName?.focus();
+    visitorQuickName?.select?.();
+    return;
+  }
+  const dupMember = Array.isArray(catalogs?.people)
+    ? catalogs.people.find((p) => normalizeName(p.name) === key)
+    : null;
+  if (dupMember) {
+    setFeedback(`Ojo: "${dupMember.name}" ya existe como miembro del catálogo. Si es la misma persona, no la agregues como visita; si es otra, usa un nombre distintivo.`, true);
+    visitorQuickName?.focus();
+    visitorQuickName?.select?.();
     return;
   }
 
@@ -9049,8 +9258,8 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
   if (btn.dataset.action === "new-report-for-cell") {
     const cell = btn.dataset.cell;
     const week = btn.dataset.week;
-    // Defensive: solo el lider de la celula (o super-admin) puede capturar
-    const canCapture = currentUser?.isSuperAdmin
+    // Defensive: solo el lider de la celula (o admin) puede capturar
+    const canCapture = currentUser?.isAdmin
       || String(currentUser?.assignedCellNumber || "") === String(cell);
     if (!canCapture) {
       setFeedback(t('fb.onlyLeaderCanCapture', { c: cell }), true);
@@ -9148,6 +9357,7 @@ document.querySelectorAll("input[name='settings_lang']").forEach(radio => {
 });
 peopleTableBody.addEventListener("click", handlePeopleTableClick);
 document.getElementById("people-card-grid")?.addEventListener("click", handlePeopleTableClick);
+document.getElementById("system-accounts-table-body")?.addEventListener("click", handlePeopleTableClick);
 document.getElementById("cells-card-grid")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
@@ -9220,6 +9430,20 @@ baptismTableBody.addEventListener("click", handleBaptismTableClick);
 addVisitorButton.addEventListener("click", handleAddVisitorClick);
 addKidButton?.addEventListener("click", handleAddKidClick);
 addBaptismButton?.addEventListener("click", handleAddBaptismClick);
+if (kidQuickForm) {
+  kidQuickForm.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
+      event.preventDefault();
+      handleAddKidClick();
+    }
+  });
+}
+if (addKidQuickButton) {
+  addKidQuickButton.addEventListener("click", handleAddKidClick);
+}
+if (resetKidQuickButton) {
+  resetKidQuickButton.addEventListener("click", handleKidQuickReset);
+}
 if (visitorQuickForm) {
   visitorQuickForm.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && event.target instanceof HTMLInputElement) {
@@ -9281,6 +9505,10 @@ const previewConfirmBtn     = document.querySelector("#preview-confirm-btn");
 const previewDialogTitle    = document.querySelector("#preview-dialog-title");
 const previewDialogBody     = document.querySelector("#preview-dialog-body");
 const previewDialogFooter   = document.querySelector("#preview-dialog-footer");
+
+// Texto de WhatsApp más reciente generado por buildReportPreviewHtml()
+// (sirve para que los botones del modal lo reusen sin reconstruirlo).
+let lastPreviewWhatsAppText = "";
 
 function buildReportPreviewHtml() {
   const data = Object.fromEntries(new FormData(reportForm).entries());
@@ -9475,6 +9703,8 @@ function buildReportPreviewHtml() {
     return lines.join("\n");
   }
   const waUrl = `https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`;
+  // Exponer el texto generado para que botones externos (compartir/descargar) puedan reusarlo.
+  lastPreviewWhatsAppText = buildWhatsAppText();
 
   return headerHtml + attendanceHtml +
     `<div class="preview-section-title">${t('met.reportMetrics')}</div><div class="preview-metrics-grid">${metricsHtml}</div>` +
@@ -9498,6 +9728,18 @@ function openReportPreviewDialog() {
   if (cancelBtn)  cancelBtn.hidden  = false;
   if (confirmBtn) confirmBtn.hidden = true;
   if (editFromSegBtn) editFromSegBtn.hidden = true;
+  // Habilitar botones de Descargar PNG y WhatsApp (imagen + texto)
+  const dlBtn = document.getElementById("preview-download-btn");
+  const waBtn = document.getElementById("preview-whatsapp-btn");
+  const filename = `reporte-celula${cellVal}-S${weekVal}.png`;
+  if (dlBtn) {
+    dlBtn.hidden = false;
+    dlBtn.onclick = () => downloadElementAsPng(previewDialogBody, filename);
+  }
+  if (waBtn) {
+    waBtn.hidden = false;
+    waBtn.onclick = () => shareElementWithText(previewDialogBody, lastPreviewWhatsAppText, filename);
+  }
   reportPreviewDialog.showModal();
 }
 
@@ -9797,6 +10039,141 @@ if (convocarCloseBtn && convocarDialog)  convocarCloseBtn.addEventListener("clic
 if (convocarCancelBtn && convocarDialog) convocarCancelBtn.addEventListener("click", () => convocarDialog.close());
 if (convocarDialog) convocarDialog.addEventListener("click", (e) => { if (e.target === convocarDialog) convocarDialog.close(); });
 if (convocarConfirmBtn) convocarConfirmBtn.addEventListener("click", handleConvocarConfirm);
+
+// ── Graduar clase: marca Completado en bloque y opcionalmente inscribe a la siguiente ──
+const graduarDialog       = /** @type {HTMLDialogElement|null} */ (document.querySelector("#graduar-dialog"));
+const graduarOpenBtn      = document.querySelector("#graduar-open-btn");
+const graduarCloseBtn     = document.querySelector("#graduar-close-btn");
+const graduarCancelBtn    = document.querySelector("#graduar-cancel-btn");
+const graduarConfirmBtn   = document.querySelector("#graduar-confirm-btn");
+const graduarClaseSelect  = /** @type {HTMLSelectElement|null} */ (document.querySelector("#graduar-clase-select"));
+const graduarMemberList   = document.querySelector("#graduar-member-list");
+const graduarNextWrap     = document.querySelector("#graduar-next-wrap");
+const graduarEnrollNext   = /** @type {HTMLInputElement|null} */ (document.querySelector("#graduar-enroll-next"));
+const graduarNextLabel    = document.querySelector("#graduar-next-label");
+
+// Cadena de progresión: al graduarse de X se sugiere inscribir a Y.
+// Las Escuelas no encadenan.
+const NEXT_CLASS_AFTER = {
+  e1Maduracion: "e2Integracion",
+  e2Integracion: "e3Ubicacion",
+  e1Vision: "e2Caracter",
+  e2Caracter: "e3Perfil",
+};
+
+function getNextClassMilestone(key) {
+  const next = NEXT_CLASS_AFTER[key];
+  return next ? CLASS_MILESTONES.find(m => m.key === next) : null;
+}
+
+function refreshGraduarNextHint() {
+  if (!graduarClaseSelect || !graduarNextWrap || !graduarNextLabel || !graduarEnrollNext) return;
+  const next = getNextClassMilestone(graduarClaseSelect.value);
+  if (next) {
+    graduarNextWrap.style.display = "";
+    graduarNextLabel.textContent = `Inscribir además a la siguiente clase (${next.label})`;
+    graduarEnrollNext.disabled = false;
+  } else {
+    graduarNextWrap.style.display = "none";
+    graduarEnrollNext.checked = false;
+  }
+}
+
+function populateGraduarDialog() {
+  if (!graduarClaseSelect) return;
+  const selectedKey = graduarClaseSelect.value || CLASS_MILESTONES[0]?.key;
+  graduarClaseSelect.innerHTML = CLASS_MILESTONES.map(m =>
+    `<option value="${m.key}"${m.key === selectedKey ? " selected" : ""}>${escapeHtml(m.sectionLabel + " · " + m.label)}</option>`
+  ).join("");
+  populateGraduarMembers();
+  refreshGraduarNextHint();
+}
+
+function populateGraduarMembers() {
+  if (!graduarMemberList || !graduarClaseSelect) return;
+  const key = graduarClaseSelect.value;
+  const trackableRoles = ["member", "leader", "assistant", "host"];
+  // Mostrar los que tienen la clase 'en curso' (han sido convocados pero no completados)
+  const eligible = catalogs.people.filter(p => {
+    if (!trackableRoles.includes(p.role)) return false;
+    const val = p.rcmProgress?.[key];
+    return typeof val === "string" && val.startsWith("en_curso:");
+  });
+
+  if (!eligible.length) {
+    graduarMemberList.innerHTML = `<p class="empty-state">Ningún miembro tiene esta clase en curso.</p>`;
+    return;
+  }
+  graduarMemberList.innerHTML = eligible
+    .sort((a, b) => a.name.localeCompare(b.name, "es"))
+    .map(p => {
+      const start = (p.rcmProgress?.[key] || "").slice(9); // tras 'en_curso:'
+      return `<label class="convocar-member-row">
+        <input type="checkbox" data-person-id="${p.id}" value="${p.id}" checked>
+        <span>${escapeHtml(p.name)}</span>
+        <span class="member-admin-caption">${escapeHtml(formatRole(p.role))}${start ? ` · Inicio ${escapeHtml(start)}` : ""}</span>
+      </label>`;
+    }).join("");
+}
+
+async function handleGraduarConfirm() {
+  if (!graduarMemberList || !graduarClaseSelect || !graduarDialog) return;
+  const key = graduarClaseSelect.value;
+  const today = new Date().toISOString().slice(0, 10);
+  const checked = /** @type {NodeListOf<HTMLInputElement>} */ (graduarMemberList.querySelectorAll("input[type=checkbox]:checked"));
+  if (!checked.length) {
+    setFeedback(t('fb.selectAtLeastOne'), true);
+    return;
+  }
+  const personIds = Array.from(checked).map(cb => parseInt(cb.value, 10));
+  const next = getNextClassMilestone(key);
+  const enrollNext = !!(next && graduarEnrollNext?.checked);
+
+  try {
+    await Promise.all(personIds.map(async (personId) => {
+      // 1) marcar completada la clase actual (fecha de hoy)
+      const body = { [key]: today };
+      if (enrollNext) body[next.key] = `en_curso:${today}`;
+      const result = await request(`/api/catalogs/people/${personId}/rcm`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      const person = catalogs.people.find(p => p.id === personId);
+      if (person) {
+        if (!person.rcmProgress) person.rcmProgress = {};
+        person.rcmProgress[key] = result.rcmProgress?.[key] ?? today;
+        if (enrollNext) person.rcmProgress[next.key] = result.rcmProgress?.[next.key] ?? `en_curso:${today}`;
+      }
+    }));
+    const milestone = CLASS_MILESTONES.find(m => m.key === key);
+    const msg = enrollNext
+      ? `${personIds.length} miembro(s) graduados de ${milestone?.label ?? key} e inscritos en ${next.label}.`
+      : `${personIds.length} miembro(s) graduados de ${milestone?.label ?? key}.`;
+    setFeedback(msg);
+    graduarDialog.close();
+    renderPeopleRows();
+  } catch (err) {
+    setFeedback(err.message, true);
+  }
+}
+
+if (graduarOpenBtn && graduarDialog) {
+  graduarOpenBtn.addEventListener("click", () => {
+    populateGraduarDialog();
+    graduarDialog.showModal();
+  });
+}
+if (graduarClaseSelect) {
+  graduarClaseSelect.addEventListener("change", () => {
+    populateGraduarMembers();
+    refreshGraduarNextHint();
+  });
+}
+if (graduarCloseBtn && graduarDialog)  graduarCloseBtn.addEventListener("click",  () => graduarDialog.close());
+if (graduarCancelBtn && graduarDialog) graduarCancelBtn.addEventListener("click", () => graduarDialog.close());
+if (graduarDialog) graduarDialog.addEventListener("click", (e) => { if (e.target === graduarDialog) graduarDialog.close(); });
+if (graduarConfirmBtn) graduarConfirmBtn.addEventListener("click", handleGraduarConfirm);
+
 
 
 syncPhaseIndicator();

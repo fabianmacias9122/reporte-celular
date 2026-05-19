@@ -355,18 +355,18 @@ def create_app() -> Flask:
 
     @app.post("/api/auth/admin-reset/<int:person_id>")
     def auth_admin_reset(person_id: int) -> Response:
-        """Super-admin marca a un usuario para que capture nueva password al entrar.
-        Requiere header X-Acting-Person-Id con el id del super-admin que ejecuta.
+        """Cuenta de sistema marca a un usuario para que capture nueva password al entrar.
+        Requiere header X-Acting-Person-Id con el id de la cuenta de sistema que ejecuta.
         """
         actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
         if not actor_id:
             return jsonify({"message": "Falta identificación del solicitante"}), 401
         with get_connection() as connection:
             actor = connection.execute(
-                "SELECT is_super_admin FROM people_catalog WHERE id = ?", (actor_id,)
+                "SELECT is_system_account FROM people_catalog WHERE id = ?", (actor_id,)
             ).fetchone()
-            if not actor or not int(actor["is_super_admin"] or 0):
-                return jsonify({"message": "Solo super-admin puede resetear contraseñas"}), 403
+            if not actor or not int(actor["is_system_account"] or 0):
+                return jsonify({"message": "Solo una cuenta de sistema puede resetear contraseñas"}), 403
             target = connection.execute(
                 "SELECT id FROM people_catalog WHERE id = ?", (person_id,)
             ).fetchone()
@@ -401,17 +401,17 @@ def create_app() -> Flask:
         if validation_error:
             return jsonify({"message": validation_error}), 400
 
-        # username es opcional; si viene, se valida y solo super-admin puede asignarlo
+        # username es opcional; si viene, se valida y solo cuenta de sistema puede asignarlo
         username_value = None
         if payload.get("username") not in (None, ""):
             actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
             if actor_id:
                 with get_connection() as _c:
-                    actor = _c.execute("SELECT is_super_admin FROM people_catalog WHERE id = ?", (actor_id,)).fetchone()
+                    actor = _c.execute("SELECT is_system_account FROM people_catalog WHERE id = ?", (actor_id,)).fetchone()
             else:
                 actor = None
-            if not actor or not int(actor["is_super_admin"] or 0):
-                return jsonify({"message": "Solo super-admin puede asignar username"}), 403
+            if not actor or not int(actor["is_system_account"] or 0):
+                return jsonify({"message": "Solo una cuenta de sistema puede asignar username"}), 403
             u = _normalize_username(payload.get("username"))
             if not _is_valid_username(u):
                 return jsonify({"message": "Username inválido (usa letras, números, '.', '_' o '-')"}), 400
@@ -455,18 +455,18 @@ def create_app() -> Flask:
             return jsonify({"message": validation_error}), 400
 
         # Si el payload incluye 'username' (incluyendo cadena vacía para borrarlo),
-        # solo super-admin puede modificarlo. Si no viene la clave, no se toca.
+        # solo cuenta de sistema puede modificarlo. Si no viene la clave, no se toca.
         update_username = "username" in payload
         username_value = None
         if update_username:
             actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
             if actor_id:
                 with get_connection() as _c:
-                    actor = _c.execute("SELECT is_super_admin FROM people_catalog WHERE id = ?", (actor_id,)).fetchone()
+                    actor = _c.execute("SELECT is_system_account FROM people_catalog WHERE id = ?", (actor_id,)).fetchone()
             else:
                 actor = None
-            if not actor or not int(actor["is_super_admin"] or 0):
-                return jsonify({"message": "Solo super-admin puede asignar username"}), 403
+            if not actor or not int(actor["is_system_account"] or 0):
+                return jsonify({"message": "Solo una cuenta de sistema puede asignar username"}), 403
             raw = payload.get("username") or ""
             if raw == "":
                 username_value = None
@@ -528,6 +528,65 @@ def create_app() -> Flask:
         if cursor.rowcount == 0:
             return jsonify({"message": "Persona no encontrada."}), 404
         return jsonify({"ok": True})
+
+    @app.patch("/api/catalogs/people/<int:person_id>/admin")
+    def patch_person_admin(person_id: int) -> Response:
+        """Activa o desactiva el flag is_admin de una persona.
+        Solo una cuenta de sistema puede invocarlo.
+        """
+        actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
+        if not actor_id:
+            return jsonify({"message": "No autorizado."}), 401
+        with get_connection() as connection:
+            actor = connection.execute(
+                "SELECT is_system_account FROM people_catalog WHERE id = ?", (actor_id,)
+            ).fetchone()
+            if not actor or not int(actor["is_system_account"] or 0):
+                return jsonify({"message": "Solo una cuenta de sistema puede cambiar este flag."}), 403
+
+            payload = read_payload()
+            if not isinstance(payload, dict) or "isAdmin" not in payload:
+                return jsonify({"message": "Falta isAdmin."}), 400
+            new_value = 1 if payload.get("isAdmin") else 0
+
+            cursor = connection.execute(
+                "UPDATE people_catalog SET is_admin = ?, updated_at = ? WHERE id = ?",
+                (new_value, utc_now_iso(), person_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Persona no encontrada."}), 404
+        return jsonify({"ok": True, "isAdmin": bool(new_value)})
+
+    @app.patch("/api/catalogs/people/<int:person_id>/system-account")
+    def patch_person_system_account(person_id: int) -> Response:
+        """Marca o desmarca a una persona como 'cuenta de sistema'.
+        Solo otra cuenta de sistema. Las cuentas de sistema se ocultan del catálogo
+        normal de miembros y de los conteos/dashboard/RCM.
+        """
+        actor_id = normalize_nullable_int(request.headers.get("X-Acting-Person-Id"))
+        if not actor_id:
+            return jsonify({"message": "No autorizado."}), 401
+        with get_connection() as connection:
+            actor = connection.execute(
+                "SELECT is_system_account FROM people_catalog WHERE id = ?", (actor_id,)
+            ).fetchone()
+            if not actor or not int(actor["is_system_account"] or 0):
+                return jsonify({"message": "Solo una cuenta de sistema puede cambiar este flag."}), 403
+
+            payload = read_payload()
+            if not isinstance(payload, dict) or "isSystemAccount" not in payload:
+                return jsonify({"message": "Falta isSystemAccount."}), 400
+            new_value = 1 if payload.get("isSystemAccount") else 0
+
+            cursor = connection.execute(
+                "UPDATE people_catalog SET is_system_account = ?, updated_at = ? WHERE id = ?",
+                (new_value, utc_now_iso(), person_id),
+            )
+            connection.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Persona no encontrada."}), 404
+        return jsonify({"ok": True, "isSystemAccount": bool(new_value)})
 
     @app.patch("/api/catalogs/people/<int:person_id>/rcm")
     def patch_person_rcm(person_id: int) -> Response:
@@ -1228,8 +1287,31 @@ def ensure_schema(connection) -> None:
         if "is_coordinator" not in people_columns:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN is_coordinator INTEGER NOT NULL DEFAULT 0")
             people_columns = get_table_columns(connection, "people_catalog")
-        if "is_super_admin" not in people_columns:
-            connection.execute("ALTER TABLE people_catalog ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0")
+        if "is_system_account" not in people_columns:
+            connection.execute("ALTER TABLE people_catalog ADD COLUMN is_system_account INTEGER NOT NULL DEFAULT 0")
+            people_columns = get_table_columns(connection, "people_catalog")
+            # Migración inicial: cuentas tipo *.admin (sin ser personas reales) se
+            # marcan automáticamente como cuentas de sistema. Cualquier ajuste
+            # posterior se hace desde la UI.
+            try:
+                connection.execute(
+                    "UPDATE people_catalog SET is_system_account = 1 "
+                    "WHERE username IS NOT NULL AND lower(username) LIKE '%.admin'"
+                )
+            except Exception:
+                pass
+            # Compat: si la BD viene de una versión anterior con is_super_admin,
+            # heredar ese flag a is_system_account para no perder accesos.
+            if "is_super_admin" in people_columns:
+                try:
+                    connection.execute(
+                        "UPDATE people_catalog SET is_system_account = 1 "
+                        "WHERE is_super_admin = 1"
+                    )
+                except Exception:
+                    pass
+        if "is_admin" not in people_columns:
+            connection.execute("ALTER TABLE people_catalog ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
             people_columns = get_table_columns(connection, "people_catalog")
         if "username" not in people_columns:
             connection.execute("ALTER TABLE people_catalog ADD COLUMN username TEXT")
@@ -1734,7 +1816,9 @@ def load_catalogs_payload(connection) -> dict:
             person.rcm_progress,
             person.supervisor_sector,
             person.is_coordinator,
-            person.is_super_admin,
+            person.is_admin,
+            person.is_system_account,
+            person.username,
             guardian.name AS guardian_person_name,
             person.created_at,
             person.updated_at
@@ -1818,7 +1902,8 @@ def serialize_person(row: sqlite3.Row, assignments: list[dict] | None = None) ->
         "rcmProgress": parse_json_field(row["rcm_progress"]),
         "supervisorSector": row["supervisor_sector"] or "",
         "isCoordinator": bool(int(row["is_coordinator"] or 0)),
-        "isSuperAdmin": bool(int(row["is_super_admin"] or 0)) if "is_super_admin" in row.keys() else False,
+        "isAdmin": bool(int(row["is_admin"] or 0)) if "is_admin" in row.keys() else False,
+        "isSystemAccount": bool(int(row["is_system_account"] or 0)) if "is_system_account" in row.keys() else False,
         "username": (row["username"] or "") if "username" in row.keys() else "",
         "assignedCellId": primary_assignment["cellId"] if primary_assignment else None,
         "assignedCellNumber": primary_assignment["cellNumber"] if primary_assignment else "",

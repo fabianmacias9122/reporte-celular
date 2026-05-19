@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./app.css?v=20260515-064">
+  <link rel="stylesheet" href="./app.css?v=20260518-brand-primaries">
 </head>
 <body class="app-fixed">
   <!-- TOPBAR -->
@@ -203,7 +203,7 @@
               </label>
             </div>
             <div class="report-grid inicio-secondary-fields">
-              <label>
+              <label hidden aria-hidden="true" style="display:none">
                 <span data-i18n="form.network">Red</span>
                 <input name="networkName" type="text">
               </label>
@@ -211,7 +211,7 @@
                 <span data-i18n="form.sector">Sector</span>
                 <input name="sector" type="text" required>
               </label>
-              <label>
+              <label hidden aria-hidden="true" style="display:none">
                 <span data-i18n="form.zone">Zona</span>
                 <input name="zoneName" type="text">
               </label>
@@ -456,10 +456,40 @@
                 <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
                 <h2 data-i18n="kids.title">Niños</h2>
               </div>
-              <button id="add-kid-button" type="button" class="secondary btn-with-icon">
+              <button id="add-kid-button" type="button" class="secondary btn-with-icon" hidden aria-hidden="true" style="display:none">
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                 <span data-i18n="kids.addVisit">Agregar niño de visita</span>
               </button>
+            </div>
+            <div id="kid-quick-form" class="visitor-quick-form">
+              <label>
+                <span>Nombre del niño</span>
+                <input id="kid-quick-name" name="kidName" type="text" placeholder="Nombre completo">
+              </label>
+              <label>
+                <span>Responsable</span>
+                <input id="kid-quick-guardian" name="kidGuardian" type="text" placeholder="Mamá, papá o tutor">
+              </label>
+              <div class="visitor-quick-toggles">
+                <label class="quick-toggle-field">
+                  <input id="kid-quick-reach" name="kidReachAttended" type="checkbox" checked>
+                  <span data-i18n="att.reach">Alcance</span>
+                </label>
+                <label class="quick-toggle-field">
+                  <input id="kid-quick-sunday" name="kidSundayAttended" type="checkbox">
+                  <span data-i18n="stage.service">Culto</span>
+                </label>
+              </div>
+              <div class="visitor-quick-actions">
+                <button id="add-kid-quick-button" type="button" class="btn-with-icon">
+                  <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                  <span>Agregar niño</span>
+                </button>
+                <button id="reset-kid-quick-button" type="button" class="secondary btn-with-icon" title="Vacía los campos del formulario rápido (no afecta a la tabla de niños)">
+                  <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>
+                  <span>Vaciar formulario</span>
+                </button>
+              </div>
             </div>
             <div class="helper-actions" aria-label="Atajos de niños">
               <button type="button" class="secondary helper-action-button stage-action btn-with-icon" data-stage-action="culto" id="fill-sunday-kids" data-tooltip="Marca a TODOS los niños como asistentes al Culto, sin importar Alcance.">
@@ -669,6 +699,7 @@
           <button type="button" class="admin-section-button is-active" data-admin-target="admin-overview-section" data-i18n="admin.summary">Resumen</button>
           <button type="button" class="admin-section-button" data-admin-target="admin-people-section" data-i18n="admin.members">Miembros</button>
           <button type="button" class="admin-section-button" data-admin-target="admin-cells-section" data-i18n="admin.cells">Células</button>
+          <button type="button" class="admin-section-button is-hidden" id="admin-system-tab" data-admin-target="admin-system-section" data-i18n="admin.systemAccounts">Cuentas de sistema</button>
         </nav>
 
         <section id="admin-overview-section" class="panel panel-soft admin-overview admin-overview-span admin-section-anchor">
@@ -702,6 +733,7 @@
                 <div class="catalog-head-actions">
                   <button id="people-new-btn" type="button" class="btn btn-sm btn-primary" data-tooltip="Agregar una nueva persona al catálogo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span data-i18n="admin.newPerson">Nueva persona</span></button>
                   <button id="convocar-open-btn" type="button" class="btn btn-sm btn-outline-brand" data-tooltip="Registrar convocatoria a clase RCM para miembros seleccionados"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span data-i18n="admin.inviteClass">Convocar a clase</span></button>
+                  <button id="graduar-open-btn" type="button" class="btn btn-sm btn-outline-brand" data-tooltip="Marcar como completada una clase RCM para miembros que ya la terminaron"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> <span data-i18n="admin.graduateClass">Graduar clase</span></button>
                 </div>
               </div>
               <div class="catalog-list-controls">
@@ -794,6 +826,32 @@
               </div>
               <div class="catalog-card-grid" id="cells-card-grid"></div>
             </section>
+          </div>
+        </section>
+
+        <section id="admin-system-section" class="panel panel-strong admin-section-anchor is-hidden">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow" data-i18n="admin.administration">Administración</p>
+              <h2 data-i18n="admin.systemAccounts">Cuentas de sistema</h2>
+            </div>
+          </div>
+          <p class="muted" data-i18n="admin.systemAccountsHelp">Cuentas usadas solo para administrar el sistema (no son miembros reales). No aparecen en listados, conteos, RCM ni reportes.</p>
+          <div class="catalog-table-scroll">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th data-i18n="admin.name">Nombre</th>
+                  <th data-i18n="admin.username">Usuario</th>
+                  <th data-i18n="admin.role">Rol</th>
+                  <th data-i18n="admin.permissions">Permisos</th>
+                  <th data-i18n="admin.actions">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="system-accounts-table-body">
+                <tr><td colspan="5" class="empty-state" data-i18n="admin.noSystemAccounts">Sin cuentas de sistema.</td></tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -1230,6 +1288,10 @@
           <span data-i18n="pdlg.usernameLabel">Usuario para login <small style="font-weight:400;opacity:.6">(letras, números, '.', '_' o '-')</small></span>
           <input id="people-username" name="username" type="text" form="people-form" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ej. fabian.macias">
         </label>
+        <label id="people-admin-field" hidden style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
+          <input id="people-is-admin" name="isAdmin" type="checkbox" form="people-form" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
+          <span data-i18n="pdlg.isAdmin">Administrador <small style="font-weight:400;opacity:.6">(puede administrar miembros y células)</small></span>
+        </label>
       </div>
     </div>
     <div class="dialog-footer">
@@ -1376,6 +1438,35 @@
     </div>
   </dialog>
 
+  <!-- ── Graduar clase dialog ─────────────────────────────── -->
+  <dialog id="graduar-dialog" class="app-dialog">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow" data-i18n="graduar.eyebrow">Graduación</p>
+        <h3 data-i18n="graduar.title">Marcar clase como completada</h3>
+      </div>
+      <button id="graduar-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="dialog-body">
+      <div class="field-row">
+        <label for="graduar-clase-select" data-i18n="graduar.class">Clase</label>
+        <select id="graduar-clase-select"></select>
+      </div>
+      <p class="eyebrow" style="margin-top:12px" data-i18n="graduar.completedToday">Miembros que completan esta clase hoy</p>
+      <div id="graduar-member-list" class="convocar-member-list"></div>
+      <div id="graduar-next-wrap" class="field-row" style="margin-top:12px; display:none;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem;">
+          <input type="checkbox" id="graduar-enroll-next" checked>
+          <span id="graduar-next-label">Inscribir además a la siguiente clase</span>
+        </label>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button id="graduar-cancel-btn" type="button" class="btn btn-ghost" data-i18n="confirm.cancel">Cancelar</button>
+      <button id="graduar-confirm-btn" type="button" class="btn btn-primary" data-i18n="graduar.register">Registrar graduación</button>
+    </div>
+  </dialog>
+
   <!-- Member detail modal -->
   <dialog id="member-detail-modal" class="member-modal">
     <div class="member-modal-inner">
@@ -1395,6 +1486,6 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <!-- Chart.js para graficas del Dashboard -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script type="module" src="./app.js?v=20260518-055"></script>
+  <script type="module" src="./app.js?v=20260518-preview-share"></script>
 </body>
 </html>
