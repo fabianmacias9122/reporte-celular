@@ -1019,7 +1019,7 @@ tr.people-group-header + tr td { border-top: none; }
 .quick-list-empty { padding: 10px 4px; }
 
 /* CYCLE CARDS — historial por cuatrimestre */
-#report-cycles-list { display: grid; gap: 16px; }
+#report-cycles-list, #seguimiento-cycles-list { display: grid; gap: 28px; }
 .cycle-card { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); box-shadow: var(--shadow-sm); }
 .cycle-card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); background: var(--panel-soft); }
 .cycle-card-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -2489,6 +2489,13 @@ th#member-event-col-header::before { content: "★ "; }
 .rcm-panel-bar { flex: 1 1 80px; height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; min-width: 60px; }
 .rcm-panel-bar-fill { height: 100%; background: var(--brand); border-radius: 999px; transition: width 300ms ease; }
 .rcm-panel-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 16px; padding-top: 10px; }
+@media (max-width: 720px) {
+  .rcm-panel-body { grid-template-columns: 1fr; gap: 14px; }
+  .rcm-panel-section { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .rcm-panel-section:last-child { border-bottom: none; }
+  .rcm-milestone-toggle { min-width: 0; }
+  .rcm-milestone-label { word-break: break-word; }
+}
 /* RCM inline bar (in table) */
 .rcm-inline-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; padding: 2px 0; color: var(--text); }
 .rcm-inline-btn:hover { color: var(--brand-deep); }
@@ -2496,7 +2503,7 @@ th#member-event-col-header::before { content: "★ "; }
 .rcm-inline-fill { display: block; height: 100%; border-radius: 3px; background: var(--brand); transition: width .3s; }
 .rcm-inline-label { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
 /* RCM dialog body */
-.rcm-dialog-body { max-height: 68vh; overflow-y: auto; padding: 16px 20px; gap: 0; touch-action: pan-y; }
+.rcm-dialog-body { max-height: 68vh; overflow-y: auto; padding: 16px 20px; gap: 0; -webkit-overflow-scrolling: touch; }
 
 /* ── Grace period banner ─────────────────────────────────────── */
 .grace-banner {

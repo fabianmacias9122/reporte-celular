@@ -7059,23 +7059,22 @@ function openWhatsApp(text) {
 // Comparte imagen + texto usando Web Share API (móvil/Android/iOS modernos).
 // Si no es posible compartir archivos, descarga la imagen y abre WhatsApp con
 // el texto, avisando al usuario que adjunte la imagen recién descargada.
-async function shareElementWithText(el, text, filename) {
+async function shareElementWithText(el, _text, filename) {
   const blob = await renderElementToPngBlob(el);
   if (!blob) return;
   const file = new File([blob], filename || 'reporte.png', { type: 'image/png' });
 
-  // 1) Intento moderno: compartir archivo + texto (móvil)
+  // 1) Intento moderno: compartir SOLO la imagen (sin texto — algunos clientes WhatsApp rechazan el combo)
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], text });
+      await navigator.share({ files: [file] });
       return;
     } catch (e) {
-      // Usuario canceló o falló — caer al fallback
       if (e && e.name === 'AbortError') return;
     }
   }
 
-  // 2) Fallback escritorio: descargar PNG + abrir WhatsApp con texto
+  // 2) Fallback escritorio: descargar PNG y avisar al usuario
   const link = document.createElement('a');
   link.download = filename || 'reporte.png';
   link.href = URL.createObjectURL(blob);
@@ -7083,8 +7082,7 @@ async function shareElementWithText(el, text, filename) {
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1500);
   link.remove();
-  alert('Se descargó la imagen. Ahora se abrirá WhatsApp Web — adjunta la imagen manualmente con el clip 📎.');
-  openWhatsApp(text);
+  alert('Se descargó la imagen. Abre WhatsApp y adjúntala manualmente con el clip 📎.');
 }
 
 // SVG oficial-ish del logo de WhatsApp (Simple Icons, dominio público).
@@ -9702,14 +9700,12 @@ function buildReportPreviewHtml() {
     }
     return lines.join("\n");
   }
-  const waUrl = `https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`;
   // Exponer el texto generado para que botones externos (compartir/descargar) puedan reusarlo.
   lastPreviewWhatsAppText = buildWhatsAppText();
 
   return headerHtml + attendanceHtml +
     `<div class="preview-section-title">${t('met.reportMetrics')}</div><div class="preview-metrics-grid">${metricsHtml}</div>` +
-    membersHtml + notesHtml +
-    `<div class="preview-wa-row"><a href="${waUrl}" target="_blank" rel="noopener" class="btn-wa">📱 Enviar por WhatsApp</a></div>`;
+    membersHtml + notesHtml;
 }
 
 function openReportPreviewDialog() {
