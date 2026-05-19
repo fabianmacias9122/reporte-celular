@@ -7717,6 +7717,10 @@ async function handleRcmDateChange(event) {
 async function handleRcmMilestoneClick(event) {
   const btn = event.target.closest("button.rcm-milestone-toggle");
   if (!btn) return;
+  // Anti-doble-disparo (pointerup + click consecutivos en mobile)
+  if (btn.dataset.rcmFiring === "1") return;
+  btn.dataset.rcmFiring = "1";
+  setTimeout(() => { delete btn.dataset.rcmFiring; }, 700);
   const personId = parseInt(btn.dataset.rcmPersonId, 10);
   const rcmKey   = btn.dataset.rcmKey;
   if (!personId || !rcmKey) return;
@@ -9119,6 +9123,18 @@ if (peopleRcmDialog) {
   document.querySelector("#rcm-dialog-close-btn")?.addEventListener("click",  () => peopleRcmDialog.close());
   document.querySelector("#rcm-dialog-done-btn")?.addEventListener("click",   () => peopleRcmDialog.close());
   peopleRcmDialog.addEventListener("click", (e) => { if (e.target === peopleRcmDialog) peopleRcmDialog.close(); });
+  // Delegación robusta para taps en mobile: escuchar también a nivel dialog
+  // y deduplicar pointerup/click con un flag por evento.
+  peopleRcmDialog.addEventListener("click", handleRcmMilestoneClick);
+  peopleRcmDialog.addEventListener("pointerup", (e) => {
+    if (e.pointerType === "mouse") return;             // mouse usa click normal
+    const btn = e.target.closest("button.rcm-milestone-toggle");
+    if (!btn || btn.dataset.rcmBusy === "1") return;
+    btn.dataset.rcmBusy = "1";
+    setTimeout(() => { delete btn.dataset.rcmBusy; }, 600);
+    handleRcmMilestoneClick(e);
+  });
+  peopleRcmDialog.addEventListener("change", handleRcmDateChange);
 }
 if (peopleRcmPanel) {
   peopleRcmPanel.addEventListener("click", handleRcmMilestoneClick);
