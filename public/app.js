@@ -5818,13 +5818,24 @@ function renderSeguimiento(reports) {
     // Solo tiene sentido si hay una semana anterior dentro del mismo cuatrimestre.
     offsetTabs.hidden = baseWeekNum <= 1;
     if (offsetTabs.hidden) seguimientoWeekOffset = 0;
-    offsetTabs.querySelectorAll("button[data-weekoff]").forEach(b => {
+    // Obtener los verbos reales de la semana actual y anterior
+    const verbActual = getRcmWeekInfo(baseWeekNum)?.verb || "Semana actual";
+    const verbAnterior = getRcmWeekInfo(baseWeekNum - 1)?.verb || "Semana anterior";
+    const tabButtons = offsetTabs.querySelectorAll("button[data-weekoff]");
+    tabButtons.forEach(b => {
+      const weekoff = parseInt(b.dataset.weekoff, 10) || 0;
+      if (weekoff === 0) {
+        b.textContent = verbActual;
+      } else if (weekoff === -1) {
+        b.textContent = verbAnterior;
+      }
       b.classList.toggle("is-active", String(b.dataset.weekoff) === String(seguimientoWeekOffset));
     });
   }
   const effectiveWeek = Math.max(1, baseWeekNum + seguimientoWeekOffset);
   const isPrevWeek    = seguimientoWeekOffset === -1 && baseWeekNum > 1;
-  const weekLabel     = isPrevWeek ? "Semana anterior" : "Esta semana";
+  // El label de la semana seleccionada también debe ser dinámico
+  const weekLabel     = getRcmWeekInfo(effectiveWeek)?.verb || (isPrevWeek ? "Semana anterior" : "Semana actual");
 
   // ── Células pendientes y actividad de la semana actual ────────────────────
   if (dashboardPendingCells || dashboardRecentActivity) {
