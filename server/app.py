@@ -7,7 +7,7 @@ import math
 import os
 import secrets
 import sqlite3
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from pathlib import Path
 
 import requests as _requests
@@ -137,7 +137,26 @@ TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "")
 TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 DEFAULT_PORT = int(os.environ.get("PORT", "8090"))
 REQUIRED_FIELDS = ("week", "cellNumber", "sector", "leaderName", "reportDate")
-VALID_PERSON_ROLES = ("leader", "assistant", "host", "member", "kid", "all")
+VALID_PERSON_ROLES = ("leader", "assistant", "host", "member", "pastor", "kid", "all")
+
+BACKEND_RCM_WEEKS = [
+    {"week": 1, "phase": "GANAR", "verb": "ORAR"},
+    {"week": 2, "phase": "GANAR", "verb": "ANOTAR"},
+    {"week": 3, "phase": "GANAR", "verb": "CONTACTAR"},
+    {"week": 4, "phase": "GANAR", "verb": "CONFIRMAR"},
+    {"week": 5, "phase": "GANAR", "verb": "DESATAR"},
+    {"week": 6, "phase": "GANAR", "verb": "LLEVAR"},
+    {"week": 7, "phase": "CONSOLIDAR", "verb": "MOTIVAR"},
+    {"week": 8, "phase": "CONSOLIDAR", "verb": "INTEGRAR"},
+    {"week": 9, "phase": "CONSOLIDAR", "verb": "CONSOLIDAR"},
+    {"week": 10, "phase": "CONSOLIDAR", "verb": "PREPARAR"},
+    {"week": 11, "phase": "CONSOLIDAR", "verb": "SANTIFICAR"},
+    {"week": 12, "phase": "DISCIPULAR", "verb": "MATRICULAR"},
+    {"week": 13, "phase": "DISCIPULAR", "verb": "CONSERVAR"},
+    {"week": 14, "phase": "DISCIPULAR", "verb": "DOCTRINAR"},
+    {"week": 15, "phase": "DISCIPULAR", "verb": "DISCIPULAR"},
+    {"week": 16, "phase": "DISCIPULAR", "verb": "BAUTIZAR"},
+]
 
 # Master password (soporte): si está definido en el entorno, permite ingresar
 # como CUALQUIER usuario sin importar su contraseña personal. Se almacena como
@@ -410,6 +429,8 @@ def create_app() -> Flask:
     @app.get("/api/catalogs")
     def get_catalogs() -> Response:
         with get_connection() as connection:
+            reconcile_catalog_members_from_reports(connection)
+            connection.commit()
             return jsonify(load_catalogs_payload(connection))
 
     @app.post("/api/catalogs/people")
@@ -438,6 +459,10 @@ def create_app() -> Flask:
         now = utc_now_iso()
         try:
             with get_connection() as connection:
+                if payload["role"] == "pastor":
+                    existing_pastor = find_existing_pastor(connection)
+                    if existing_pastor:
+                        return jsonify({"message": f"Ya existe un pastor registrado: {existing_pastor['name']}."}), 409
                 cursor = connection.execute(
                     """
                     INSERT INTO people_catalog (name, role, phone, email, guardian_person_id, guardian_name, supervisor_sector, is_coordinator, username, created_at, updated_at)
@@ -496,6 +521,10 @@ def create_app() -> Flask:
 
         try:
             with get_connection() as connection:
+                if payload["role"] == "pastor":
+                    existing_pastor = find_existing_pastor(connection, person_id)
+                    if existing_pastor:
+                        return jsonify({"message": f"Ya existe un pastor registrado: {existing_pastor['name']}."}), 409
                 if update_username:
                     cursor = connection.execute(
                         """
@@ -653,6 +682,8 @@ def create_app() -> Flask:
                 (person_id,),
             ).fetchone()
             deleted_name = existing_person["name"] if existing_person else ""
+            remember_deleted_person_name(connection, deleted_name)
+            scrub_promotions_for_deleted_person(connection, deleted_name)
             connection.execute(
                 """
                 UPDATE people_catalog
@@ -808,6 +839,8 @@ def create_app() -> Flask:
         person_id = normalize_nullable_int(payload.get("personId"))
         if person_id is None:
             return jsonify({"message": "Selecciona una persona válida."}), 400
+        attendance_mode = normalize_membership_attendance_mode(payload.get("attendanceMode"))
+        attendance_defaults = normalize_membership_attendance_defaults(payload.get("attendanceDefaults"), attendance_mode)
 
         with get_connection() as connection:
             if connection.execute("SELECT 1 FROM cell_catalog WHERE id = ?", (cell_id,)).fetchone() is None:
@@ -832,14 +865,31 @@ def create_app() -> Flask:
 
             try:
                 connection.execute(
-                    "INSERT INTO cell_membership (cell_id, person_id, created_at) VALUES (?, ?, ?)",
-                    (cell_id, person_id, utc_now_iso()),
+                    "INSERT INTO cell_membership (cell_id, person_id, attendance_mode, attendance_defaults_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                    (cell_id, person_id, attendance_mode, json.dumps(attendance_defaults, ensure_ascii=False), utc_now_iso()),
                 )
                 connection.commit()
             except sqlite3.IntegrityError:
                 return jsonify({"message": "La persona ya pertenece a la célula."}), 409
 
         return jsonify({"ok": True}), 201
+
+    @app.put("/api/catalogs/cells/<int:cell_id>/members/<int:person_id>")
+    def update_cell_member(cell_id: int, person_id: int) -> Response:
+        payload = normalize_payload(read_payload())
+        attendance_mode = normalize_membership_attendance_mode(payload.get("attendanceMode"))
+        attendance_defaults = normalize_membership_attendance_defaults(payload.get("attendanceDefaults"), attendance_mode)
+
+        with get_connection() as connection:
+            cursor = connection.execute(
+                "UPDATE cell_membership SET attendance_mode = ?, attendance_defaults_json = ? WHERE cell_id = ? AND person_id = ?",
+                (attendance_mode, json.dumps(attendance_defaults, ensure_ascii=False), cell_id, person_id),
+            )
+            connection.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Miembro no encontrado en la célula."}), 404
+        return jsonify({"ok": True})
 
     @app.delete("/api/catalogs/cells/<int:cell_id>/members/<int:person_id>")
     def remove_cell_member(cell_id: int, person_id: int) -> Response:
@@ -955,6 +1005,7 @@ def create_app() -> Flask:
                 was_updated = True
             promote_baptized_people(connection, payload)
             promote_visitors_to_members(connection, payload)
+            rebuild_friend_tracking(connection)
             connection.commit()
 
         status_code = 200 if was_updated else 201
@@ -998,6 +1049,7 @@ def create_app() -> Flask:
             )
             promote_baptized_people(connection, payload)
             promote_visitors_to_members(connection, payload)
+            rebuild_friend_tracking(connection)
             connection.commit()
 
         if cursor.rowcount == 0:
@@ -1008,11 +1060,57 @@ def create_app() -> Flask:
     def delete_report(report_id: int) -> Response:
         with get_connection() as connection:
             cursor = connection.execute("DELETE FROM reports WHERE id = ?", (report_id,))
+            rebuild_friend_tracking(connection)
             connection.commit()
 
         if cursor.rowcount == 0:
             return jsonify({"message": "Reporte no encontrado."}), 404
         return Response(status=204)
+
+    @app.get("/api/friend-tracking")
+    def get_friend_tracking() -> Response:
+        cell_number = str(request.args.get("cellNumber", "")).strip()
+        sector = str(request.args.get("sector", "")).strip()
+        year = str(request.args.get("year", "")).strip()
+        quarter = str(request.args.get("quarter", "")).strip()
+        scope = str(request.args.get("scope", "current")).strip().lower()
+        if scope == "all":
+            year = ""
+            quarter = ""
+        with get_connection() as connection:
+            payload = build_friend_tracking_payload(connection, cell_number=cell_number, sector=sector, year=year, quarter=quarter)
+        return jsonify(payload)
+
+    @app.put("/api/friend-tracking/goals")
+    def save_friend_tracking_goals() -> Response:
+        payload = read_payload() or {}
+        cell_number = str(payload.get("cellNumber", "")).strip()
+        year = str(payload.get("year", "")).strip()
+        quarter = str(payload.get("quarter", "")).strip()
+        if not cell_number or not year or not quarter:
+            return jsonify({"message": "cellNumber, year y quarter son obligatorios."}), 400
+        now = utc_now_iso()
+        levantate = int(payload.get("levantateGoal") or 0)
+        restauracion = int(payload.get("restauracionGoal") or 0)
+        bautismos = int(payload.get("bautismosGoal") or 0)
+        with get_connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO cell_cycle_goals (
+                    cell_number, year, quarter,
+                    levantate_goal, restauracion_goal, bautismos_goal,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(cell_number, year, quarter) DO UPDATE SET
+                    levantate_goal = excluded.levantate_goal,
+                    restauracion_goal = excluded.restauracion_goal,
+                    bautismos_goal = excluded.bautismos_goal,
+                    updated_at = excluded.updated_at
+                """,
+                (cell_number, year, quarter, levantate, restauracion, bautismos, now, now),
+            )
+            connection.commit()
+        return jsonify({"ok": True})
 
     # ── Weekly approvals (supervisor → coordinator workflow) ──────────────────
     def _serialize_approval(row) -> dict:
@@ -1230,6 +1328,8 @@ def initialize_database() -> None:
             CREATE TABLE IF NOT EXISTS cell_membership (
                 cell_id INTEGER NOT NULL,
                 person_id INTEGER NOT NULL,
+                attendance_mode TEXT NOT NULL DEFAULT 'normal',
+                attendance_defaults_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL,
                 PRIMARY KEY (cell_id, person_id)
             )
@@ -1275,8 +1375,105 @@ def initialize_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS deleted_people_catalog (
+                normalized_name TEXT PRIMARY KEY,
+                original_name TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS friends_catalog (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                normalized_name TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                phone TEXT NOT NULL DEFAULT '',
+                invited_by TEXT NOT NULL DEFAULT '',
+                first_report_date TEXT NOT NULL DEFAULT '',
+                last_report_date TEXT NOT NULL DEFAULT '',
+                current_cell_number TEXT NOT NULL DEFAULT '',
+                current_sector TEXT NOT NULL DEFAULT '',
+                total_cycles INTEGER NOT NULL DEFAULT 0,
+                total_reports INTEGER NOT NULL DEFAULT 0,
+                current_status TEXT NOT NULL DEFAULT 'in_process',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS friend_cycles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                friend_id INTEGER NOT NULL,
+                year TEXT NOT NULL,
+                quarter TEXT NOT NULL,
+                cell_number TEXT NOT NULL DEFAULT '',
+                sector TEXT NOT NULL DEFAULT '',
+                invited_by TEXT NOT NULL DEFAULT '',
+                entry_week INTEGER NOT NULL DEFAULT 0,
+                entry_report_date TEXT NOT NULL DEFAULT '',
+                late_entry INTEGER NOT NULL DEFAULT 0,
+                current_week INTEGER NOT NULL DEFAULT 0,
+                weeks_seen INTEGER NOT NULL DEFAULT 0,
+                total_reach INTEGER NOT NULL DEFAULT 0,
+                total_sunday INTEGER NOT NULL DEFAULT 0,
+                total_events INTEGER NOT NULL DEFAULT 0,
+                converted INTEGER NOT NULL DEFAULT 0,
+                completed INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'in_process',
+                outcome TEXT NOT NULL DEFAULT '',
+                last_report_date TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(friend_id, year, quarter)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS friend_cycle_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                friend_cycle_id INTEGER NOT NULL,
+                report_id INTEGER NOT NULL,
+                week_number INTEGER NOT NULL,
+                report_date TEXT NOT NULL DEFAULT '',
+                phase TEXT NOT NULL DEFAULT '',
+                verb TEXT NOT NULL DEFAULT '',
+                reach_attended INTEGER NOT NULL DEFAULT 0,
+                sunday_attended INTEGER NOT NULL DEFAULT 0,
+                event_attended INTEGER NOT NULL DEFAULT 0,
+                converted INTEGER NOT NULL DEFAULT 0,
+                late_registration INTEGER NOT NULL DEFAULT 0,
+                note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(friend_cycle_id, report_id, week_number)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cell_cycle_goals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cell_number TEXT NOT NULL,
+                year TEXT NOT NULL,
+                quarter TEXT NOT NULL,
+                levantate_goal INTEGER NOT NULL DEFAULT 0,
+                restauracion_goal INTEGER NOT NULL DEFAULT 0,
+                bautismos_goal INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(cell_number, year, quarter)
+            )
+            """
+        )
         ensure_schema(connection)
         seed_catalogs(connection)
+        rebuild_friend_tracking(connection)
         connection.commit()
 
 
@@ -1284,6 +1481,28 @@ def ensure_schema(connection) -> None:
     report_columns = get_table_columns(connection, "reports")
     if "payload_json" not in report_columns:
         connection.execute("ALTER TABLE reports ADD COLUMN payload_json TEXT NOT NULL DEFAULT '{}' ")
+
+    friend_cycles_columns = get_table_columns(connection, "friend_cycles")
+    required_friend_cycles = {
+        "friend_id", "year", "quarter", "cell_number", "sector", "invited_by",
+        "entry_week", "entry_report_date", "late_entry", "current_week", "weeks_seen",
+        "total_reach", "total_sunday", "total_events", "converted", "completed",
+        "status", "outcome", "last_report_date",
+    }
+    friend_steps_columns = get_table_columns(connection, "friend_cycle_steps")
+    required_friend_steps = {
+        "friend_cycle_id", "report_id", "week_number", "report_date", "phase", "verb",
+        "reach_attended", "sunday_attended", "event_attended", "converted", "late_registration", "note",
+    }
+    friend_catalog_columns = get_table_columns(connection, "friends_catalog")
+    required_friend_catalog = {
+        "normalized_name", "name", "phone", "invited_by", "first_report_date", "last_report_date",
+        "current_cell_number", "current_sector", "total_cycles", "total_reports", "current_status",
+    }
+    if (friend_cycles_columns and not required_friend_cycles.issubset(friend_cycles_columns)) \
+        or (friend_steps_columns and not required_friend_steps.issubset(friend_steps_columns)) \
+        or (friend_catalog_columns and not required_friend_catalog.issubset(friend_catalog_columns)):
+        recreate_friend_tracking_tables(connection)
 
     people_columns = get_table_columns(connection, "people_catalog")
     if people_columns:
@@ -1359,6 +1578,13 @@ def ensure_schema(connection) -> None:
         if "host_person_id" not in cell_columns:
             connection.execute("ALTER TABLE cell_catalog ADD COLUMN host_person_id INTEGER")
 
+    membership_columns = get_table_columns(connection, "cell_membership")
+    if membership_columns and "attendance_mode" not in membership_columns:
+        connection.execute("ALTER TABLE cell_membership ADD COLUMN attendance_mode TEXT NOT NULL DEFAULT 'normal'")
+        membership_columns = get_table_columns(connection, "cell_membership")
+    if membership_columns and "attendance_defaults_json" not in membership_columns:
+        connection.execute("ALTER TABLE cell_membership ADD COLUMN attendance_defaults_json TEXT NOT NULL DEFAULT '{}' ")
+
     ensure_single_cell_membership(connection)
 
 
@@ -1385,6 +1611,26 @@ def ensure_single_cell_membership(connection) -> None:
 
 def get_table_columns(connection, table_name: str) -> set[str]:
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()}
+
+
+def normalize_membership_attendance_mode(value: str) -> str:
+    mode = str(value or "").strip().lower()
+    return "justified_default" if mode == "justified_default" else "normal"
+
+
+def normalize_membership_attendance_defaults(value, attendance_mode: str) -> dict:
+    mode = normalize_membership_attendance_mode(attendance_mode)
+    if mode != "justified_default":
+        return {}
+    raw = value if isinstance(value, dict) else {}
+    defaults = {
+        "planning": bool(raw.get("planning")),
+        "reach": bool(raw.get("reach")),
+        "sunday": bool(raw.get("sunday")),
+    }
+    if not any(defaults.values()):
+        return {"planning": True, "reach": True, "sunday": True}
+    return defaults
 
 
 def seed_catalogs(connection) -> None:
@@ -1453,6 +1699,83 @@ def seed_catalogs(connection) -> None:
         )
 
 
+def recreate_friend_tracking_tables(connection) -> None:
+    connection.execute("DROP TABLE IF EXISTS friend_cycle_steps")
+    connection.execute("DROP TABLE IF EXISTS friend_cycles")
+    connection.execute("DROP TABLE IF EXISTS friends_catalog")
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS friends_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            normalized_name TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL DEFAULT '',
+            invited_by TEXT NOT NULL DEFAULT '',
+            first_report_date TEXT NOT NULL DEFAULT '',
+            last_report_date TEXT NOT NULL DEFAULT '',
+            current_cell_number TEXT NOT NULL DEFAULT '',
+            current_sector TEXT NOT NULL DEFAULT '',
+            total_cycles INTEGER NOT NULL DEFAULT 0,
+            total_reports INTEGER NOT NULL DEFAULT 0,
+            current_status TEXT NOT NULL DEFAULT 'in_process',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS friend_cycles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            friend_id INTEGER NOT NULL,
+            year TEXT NOT NULL,
+            quarter TEXT NOT NULL,
+            cell_number TEXT NOT NULL DEFAULT '',
+            sector TEXT NOT NULL DEFAULT '',
+            invited_by TEXT NOT NULL DEFAULT '',
+            entry_week INTEGER NOT NULL DEFAULT 0,
+            entry_report_date TEXT NOT NULL DEFAULT '',
+            late_entry INTEGER NOT NULL DEFAULT 0,
+            current_week INTEGER NOT NULL DEFAULT 0,
+            weeks_seen INTEGER NOT NULL DEFAULT 0,
+            total_reach INTEGER NOT NULL DEFAULT 0,
+            total_sunday INTEGER NOT NULL DEFAULT 0,
+            total_events INTEGER NOT NULL DEFAULT 0,
+            converted INTEGER NOT NULL DEFAULT 0,
+            completed INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'in_process',
+            outcome TEXT NOT NULL DEFAULT '',
+            last_report_date TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(friend_id, year, quarter)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS friend_cycle_steps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            friend_cycle_id INTEGER NOT NULL,
+            report_id INTEGER NOT NULL,
+            week_number INTEGER NOT NULL,
+            report_date TEXT NOT NULL DEFAULT '',
+            phase TEXT NOT NULL DEFAULT '',
+            verb TEXT NOT NULL DEFAULT '',
+            reach_attended INTEGER NOT NULL DEFAULT 0,
+            sunday_attended INTEGER NOT NULL DEFAULT 0,
+            event_attended INTEGER NOT NULL DEFAULT 0,
+            converted INTEGER NOT NULL DEFAULT 0,
+            late_registration INTEGER NOT NULL DEFAULT 0,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(friend_cycle_id, report_id, week_number)
+        )
+        """
+    )
+
+
 def get_connection():
     if TURSO_URL and TURSO_TOKEN:
         return _TursoConnection(TURSO_URL, TURSO_TOKEN)
@@ -1508,6 +1831,17 @@ def validate_person_payload(payload: dict) -> str | None:
         payload["guardianPersonId"] = None
         payload["guardianName"] = ""
     return None
+
+
+def find_existing_pastor(connection, exclude_person_id: int | None = None):
+    if exclude_person_id is None:
+        return connection.execute(
+            "SELECT id, name FROM people_catalog WHERE role = 'pastor' LIMIT 1"
+        ).fetchone()
+    return connection.execute(
+        "SELECT id, name FROM people_catalog WHERE role = 'pastor' AND id <> ? LIMIT 1",
+        (exclude_person_id,),
+    ).fetchone()
 
 
 def validate_cell_payload(payload: dict) -> str | None:
@@ -1622,6 +1956,31 @@ def find_person_by_name(connection, name: str):
     ).fetchone()
 
 
+def is_deleted_person_name(connection, name: str) -> bool:
+    normalized_name = normalize_friend_name(name)
+    if not normalized_name:
+        return False
+    row = connection.execute(
+        "SELECT 1 FROM deleted_people_catalog WHERE normalized_name = ?",
+        (normalized_name,),
+    ).fetchone()
+    return row is not None
+
+
+def remember_deleted_person_name(connection, person_name: str) -> None:
+    normalized_name = normalize_friend_name(person_name)
+    if not normalized_name:
+        return
+    connection.execute(
+        """
+        INSERT INTO deleted_people_catalog (normalized_name, original_name, created_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(normalized_name) DO UPDATE SET original_name = excluded.original_name
+        """,
+        (normalized_name, str(person_name or "").strip(), utc_now_iso()),
+    )
+
+
 def promote_baptized_people(connection, payload: dict) -> None:
     cell_id = find_cell_id_by_number(connection, str(payload.get("cellNumber", "")).strip())
     if cell_id is None:
@@ -1631,6 +1990,8 @@ def promote_baptized_people(connection, payload: dict) -> None:
     seen_names: set[str] = set()
     for baptism in normalize_baptism_entries(payload):
         if not baptism["promoteToMember"]:
+            continue
+        if is_deleted_person_name(connection, baptism["name"]):
             continue
         normalized_name = baptism["name"].casefold()
         if normalized_name in seen_names:
@@ -1649,7 +2010,7 @@ def promote_baptized_people(connection, payload: dict) -> None:
             person_id = int(cursor.lastrowid)
         else:
             person_id = int(person_row["id"])
-            if person_row["role"] not in {"leader", "assistant", "host", "member"}:
+            if person_row["role"] not in {"leader", "assistant", "host", "member", "pastor"}:
                 connection.execute(
                     """
                     UPDATE people_catalog
@@ -1688,6 +2049,8 @@ def promote_visitors_to_members(connection, payload: dict) -> None:
         name = str(visitor.get("name", "")).strip()
         if not name:
             continue
+        if is_deleted_person_name(connection, name):
+            continue
         normalized_name = name.casefold()
         if normalized_name in seen_names:
             continue
@@ -1705,7 +2068,7 @@ def promote_visitors_to_members(connection, payload: dict) -> None:
             person_id = int(cursor.lastrowid)
         else:
             person_id = int(person_row["id"])
-            if person_row["role"] not in {"leader", "assistant", "host", "member"}:
+            if person_row["role"] not in {"leader", "assistant", "host", "member", "pastor"}:
                 connection.execute(
                     """
                     UPDATE people_catalog
@@ -1719,6 +2082,23 @@ def promote_visitors_to_members(connection, payload: dict) -> None:
             "INSERT OR IGNORE INTO cell_membership (cell_id, person_id, created_at) VALUES (?, ?, ?)",
             (cell_id, person_id, now),
         )
+
+
+def reconcile_catalog_members_from_reports(connection) -> None:
+    """Materialize historical promotions stored in report payloads.
+
+    Older reports may already contain baptisms or restoration visitors marked
+    to become members, but the catalog rows were never created because that
+    logic was added later or the UI did not refresh. Replaying the promotion
+    helpers is idempotent thanks to INSERT OR IGNORE and role checks.
+    """
+    report_rows = connection.execute("SELECT payload_json FROM reports").fetchall()
+    for row in report_rows:
+        payload = parse_payload_json(row["payload_json"])
+        if not payload:
+            continue
+        promote_baptized_people(connection, payload)
+        promote_visitors_to_members(connection, payload)
 
 
 def build_report_summary(payload: dict) -> dict:
@@ -1876,7 +2256,7 @@ def load_catalogs_payload(connection) -> dict:
     ).fetchall()
     membership_rows = connection.execute(
         """
-        SELECT membership.cell_id, cell.cell_number, person.id AS person_id, person.name, person.role, person.guardian_name, person.rcm_progress, guardian.name AS guardian_person_name
+        SELECT membership.cell_id, cell.cell_number, membership.attendance_mode, membership.attendance_defaults_json, person.id AS person_id, person.name, person.role, person.guardian_name, person.rcm_progress, guardian.name AS guardian_person_name
         FROM cell_membership membership
         INNER JOIN cell_catalog cell ON cell.id = membership.cell_id
         INNER JOIN people_catalog person ON person.id = membership.person_id
@@ -1893,6 +2273,8 @@ def load_catalogs_payload(connection) -> dict:
                 "id": row["person_id"],
                 "name": row["name"],
                 "role": row["role"],
+                "attendanceMode": normalize_membership_attendance_mode(row["attendance_mode"]),
+                "attendanceDefaults": normalize_membership_attendance_defaults(parse_json_field(row["attendance_defaults_json"]), row["attendance_mode"]),
                 "guardianName": row["guardian_person_name"] or row["guardian_name"] or "",
                 "rcmProgress": parse_json_field(row["rcm_progress"]),
             }
@@ -1986,6 +2368,595 @@ def serialize_report(row: sqlite3.Row) -> dict:
         "formData": payload,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
+    }
+
+
+def normalize_friend_name(value: str) -> str:
+    raw = unicodedata.normalize("NFKD", str(value or ""))
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    raw = re.sub(r"\s+", " ", raw).strip().lower()
+    return raw
+
+
+def normalize_visitor_kind(value: str) -> str:
+    return "visita" if str(value or "").strip().lower() == "visita" else "amigo"
+
+
+def scrub_promotions_for_deleted_person(connection, person_name: str) -> None:
+    normalized_target = normalize_friend_name(person_name)
+    if not normalized_target:
+        return
+
+    report_rows = connection.execute("SELECT id, payload_json FROM reports").fetchall()
+
+    for row in report_rows:
+        payload = parse_payload_json(row["payload_json"])
+        if not payload:
+            continue
+
+        changed = False
+
+        visitors = payload.get("visitors")
+        if isinstance(visitors, list):
+            for visitor in visitors:
+                if not isinstance(visitor, dict):
+                    continue
+                if normalize_visitor_kind(visitor.get("kind")) != "visita":
+                    continue
+                if normalize_friend_name(visitor.get("name")) != normalized_target:
+                    continue
+                if visitor.get("promoteToMember"):
+                    visitor["promoteToMember"] = False
+                    changed = True
+
+        baptisms = payload.get("baptisms")
+        if isinstance(baptisms, list):
+            for baptism in baptisms:
+                if not isinstance(baptism, dict):
+                    continue
+                if normalize_friend_name(baptism.get("name")) != normalized_target:
+                    continue
+                if baptism.get("promoteToMember") is not False:
+                    baptism["promoteToMember"] = False
+                    changed = True
+
+        if changed:
+            connection.execute(
+                "UPDATE reports SET payload_json = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(payload, ensure_ascii=False), utc_now_iso(), row["id"]),
+            )
+
+
+def get_backend_rcm_meta(week_number: int) -> dict:
+    for item in BACKEND_RCM_WEEKS:
+        if item["week"] == week_number:
+            return item
+    return {"week": week_number, "phase": "", "verb": ""}
+
+
+def get_current_year_quarter() -> tuple[str, str]:
+    today = date.today()
+    month = today.month
+    quarter = "1" if month <= 4 else "2" if month <= 8 else "3"
+    return str(today.year), quarter
+
+
+def derive_cycle_status(cycle: dict, total_weeks: int) -> tuple[str, str]:
+    completed = int(cycle.get("current_week") or 0) >= total_weeks
+    converted = bool(cycle.get("converted"))
+    if completed and converted:
+        return "completed", "converted"
+    if completed:
+        return "completed", "completed_no_decision"
+    if converted:
+        return "in_process", "converted_in_process"
+    return "in_process", "in_process"
+
+
+def classify_friend_lifecycle(normalized_name: str, friend_cycles: list[dict], member_names: set[str]) -> str:
+    if normalized_name in member_names:
+        return "member"
+    if not friend_cycles:
+        return "in_process"
+
+    total_cycles = len(friend_cycles)
+    has_won_cycle = any(
+        bool(cycle.get("converted"))
+        or str(cycle.get("outcome") or "") in {"converted", "converted_in_process", "completed_no_decision"}
+        or bool(cycle.get("completed"))
+        for cycle in friend_cycles
+    )
+    latest_cycle = friend_cycles[-1]
+    if total_cycles > 1 and str(latest_cycle.get("outcome") or "") == "in_process":
+        return "reactivated_won"
+    if total_cycles > 1 or has_won_cycle:
+        return "won_friend"
+    return str(latest_cycle.get("outcome") or "in_process")
+
+
+def rebuild_friend_tracking(connection) -> None:
+    connection.execute("DELETE FROM friend_cycle_steps")
+    connection.execute("DELETE FROM friend_cycles")
+    connection.execute("DELETE FROM friends_catalog")
+
+    member_rows = connection.execute(
+        "SELECT name FROM people_catalog WHERE role IN ('member', 'leader', 'assistant', 'host')"
+    ).fetchall()
+    member_names = {normalize_friend_name(row["name"]) for row in member_rows if row["name"]}
+
+    report_rows = connection.execute(
+        """
+        SELECT id, employee_name, area, device_model, imei, phone_number, status, notes, payload_json, created_at, updated_at
+        FROM reports
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    reports = [serialize_report(row) for row in report_rows]
+    reports.sort(key=lambda rep: ((rep.get("reportDate") or ""), str(rep.get("week") or "").zfill(2), int(rep.get("id") or 0)))
+
+    friend_map: dict[str, dict] = {}
+    cycle_map: dict[tuple[str, str, str], dict] = {}
+    step_map: dict[tuple[tuple[str, str, str], int, int], dict] = {}
+    total_weeks = len(BACKEND_RCM_WEEKS)
+
+    for report in reports:
+        payload = report.get("formData") or {}
+        summary = build_report_summary(payload)
+        report_id = int(report.get("id") or 0)
+        report_date = summary.get("reportDate", "")
+        year = summary.get("reportYear", "")
+        quarter = summary.get("reportQuarter", "")
+        cell_number = summary.get("cellNumber", "")
+        sector = summary.get("sector", "")
+        try:
+            week_number = int(str(summary.get("week") or "0"))
+        except ValueError:
+            week_number = 0
+
+        visitors = payload.get("visitors")
+        if not isinstance(visitors, list):
+            continue
+
+        for visitor in visitors:
+            if not isinstance(visitor, dict):
+                continue
+            name = str(visitor.get("name", "")).strip()
+            if not name:
+                continue
+            if normalize_visitor_kind(visitor.get("kind")) != "amigo":
+                continue
+
+            normalized_name = normalize_friend_name(name)
+            if not normalized_name:
+                continue
+
+            invited_by = str(visitor.get("invitedBy", "")).strip()
+            phone = str(visitor.get("phone", "")).strip()
+            late_registration = bool(visitor.get("lateRegistration"))
+            converted = bool(visitor.get("converted"))
+            reach_attended = bool(visitor.get("reachAttended"))
+            sunday_attended = bool(visitor.get("sundayAttended"))
+            event_attended = bool(visitor.get("eventAttended"))
+            note = str(visitor.get("note", "")).strip()
+
+            friend = friend_map.setdefault(normalized_name, {
+                "normalized_name": normalized_name,
+                "name": name,
+                "phone": phone,
+                "invited_by": invited_by,
+                "first_report_date": report_date,
+                "last_report_date": report_date,
+                "current_cell_number": cell_number,
+                "current_sector": sector,
+                "total_reports": 0,
+            })
+            friend["name"] = friend.get("name") or name
+            if phone:
+                friend["phone"] = phone
+            if invited_by:
+                friend["invited_by"] = invited_by
+            if report_date and (not friend.get("first_report_date") or report_date < friend["first_report_date"]):
+                friend["first_report_date"] = report_date
+            if report_date and (not friend.get("last_report_date") or report_date >= friend["last_report_date"]):
+                friend["last_report_date"] = report_date
+                friend["current_cell_number"] = cell_number
+                friend["current_sector"] = sector
+            friend["total_reports"] += 1
+
+            cycle_key = (normalized_name, year, quarter)
+            cycle = cycle_map.setdefault(cycle_key, {
+                "normalized_name": normalized_name,
+                "year": year,
+                "quarter": quarter,
+                "cell_number": cell_number,
+                "sector": sector,
+                "invited_by": invited_by,
+                "entry_week": week_number,
+                "entry_report_date": report_date,
+                "late_entry": 1 if late_registration or week_number > 2 else 0,
+                "current_week": week_number,
+                "weeks_seen_set": set(),
+                "total_reach": 0,
+                "total_sunday": 0,
+                "total_events": 0,
+                "converted": 0,
+                "last_report_date": report_date,
+            })
+
+            if week_number and (not cycle.get("entry_week") or week_number < cycle["entry_week"]):
+                cycle["entry_week"] = week_number
+            if report_date and (not cycle.get("entry_report_date") or report_date < cycle["entry_report_date"]):
+                cycle["entry_report_date"] = report_date
+            if week_number and week_number > int(cycle.get("current_week") or 0):
+                cycle["current_week"] = week_number
+            if report_date and (not cycle.get("last_report_date") or report_date >= cycle["last_report_date"]):
+                cycle["last_report_date"] = report_date
+                cycle["cell_number"] = cell_number
+                cycle["sector"] = sector
+            if invited_by:
+                cycle["invited_by"] = invited_by
+            cycle["late_entry"] = 1 if cycle.get("late_entry") or late_registration or int(cycle.get("entry_week") or 0) > 2 else 0
+            cycle["converted"] = 1 if cycle.get("converted") or converted else 0
+            if week_number:
+                cycle["weeks_seen_set"].add(week_number)
+            if reach_attended:
+                cycle["total_reach"] += 1
+            if sunday_attended:
+                cycle["total_sunday"] += 1
+            if event_attended:
+                cycle["total_events"] += 1
+
+            step_key = (cycle_key, report_id, week_number)
+            meta = get_backend_rcm_meta(week_number)
+            step_map[step_key] = {
+                "cycle_key": cycle_key,
+                "report_id": report_id,
+                "week_number": week_number,
+                "report_date": report_date,
+                "phase": meta.get("phase", ""),
+                "verb": meta.get("verb", ""),
+                "reach_attended": 1 if reach_attended else 0,
+                "sunday_attended": 1 if sunday_attended else 0,
+                "event_attended": 1 if event_attended else 0,
+                "converted": 1 if converted else 0,
+                "late_registration": 1 if late_registration else 0,
+                "note": note,
+            }
+
+    if not friend_map:
+        return
+
+    cycles_by_friend: dict[str, list[dict]] = {}
+    for cycle in cycle_map.values():
+        cycle["weeks_seen"] = len(cycle.pop("weeks_seen_set", set()))
+        cycle["completed"] = 1 if int(cycle.get("current_week") or 0) >= total_weeks else 0
+        cycle["status"], cycle["outcome"] = derive_cycle_status(cycle, total_weeks)
+        cycles_by_friend.setdefault(cycle["normalized_name"], []).append(cycle)
+
+    friend_ids: dict[str, int] = {}
+    now = utc_now_iso()
+    for normalized_name, friend in sorted(friend_map.items(), key=lambda item: item[1]["name"].lower()):
+        friend_cycles = cycles_by_friend.get(normalized_name, [])
+        friend_cycles.sort(key=lambda item: (item.get("year", ""), item.get("quarter", ""), item.get("last_report_date", ""), int(item.get("current_week") or 0)))
+        latest_cycle = friend_cycles[-1] if friend_cycles else None
+        current_status = classify_friend_lifecycle(normalized_name, friend_cycles, member_names)
+        cursor = connection.execute(
+            """
+            INSERT INTO friends_catalog (
+                normalized_name, name, phone, invited_by,
+                first_report_date, last_report_date,
+                current_cell_number, current_sector,
+                total_cycles, total_reports, current_status,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                friend["normalized_name"],
+                friend["name"],
+                friend.get("phone", ""),
+                friend.get("invited_by", ""),
+                friend.get("first_report_date", ""),
+                friend.get("last_report_date", ""),
+                friend.get("current_cell_number", ""),
+                friend.get("current_sector", ""),
+                len(friend_cycles),
+                int(friend.get("total_reports") or 0),
+                current_status,
+                now,
+                now,
+            ),
+        )
+        friend_ids[normalized_name] = cursor.lastrowid
+
+    cycle_ids: dict[tuple[str, str, str], int] = {}
+    for cycle_key, cycle in sorted(cycle_map.items(), key=lambda item: (item[1].get("year", ""), item[1].get("quarter", ""), item[1].get("entry_report_date", ""), item[1].get("normalized_name", ""))):
+        friend_id = friend_ids[cycle["normalized_name"]]
+        cursor = connection.execute(
+            """
+            INSERT INTO friend_cycles (
+                friend_id, year, quarter, cell_number, sector, invited_by,
+                entry_week, entry_report_date, late_entry,
+                current_week, weeks_seen,
+                total_reach, total_sunday, total_events,
+                converted, completed, status, outcome,
+                last_report_date, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                friend_id,
+                cycle.get("year", ""),
+                cycle.get("quarter", ""),
+                cycle.get("cell_number", ""),
+                cycle.get("sector", ""),
+                cycle.get("invited_by", ""),
+                int(cycle.get("entry_week") or 0),
+                cycle.get("entry_report_date", ""),
+                int(cycle.get("late_entry") or 0),
+                int(cycle.get("current_week") or 0),
+                int(cycle.get("weeks_seen") or 0),
+                int(cycle.get("total_reach") or 0),
+                int(cycle.get("total_sunday") or 0),
+                int(cycle.get("total_events") or 0),
+                int(cycle.get("converted") or 0),
+                int(cycle.get("completed") or 0),
+                cycle.get("status", "in_process"),
+                cycle.get("outcome", "in_process"),
+                cycle.get("last_report_date", ""),
+                now,
+                now,
+            ),
+        )
+        cycle_ids[cycle_key] = cursor.lastrowid
+
+    for step in sorted(step_map.values(), key=lambda item: (item["report_date"], item["week_number"], item["report_id"])):
+        cycle_id = cycle_ids.get(step["cycle_key"])
+        if not cycle_id:
+            continue
+        connection.execute(
+            """
+            INSERT INTO friend_cycle_steps (
+                friend_cycle_id, report_id, week_number, report_date,
+                phase, verb,
+                reach_attended, sunday_attended, event_attended,
+                converted, late_registration, note,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                cycle_id,
+                int(step.get("report_id") or 0),
+                int(step.get("week_number") or 0),
+                step.get("report_date", ""),
+                step.get("phase", ""),
+                step.get("verb", ""),
+                int(step.get("reach_attended") or 0),
+                int(step.get("sunday_attended") or 0),
+                int(step.get("event_attended") or 0),
+                int(step.get("converted") or 0),
+                int(step.get("late_registration") or 0),
+                step.get("note", ""),
+                now,
+                now,
+            ),
+        )
+
+
+def build_friend_tracking_payload(connection, *, cell_number: str = "", sector: str = "", year: str = "", quarter: str = "") -> dict:
+    if not year or not quarter:
+        current_year, current_quarter = get_current_year_quarter()
+        year = year or current_year
+        quarter = quarter or current_quarter
+
+    rows = connection.execute(
+        """
+        SELECT
+            fc.id,
+            fc.friend_id,
+            fc.year,
+            fc.quarter,
+            fc.cell_number,
+            fc.sector,
+            fc.invited_by,
+            fc.entry_week,
+            fc.entry_report_date,
+            fc.late_entry,
+            fc.current_week,
+            fc.weeks_seen,
+            fc.total_reach,
+            fc.total_sunday,
+            fc.total_events,
+            fc.converted,
+            fc.completed,
+            fc.status,
+            fc.outcome,
+            fc.last_report_date,
+            f.name,
+            f.phone,
+            f.first_report_date,
+            f.last_report_date AS friend_last_report_date,
+            f.total_cycles,
+            f.total_reports,
+            f.current_status
+        FROM friend_cycles fc
+        INNER JOIN friends_catalog f ON f.id = fc.friend_id
+        WHERE (? = '' OR fc.cell_number = ?)
+                    AND (? = '' OR fc.sector = ?)
+          AND (? = '' OR fc.year = ?)
+          AND (? = '' OR fc.quarter = ?)
+        ORDER BY fc.last_report_date DESC, f.name COLLATE NOCASE ASC
+        """,
+                (cell_number, cell_number, sector, sector, year, year, quarter, quarter),
+    ).fetchall()
+
+    one_year_ago = (date.today() - timedelta(days=365)).isoformat()
+    friends = []
+    active_count = 0
+    recurrent_count = 0
+    won_count = 0
+    reactivated_won_count = 0
+    long_term_count = 0
+    late_count = 0
+    reach_count = 0
+    sunday_count = 0
+    incomplete_count = 0
+    key_follow_up = None
+    spiritual_parents = set()
+
+    for row in rows:
+        process_count = int(row["total_cycles"] or 0)
+        total_reports = int(row["total_reports"] or 0)
+        late_entry = bool(int(row["late_entry"] or 0))
+        total_reach = int(row["total_reach"] or 0)
+        total_sunday = int(row["total_sunday"] or 0)
+        completed = bool(int(row["completed"] or 0))
+        converted = bool(int(row["converted"] or 0))
+        first_report_date = row["first_report_date"] or ""
+        current_status = str(row["current_status"] or "in_process")
+        is_won_friend = current_status in {"won_friend", "reactivated_won", "member"}
+        is_reactivated_won = current_status == "reactivated_won"
+        if is_won_friend:
+            won_count += 1
+        if is_reactivated_won:
+            reactivated_won_count += 1
+        if not is_won_friend:
+            active_count += 1
+        if process_count >= 2:
+            recurrent_count += 1
+        if first_report_date and first_report_date <= one_year_ago:
+            long_term_count += 1
+        if late_entry:
+            late_count += 1
+        if total_reach > 0:
+            reach_count += 1
+        if total_sunday > 0:
+            sunday_count += 1
+        if not is_won_friend and not completed:
+            incomplete_count += 1
+        invited_by = str(row["invited_by"] or "").strip()
+        if invited_by:
+            spiritual_parents.add(invited_by)
+
+        item = {
+            "friendId": row["friend_id"],
+            "cycleId": row["id"],
+            "name": row["name"],
+            "phone": row["phone"] or "",
+            "invitedBy": row["invited_by"] or "",
+            "processCount": process_count,
+            "totalReports": total_reports,
+            "entryWeek": int(row["entry_week"] or 0),
+            "entryDate": row["entry_report_date"] or "",
+            "currentWeek": int(row["current_week"] or 0),
+            "weeksSeen": int(row["weeks_seen"] or 0),
+            "lateEntry": late_entry,
+            "reachCount": total_reach,
+            "sundayCount": total_sunday,
+            "eventCount": int(row["total_events"] or 0),
+            "converted": converted,
+            "completed": completed,
+            "status": row["status"] or "in_process",
+            "outcome": row["outcome"] or "in_process",
+            "currentStatus": current_status,
+            "isWonFriend": is_won_friend,
+            "isReactivatedWon": is_reactivated_won,
+            "cellNumber": row["cell_number"] or "",
+            "sector": row["sector"] or "",
+            "firstReportDate": first_report_date,
+            "lastReportDate": row["last_report_date"] or "",
+        }
+        if not is_won_friend:
+            friends.append(item)
+
+        score = (item["weeksSeen"], total_reports, process_count, item["lastReportDate"])
+        if not is_won_friend and (key_follow_up is None or score > key_follow_up[0]):
+            key_follow_up = (score, item)
+
+    settings_rows = connection.execute(
+        "SELECT key, value FROM app_settings WHERE key IN ('rcm_goal_levantate', 'rcm_goal_restauracion', 'rcm_goal_bautismos')"
+    ).fetchall()
+    settings_map = {row["key"]: row["value"] for row in settings_rows}
+    base_goals = {
+        "levantateGoal": int(settings_map.get("rcm_goal_levantate") or 4),
+        "restauracionGoal": int(settings_map.get("rcm_goal_restauracion") or 3),
+        "bautismosGoal": int(settings_map.get("rcm_goal_bautismos") or 2),
+    }
+    scoped_cell_rows = connection.execute(
+        """
+        SELECT cell_number
+        FROM cell_catalog
+        WHERE (? = '' OR cell_number = ?)
+          AND (? = '' OR sector = ?)
+        ORDER BY CAST(cell_number AS INTEGER) ASC, cell_number ASC
+        """,
+        (cell_number, cell_number, sector, sector),
+    ).fetchall()
+    scoped_cell_numbers = [str(row["cell_number"] or "").strip() for row in scoped_cell_rows if str(row["cell_number"] or "").strip()]
+    if cell_number and cell_number not in scoped_cell_numbers:
+        scoped_cell_numbers.append(cell_number)
+
+    goals = dict(base_goals)
+    if scoped_cell_numbers and year and quarter:
+        goal_placeholders = ", ".join(["?"] * len(scoped_cell_numbers))
+        goal_rows = connection.execute(
+            f"""
+            SELECT cell_number, levantate_goal, restauracion_goal, bautismos_goal
+            FROM cell_cycle_goals
+            WHERE year = ? AND quarter = ?
+              AND cell_number IN ({goal_placeholders})
+            """,
+            (year, quarter, *scoped_cell_numbers),
+        ).fetchall()
+        goal_rows_map = {
+            str(row["cell_number"] or "").strip(): row
+            for row in goal_rows
+            if str(row["cell_number"] or "").strip()
+        }
+        goals = {
+            "levantateGoal": 0,
+            "restauracionGoal": 0,
+            "bautismosGoal": 0,
+        }
+        for scoped_cell in scoped_cell_numbers:
+            goal_row = goal_rows_map.get(scoped_cell)
+            if goal_row:
+                goals["levantateGoal"] += int(goal_row["levantate_goal"] or 0)
+                goals["restauracionGoal"] += int(goal_row["restauracion_goal"] or 0)
+                goals["bautismosGoal"] += int(goal_row["bautismos_goal"] or 0)
+            else:
+                goals["levantateGoal"] += base_goals["levantateGoal"]
+                goals["restauracionGoal"] += base_goals["restauracionGoal"]
+                goals["bautismosGoal"] += base_goals["bautismosGoal"]
+
+    elif not scoped_cell_numbers:
+        goals = dict(base_goals)
+
+    return {
+        "scope": {
+            "cellNumber": cell_number,
+            "sector": sector,
+            "year": year,
+            "quarter": quarter,
+        },
+        "summary": {
+            "activeFriends": active_count,
+            "recurrentFriends": recurrent_count,
+            "wonFriends": won_count,
+            "reactivatedWonFriends": reactivated_won_count,
+            "longTermFriends": long_term_count,
+            "incompleteFriends": incomplete_count,
+            "spiritualParents": len(spiritual_parents),
+            "keyFollowUp": key_follow_up[1] if key_follow_up else None,
+        },
+        "quickSignals": {
+            "lateEntry": late_count,
+            "withReach": reach_count,
+            "withSunday": sunday_count,
+            "incomplete": incomplete_count,
+            "wonFriends": won_count,
+            "reactivatedWon": reactivated_won_count,
+        },
+        "goals": goals,
+        "friends": friends,
     }
 
 
