@@ -429,8 +429,6 @@ def create_app() -> Flask:
     @app.get("/api/catalogs")
     def get_catalogs() -> Response:
         with get_connection() as connection:
-            reconcile_catalog_members_from_reports(connection)
-            connection.commit()
             return jsonify(load_catalogs_payload(connection))
 
     @app.post("/api/catalogs/people")
