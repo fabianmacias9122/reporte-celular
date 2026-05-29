@@ -5740,7 +5740,7 @@ function resetVisitorQuickForm() {
     visitorQuickSunday.checked = false;
   }
   if (visitorQuickFirstVisit instanceof HTMLInputElement) {
-    visitorQuickFirstVisit.checked = true;
+    visitorQuickFirstVisit.checked = false;
   }
   if (visitorQuickConverted instanceof HTMLInputElement) {
     visitorQuickConverted.checked = false;
@@ -9278,7 +9278,7 @@ function handleBaptismTableClick(event) {
 }
 
 function handleAddVisitorClick() {
-  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, lateRegistration: false, sundayAttended: false, firstVisit: true, converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
+  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, lateRegistration: false, sundayAttended: false, firstVisit: false, converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
   renderVisitorTable();
 }
 
