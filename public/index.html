@@ -386,6 +386,10 @@
                   <input id="visitor-quick-reach" name="reachAttended" type="checkbox" checked>
                   <span data-i18n="att.reach">Alcance</span>
                 </label>
+                <label id="visitor-quick-late-field" class="quick-toggle-field" hidden>
+                  <input id="visitor-quick-late" name="lateRegistration" type="checkbox">
+                  <span>ANOTAR tardio</span>
+                </label>
                 <label class="quick-toggle-field">
                   <input id="visitor-quick-sunday" name="sundayAttended" type="checkbox">
                   <span data-i18n="stage.service">Culto</span>
@@ -552,26 +556,17 @@
             <div class="metric-subgroup">
               <p class="metric-subgroup-title" data-i18n="reach.supervision">Supervisión</p>
               <div class="metric-fields">
-                <label class="metric-field">
-                  <span data-i18n="reach.supNetwork">Sup. Red</span>
-                  <input name="supervisionNetwork" type="number" min="0" step="1" value="0">
-                </label>
-                <label class="metric-field">
-                  <span data-i18n="reach.supSector">Sup. Sector</span>
-                  <input name="supervisionSector" type="number" min="0" step="1" value="0">
-                </label>
-                <label class="metric-field">
-                  <span data-i18n="reach.supZone">Sup. Zona</span>
-                  <input name="supervisionZone" type="number" min="0" step="1" value="0">
-                </label>
-                <label class="metric-field">
-                  <span data-i18n="reach.supRegion">Sup. Región</span>
-                  <input name="supervisionRegion" type="number" min="0" step="1" value="0">
-                </label>
-                <label class="metric-field">
-                  <span data-i18n="reach.supArea">Sup. Área</span>
-                  <input name="supervisionArea" type="number" min="0" step="1" value="0">
-                </label>
+                <input type="hidden" name="supervisionNetwork" value="0">
+                <input type="hidden" name="supervisionSector" id="reach-supervision-sector-count" value="0">
+                <input type="hidden" name="supervisionZone" value="0">
+                <input type="hidden" name="supervisionRegion" value="0">
+                <input type="hidden" name="supervisionArea" value="0">
+                <input type="hidden" name="reachSupervisorVisitsJson" id="reach-supervisor-visits-json" value="[]">
+                <div class="reach-supervision-box">
+                  <p class="reach-supervision-help">Marca los supervisores que asistieron a este alcance. Cada uno suma como hermano presente en esta célula esta semana.</p>
+                  <div id="reach-supervisor-visit-summary" class="reach-supervision-summary">Sin supervisión capturada.</div>
+                  <div id="reach-supervisor-visit-list" class="reach-supervision-list"></div>
+                </div>
               </div>
             </div>
           </section>
@@ -861,11 +856,22 @@
       <section id="seguimiento-view" class="workspace-main" hidden>
 
         <!-- Sub-tab bar -->
+        <div class="seg-view-mobile-switch" id="seg-view-mobile-switch" hidden>
+          <label class="seg-view-mobile-label" for="seg-view-mobile-button">Vista</label>
+          <div class="seg-view-mobile-picker" id="seg-view-mobile-picker">
+            <button type="button" id="seg-view-mobile-button" class="seg-view-mobile-button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="seg-view-mobile-button-text">Seguimiento</span>
+            </button>
+            <div id="seg-view-mobile-menu" class="seg-view-mobile-menu" role="listbox" hidden></div>
+          </div>
+        </div>
         <div class="seg-view-tabs" id="seg-view-tab-bar">
           <button type="button" class="seg-view-tab is-active" data-segtab="seguimiento" data-i18n="nav.seguimiento">Seguimiento</button>
           <button type="button" class="seg-view-tab" data-segtab="supervisor" data-i18n="sup.tab" hidden>Consolidado semanal</button>
           <button type="button" class="seg-view-tab" data-segtab="dashboard" data-i18n="nav.dashboard">Dashboard</button>
+          <button type="button" class="seg-view-tab" data-segtab="goals" id="seg-tab-goals-button">Metas</button>
         </div>
+        <div class="dashboard-scope-tabs seg-access-scope-tabs" id="seg-access-scope-tabs" role="tablist" hidden></div>
 
         <!-- Tab: Seguimiento -->
         <div id="seg-tab-seguimiento" class="seg-tab-panel">
@@ -1035,6 +1041,50 @@
           </section>
         </div><!-- /seg-tab-dashboard -->
 
+        <!-- Tab: Metas -->
+        <div id="seg-tab-goals" class="seg-tab-panel" hidden>
+          <section class="panel panel-soft full-width" id="friend-tracking-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow" id="friend-tracking-goals-eyebrow">Meta cuatrimestral</p>
+                <h2 id="friend-tracking-goals-title">Objetivos RCM por célula</h2>
+              </div>
+              <div class="friend-tracking-head-tools">
+                <select id="friend-tracking-cell-filter" class="form-select friend-tracking-cell-filter-native" hidden>
+                  <option value="">Vista general</option>
+                </select>
+                <div class="friend-tracking-filter-picker" id="friend-tracking-filter-picker" hidden>
+                  <button type="button" id="friend-tracking-filter-button" class="friend-tracking-filter-button" aria-haspopup="listbox" aria-expanded="false">
+                    <span id="friend-tracking-filter-button-text">Vista general</span>
+                  </button>
+                  <div id="friend-tracking-filter-menu" class="friend-tracking-filter-menu" role="listbox" hidden></div>
+                </div>
+                <span id="friend-tracking-scope-chip" class="count-chip">0/0</span>
+              </div>
+            </div>
+            <div id="friend-tracking-summary-grid" class="summary-grid"></div>
+            <div class="friend-tracking-layout">
+              <div class="friend-tracking-main">
+                <section class="friend-tracking-card friend-tracking-card-process">
+                  <div class="friend-tracking-card-head friend-tracking-card-head-accent friend-tracking-card-head-blue">
+                    <h3>Amigos en proceso (histórico)</h3>
+                  </div>
+                  <div id="friend-tracking-quick-chips" class="friend-tracking-chip-row friend-tracking-chip-row-inline"></div>
+                  <div id="friend-tracking-friends-list" class="friend-tracking-friends-grid"></div>
+                </section>
+              </div>
+              <aside class="friend-tracking-side">
+                <details class="friend-tracking-card friend-tracking-card-goals friend-tracking-collapse friend-tracking-goals-band" open>
+                  <summary class="friend-tracking-card-head friend-tracking-card-head-accent friend-tracking-card-head-green friend-tracking-collapse-head">
+                    <h3>Metas del cuatrimestre</h3>
+                  </summary>
+                  <div id="friend-tracking-goals" class="friend-tracking-goals-list"></div>
+                </details>
+              </aside>
+            </div>
+          </section>
+        </div><!-- /seg-tab-goals -->
+
       </section>
 
       <!-- SETTINGS VIEW -->
@@ -1091,6 +1141,31 @@
                 </div>
               </div>
               <div id="settings-quarter-body" class="settings-quarter-body"></div>
+            </div>
+            <div class="settings-card" id="settings-goals-card">
+              <div class="settings-card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                <div>
+                  <strong class="settings-card-title">Metas del cuatrimestre</strong>
+                  <p class="settings-card-desc">Define las metas RCM del periodo actual. Se usarán en Seguimiento y se guardarán para la célula activa.</p>
+                </div>
+              </div>
+              <div class="settings-card-body">
+                <div id="settings-goals-scope" class="settings-inline-note"></div>
+                <label class="settings-label" for="setting-goal-levantate">Evento Levántate</label>
+                <input id="setting-goal-levantate" type="number" min="0" step="1" class="settings-input" placeholder="4" />
+                <label class="settings-label" for="setting-goal-restauracion" style="margin-top:12px">Evento Santificar</label>
+                <input id="setting-goal-restauracion" type="number" min="0" step="1" class="settings-input" placeholder="3" />
+                <label class="settings-label" for="setting-goal-bautismos" style="margin-top:12px">Bautismo</label>
+                <input id="setting-goal-bautismos" type="number" min="0" step="1" class="settings-input" placeholder="2" />
+              </div>
+              <div class="settings-card-footer">
+                <button id="settings-goals-save-btn" type="button" class="btn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span>Guardar metas</span>
+                </button>
+                <span id="settings-goals-status" class="settings-save-status"></span>
+              </div>
             </div>
             <!-- Tarjeta Preferencias — visible a todos -->
             <div class="settings-card" id="settings-prefs-card">              <div class="settings-card-header">
@@ -1280,17 +1355,21 @@
             <option value="" data-i18n="pdlg.noSupervisor">— No es supervisor —</option>
           </select>
         </label>
-        <label style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
-          <input id="people-is-coordinator" name="isCoordinator" type="checkbox" form="people-form" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
-          <span data-i18n="pdlg.isCoordinator">Es coordinador <small style="font-weight:400;opacity:.6">(acceso total)</small></span>
+        <label id="people-is-pastor-field" class="people-access-toggle">
+          <input id="people-is-pastor" name="isPastor" type="checkbox" form="people-form">
+          <span data-i18n="pdlg.isPastor">Es pastor <small>(mismo acceso que coordinador)</small></span>
+        </label>
+        <label class="people-access-toggle">
+          <input id="people-is-coordinator" name="isCoordinator" type="checkbox" form="people-form">
+          <span data-i18n="pdlg.isCoordinator">Es coordinador <small>(acceso total)</small></span>
         </label>
         <label id="people-username-field" hidden>
           <span data-i18n="pdlg.usernameLabel">Usuario para login <small style="font-weight:400;opacity:.6">(letras, números, '.', '_' o '-')</small></span>
           <input id="people-username" name="username" type="text" form="people-form" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ej. fabian.macias">
         </label>
-        <label id="people-admin-field" hidden style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
-          <input id="people-is-admin" name="isAdmin" type="checkbox" form="people-form" style="width:18px;height:18px;accent-color:var(--brand);cursor:pointer">
-          <span data-i18n="pdlg.isAdmin">Administrador <small style="font-weight:400;opacity:.6">(puede administrar miembros y células)</small></span>
+        <label id="people-admin-field" hidden class="people-access-toggle">
+          <input id="people-is-admin" name="isAdmin" type="checkbox" form="people-form">
+          <span data-i18n="pdlg.isAdmin">Administrador <small>(puede administrar miembros y células)</small></span>
         </label>
       </div>
     </div>
@@ -1365,6 +1444,16 @@
       <p class="member-admin-caption" style="margin:0 0 8px" data-i18n="cdlg.memberAdminDesc">Asigna roles a los miembros de esta célula. Solo personas sin célula asignada pueden agregarse.</p>
       <form id="member-form" class="member-form">
         <select id="member-person-select" style="flex:1"></select>
+        <select id="member-attendance-mode-select" class="member-attendance-mode-select" aria-label="Asistencia semanal por defecto">
+          <option value="normal">Asistencia normal</option>
+          <option value="justified_default">Justificada por defecto</option>
+        </select>
+        <div id="member-attendance-defaults-fields" class="member-attendance-defaults" hidden>
+          <span class="member-attendance-defaults-label">Justificar en:</span>
+          <label><input type="checkbox" id="member-default-planning" checked> Planeación</label>
+          <label><input type="checkbox" id="member-default-reach" checked> Alcance</label>
+          <label><input type="checkbox" id="member-default-sunday" checked> Culto</label>
+        </div>
         <button type="submit" data-tooltip="Agregar la persona seleccionada como miembro de esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span data-i18n="cdlg.addMember">Agregar</span></button>
         <button type="button" id="cell-dialog-new-person-btn" class="btn-secondary" data-tooltip="Crear una nueva persona y asignarla a esta célula"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> <span data-i18n="admin.newPerson">Nueva persona</span></button>
       </form>
@@ -1395,6 +1484,20 @@
       <button id="preview-download-btn" type="button" class="btn btn-ghost" hidden><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;display:inline-block"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> <span data-i18n="share.downloadPng">Descargar PNG</span></button>
       <button id="preview-whatsapp-btn" type="button" class="btn btn-ghost" hidden><svg viewBox="0 0 32 32" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;display:inline-block"><path fill="#25D366" d="M16 .395C7.164.395 0 7.559 0 16.395c0 2.84.74 5.598 2.146 8.025L0 32l7.832-2.054a16.073 16.073 0 0 0 8.168 2.244h.007C24.844 32.19 32 25.026 32 16.19 32 7.355 24.836.394 16 .394Z"/><path fill="#FFF" d="M23.42 19.396c-.314-.158-1.86-.918-2.149-1.022-.288-.105-.498-.158-.708.157-.21.314-.812 1.022-.996 1.232-.184.21-.367.236-.681.078-.314-.157-1.327-.489-2.527-1.56-.935-.834-1.567-1.864-1.751-2.179-.184-.314-.02-.484.138-.641.142-.142.314-.367.472-.55.158-.184.21-.315.314-.524.105-.21.053-.394-.026-.551-.078-.157-.708-1.708-.97-2.339-.255-.613-.515-.53-.708-.54-.184-.01-.394-.012-.604-.012-.21 0-.55.079-.838.393-.288.314-1.1 1.075-1.1 2.625 0 1.55 1.126 3.049 1.283 3.259.158.21 2.215 3.379 5.367 4.741.75.324 1.337.518 1.793.663.753.24 1.438.206 1.98.125.604-.09 1.86-.76 2.122-1.494.262-.733.262-1.36.184-1.494-.078-.131-.288-.21-.602-.367Z"/></svg> <span data-i18n="share.whatsapp">WhatsApp</span></button>
       <button id="preview-confirm-btn" type="button" class="btn btn-primary" data-tooltip="Confirmar y enviar el reporte"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> <span data-i18n="prev.confirmSave">Confirmar y guardar</span></button>
+    </div>
+  </dialog>
+
+  <dialog id="preview-visitors-dialog" class="app-dialog">
+    <div class="dialog-head">
+      <div>
+        <p class="eyebrow">Seguimiento</p>
+        <h3 id="preview-visitors-dialog-title">Detalle de amigos</h3>
+      </div>
+      <button id="preview-visitors-close-btn" type="button" class="btn-icon-round" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="preview-visitors-dialog-body" class="dialog-body"></div>
+    <div class="dialog-footer">
+      <button id="preview-visitors-cancel-btn" type="button" class="btn btn-ghost">Cerrar</button>
     </div>
   </dialog>
 

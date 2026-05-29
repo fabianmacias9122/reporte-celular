@@ -168,6 +168,8 @@ const visitorQuickHistory = document.querySelector("#visitor-quick-history");
 const visitorQuickName = document.querySelector("#visitor-quick-name");
 const visitorQuickInvitedBy = document.querySelector("#visitor-quick-invited-by");
 const visitorQuickReach = document.querySelector("#visitor-quick-reach");
+const visitorQuickLate = document.querySelector("#visitor-quick-late");
+const visitorQuickLateField = document.querySelector("#visitor-quick-late-field");
 const visitorQuickSunday = document.querySelector("#visitor-quick-sunday");
 const visitorQuickFirstVisit = document.querySelector("#visitor-quick-first-visit");
 const visitorQuickConverted = document.querySelector("#visitor-quick-converted");
@@ -209,6 +211,23 @@ const dashboardPendingCells = document.querySelector("#dashboard-pending-cells")
 const reportContextStrip    = document.querySelector("#report-context-strip");
 const segTotalsPanel        = document.querySelector("#seg-totals-panel");
 const segTotalsBody         = document.querySelector("#seg-totals-body");
+const friendTrackingScopeChip = document.querySelector("#friend-tracking-scope-chip");
+const friendTrackingCellFilter = document.querySelector("#friend-tracking-cell-filter");
+const friendTrackingFilterPicker = document.querySelector("#friend-tracking-filter-picker");
+const friendTrackingFilterButton = document.querySelector("#friend-tracking-filter-button");
+const friendTrackingFilterButtonText = document.querySelector("#friend-tracking-filter-button-text");
+const friendTrackingFilterMenu = document.querySelector("#friend-tracking-filter-menu");
+const friendTrackingSummaryGrid = document.querySelector("#friend-tracking-summary-grid");
+const friendTrackingQuickChips = document.querySelector("#friend-tracking-quick-chips");
+const friendTrackingFriendsList = document.querySelector("#friend-tracking-friends-list");
+const friendTrackingGoals = document.querySelector("#friend-tracking-goals");
+const friendTrackingSignals = document.querySelector("#friend-tracking-signals");
+const friendTrackingGoalsTabButton = document.querySelector("#seg-tab-goals-button");
+const friendTrackingGoalsTitle = document.querySelector("#friend-tracking-goals-title");
+const reachSupervisionSectorCountField = document.querySelector("#reach-supervision-sector-count");
+const reachSupervisorVisitsJsonField = document.querySelector("#reach-supervisor-visits-json");
+const reachSupervisorVisitSummary = document.querySelector("#reach-supervisor-visit-summary");
+const reachSupervisorVisitList = document.querySelector("#reach-supervisor-visit-list");
 const rcsPending             = document.querySelector("#rcs-pending");
 const rcsActivity            = document.querySelector("#rcs-activity");
 const dashboardAbsenceAlerts = document.querySelector("#dashboard-absence-alerts");
@@ -267,6 +286,11 @@ const cellHostSelect      = document.querySelector("#cell-host-select");
 const selectedCellName    = document.querySelector("#selected-cell-name");
 const memberForm          = document.querySelector("#member-form");
 const memberPersonSelect  = document.querySelector("#member-person-select");
+const memberAttendanceModeSelect = document.querySelector("#member-attendance-mode-select");
+const memberAttendanceDefaultsFields = document.querySelector("#member-attendance-defaults-fields");
+const memberDefaultPlanning = document.querySelector("#member-default-planning");
+const memberDefaultReach = document.querySelector("#member-default-reach");
+const memberDefaultSunday = document.querySelector("#member-default-sunday");
 const memberList          = document.querySelector("#member-list");
 const cellMemberRoleTable = document.querySelector("#cell-member-role-table");
 const cellEditDialog      = document.querySelector("#cell-edit-dialog");
@@ -333,6 +357,7 @@ let historyScope = (typeof localStorage !== "undefined" && (localStorage.getItem
   ? localStorage.getItem("historyScope")
   : "current"; // "current" = solo cuatrimestre activo, "all" = todo
 let editingReportId = null;
+let submittedEditConfirmedReportId = null;
 let reportReadOnlyMode = false;  // true when viewing a closed-week report in the form
 let suppressWeekChangeHandler = false;  // prevents re-entrant change events from form.reset()
 let activePeopleFilter = "all";
@@ -342,6 +367,7 @@ let currentMemberAttendance = [];
 let currentVisitors = [];
 let currentKids = [];
 let currentBaptisms = [];
+let currentReachSupervisorVisits = [];
 let reportsData = [];
 let approvalsData = [];
 let activeDashboardPeriod = "";
@@ -376,10 +402,63 @@ function getCellForPerson(personId) {
 
 function canPersonLogin(p) {
   if (!p || p.role === "kid") return false;
-  if (p.isCoordinator) return true;
+  if (hasCoordinatorAccess(p)) return true;
   if (p.supervisorSector) return true;
   const id = String(p.id);
   return (catalogs.cells || []).some(c => String(c.leaderPersonId) === id || String(c.assistantPersonId) === id);
+}
+
+function hasCoordinatorAccess(person) {
+  return !!(person && (person.isCoordinator || person.role === "pastor"));
+}
+
+function canUserViewAllCells(user = currentUser) {
+  return !!(user && user.isAdmin);
+}
+
+function getUserScopeTabs(user = currentUser) {
+  const tabs = [];
+  if (!user) return tabs;
+  const myCell = String(user.assignedCellNumber || "").trim();
+  const mySector = String(user.supervisedSector || "").trim();
+  if (myCell) tabs.push({ key: "cell", label: t('dash.scopeMyCell'), sublabel: t('cell.numbered', { n: myCell }) });
+  if (mySector) tabs.push({ key: "sector", label: t('dash.scopeMySector'), sublabel: `Sector ${mySector}` });
+  if (canUserViewAllCells(user)) tabs.push({ key: "all", label: t('dash.scopeAll'), sublabel: t('dash.scopeAllSub') });
+  return tabs;
+}
+
+function getUserScopedCellNumbers(scope = null, user = currentUser) {
+  if (!user) {
+    return new Set((catalogs.cells || []).map(cell => String(cell.cellNumber || "")).filter(Boolean));
+  }
+  const activeScope = scope || (canUserViewAllCells(user) ? "all" : (user.supervisedSector ? "sector" : "cell"));
+  const myCell = String(user.assignedCellNumber || "").trim();
+  const mySector = String(user.supervisedSector || "").trim();
+  if (activeScope === "cell") {
+    return new Set(myCell ? [myCell] : []);
+  }
+  if (activeScope === "sector") {
+    return new Set(
+      (catalogs.cells || [])
+        .filter(cell => String(cell.sector || "").trim() === mySector)
+        .map(cell => String(cell.cellNumber || "").trim())
+        .filter(Boolean)
+    );
+  }
+  if (activeScope === "all") {
+    if (!canUserViewAllCells(user)) {
+      return getUserScopedCellNumbers(mySector ? "sector" : "cell", user);
+    }
+    return new Set((catalogs.cells || []).map(cell => String(cell.cellNumber || "").trim()).filter(Boolean));
+  }
+  return new Set();
+}
+
+function filterItemsByUserScope(items, getCellNumber, scope = null, user = currentUser) {
+  if (!Array.isArray(items)) return [];
+  const allowedCells = getUserScopedCellNumbers(scope, user);
+  if (!allowedCells.size) return [];
+  return items.filter(item => allowedCells.has(String(getCellNumber(item) || "").trim()));
 }
 
 function populateLoginSelect() {
@@ -631,15 +710,21 @@ loginBtn?.addEventListener("click", async () => {
   const person = (catalogs.people || []).find(p => String(p.id) === String(lookup.personId))
     || (catalogs.systemPeople || []).find(p => String(p.id) === String(lookup.personId));
   if (!person) { setLoginError(t('login.personNotFound')); return; }
+  const ownedCellNumber = getCellForPerson(person.id);
+  const assignedCellNumber = hasCoordinatorAccess(person) || person.supervisorSector
+    ? (ownedCellNumber || null)
+    : (ownedCellNumber || person.assignedCellNumber || null);
+
   const user = {
     personId: person.id,
     name: person.name,
     role: person.role,
-    assignedCellNumber: getCellForPerson(person.id) || person.assignedCellNumber || null,
+    assignedCellNumber,
     supervisedSector: person.supervisorSector || null,
+    isCoordinator: hasCoordinatorAccess(person),
     // Una cuenta de sistema implica automáticamente permisos de admin
     // (no necesita marcarse además como coordinador o admin).
-    isAdmin: !!(person.isCoordinator || person.isAdmin || person.isSystemAccount) || viaMaster,
+    isAdmin: !!(hasCoordinatorAccess(person) || person.isAdmin || person.isSystemAccount) || viaMaster,
     isSupervisor: !!(person.supervisorSector),
     // Master-password elevación: el operador de soporte recibe permisos de
     // cuenta de sistema para poder editar/eliminar reportes de cualquier célula
@@ -748,6 +833,152 @@ function goToAdminSection(targetId) {
 }
 
 const topbarRouteLabel = document.querySelector("#topbar-route-label");
+const segViewMobileSwitch = document.querySelector("#seg-view-mobile-switch");
+const segViewMobilePicker = document.querySelector("#seg-view-mobile-picker");
+const segViewMobileButton = document.querySelector("#seg-view-mobile-button");
+const segViewMobileButtonText = document.querySelector("#seg-view-mobile-button-text");
+const segViewMobileMenu = document.querySelector("#seg-view-mobile-menu");
+const segAccessScopeTabs = document.querySelector("#seg-access-scope-tabs");
+const segScopeMobileSwitch = document.querySelector("#seg-scope-mobile-switch");
+const segScopeMobilePicker = document.querySelector("#seg-scope-mobile-picker");
+const segScopeMobileButton = document.querySelector("#seg-scope-mobile-button");
+const segScopeMobileButtonText = document.querySelector("#seg-scope-mobile-button-text");
+const segScopeMobileMenu = document.querySelector("#seg-scope-mobile-menu");
+
+function closeSegViewMobileMenu() {
+  if (segViewMobileMenu) segViewMobileMenu.hidden = true;
+  if (segViewMobilePicker) segViewMobilePicker.classList.remove("is-open");
+  if (segViewMobileButton) segViewMobileButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleSegViewMobileMenu(forceOpen) {
+  if (!segViewMobileMenu || !segViewMobilePicker || !segViewMobileButton) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : segViewMobileMenu.hidden;
+  segViewMobileMenu.hidden = !shouldOpen;
+  segViewMobilePicker.classList.toggle("is-open", shouldOpen);
+  segViewMobileButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
+
+function closeSegScopeMobileMenu() {
+  if (segScopeMobileMenu) segScopeMobileMenu.hidden = true;
+  if (segScopeMobilePicker) segScopeMobilePicker.classList.remove("is-open");
+  if (segScopeMobileButton) segScopeMobileButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleSegScopeMobileMenu(forceOpen) {
+  if (!segScopeMobileMenu || !segScopeMobilePicker || !segScopeMobileButton) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : segScopeMobileMenu.hidden;
+  segScopeMobileMenu.hidden = !shouldOpen;
+  segScopeMobilePicker.classList.toggle("is-open", shouldOpen);
+  segScopeMobileButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
+
+function syncSegTabSelect(activeTabName) {
+  const tabs = Array.from(document.querySelectorAll("#seg-view-tab-bar .seg-view-tab[data-segtab]"));
+  const visibleTabs = tabs.filter((btn) => !btn.hidden);
+  const nextOptions = visibleTabs.map((btn) => ({
+    value: btn.dataset.segtab,
+    label: (btn.textContent || btn.dataset.segtab || "").trim(),
+  }));
+  if (nextOptions.length) {
+    const safeActive = nextOptions.some((opt) => opt.value === activeTabName) ? activeTabName : nextOptions[0].value;
+    if (segViewMobileButtonText) {
+      const activeLabel = nextOptions.find((opt) => opt.value === safeActive)?.label || safeActive;
+      segViewMobileButtonText.textContent = activeLabel;
+    }
+    if (segViewMobileMenu) {
+      segViewMobileMenu.innerHTML = nextOptions.map((opt) => `
+        <button type="button" class="seg-view-mobile-option${opt.value === safeActive ? " is-active" : ""}" data-segtab="${escapeHtml(opt.value)}" role="option" aria-selected="${opt.value === safeActive ? "true" : "false"}">
+          ${escapeHtml(opt.label)}
+        </button>
+      `).join("");
+    }
+    if (segViewMobileSwitch) segViewMobileSwitch.hidden = false;
+  } else if (segViewMobileSwitch) {
+    segViewMobileSwitch.hidden = true;
+  }
+}
+
+function getActiveSegTabName() {
+  return document.querySelector("#seg-view-tab-bar .seg-view-tab.is-active")?.dataset.segtab || "dashboard";
+}
+
+function rerenderActiveSeguimientoTab() {
+  const activeTab = getActiveSegTabName();
+  if (activeTab === "dashboard") renderDashboard(reportsData);
+  if (activeTab === "seguimiento") renderSeguimiento(reportsData);
+  if (activeTab === "goals") loadFriendTrackingPanel();
+}
+
+function renderSegAccessScopeTabs() {
+  if (!segAccessScopeTabs) return false;
+  const tabs = getUserScopeTabs();
+  const activeSegTab = getActiveSegTabName();
+  const hasMultipleScopes = tabs.length > 1;
+  if (!activeDashboardScope || !tabs.some(tab => tab.key === activeDashboardScope)) {
+    activeDashboardScope = tabs[0]?.key || null;
+  }
+  const shouldShow = tabs.length > 0 && (activeSegTab === "seguimiento" || activeSegTab === "dashboard" || activeSegTab === "goals");
+  if (!shouldShow) {
+    segAccessScopeTabs.hidden = true;
+    segAccessScopeTabs.innerHTML = "";
+    if (segScopeMobileSwitch) segScopeMobileSwitch.hidden = true;
+    if (segScopeMobileMenu) segScopeMobileMenu.innerHTML = "";
+    return false;
+  }
+  segAccessScopeTabs.hidden = false;
+  segAccessScopeTabs.classList.toggle("is-single-scope", !hasMultipleScopes);
+  segAccessScopeTabs.innerHTML = hasMultipleScopes
+    ? tabs.map(tab => `
+      <button type="button" class="dashboard-scope-tab ${tab.key === activeDashboardScope ? "is-active" : ""}" data-scope="${escapeHtml(tab.key)}" role="tab" aria-selected="${tab.key === activeDashboardScope}">
+        ${escapeHtml(tab.label)}
+        ${tab.sublabel ? `<span class="scope-tab-sub">${escapeHtml(tab.sublabel)}</span>` : ""}
+      </button>
+    `).join("")
+    : tabs.map(tab => `
+      <div class="dashboard-scope-state" role="status" aria-live="polite">
+        <span class="dashboard-scope-state-label">${escapeHtml(tab.label)}</span>
+        ${tab.sublabel ? `<span class="dashboard-scope-state-sub">${escapeHtml(tab.sublabel)}</span>` : ""}
+      </div>
+    `).join("");
+  if (segScopeMobileButtonText) {
+    segScopeMobileButtonText.textContent = tabs.find(tab => tab.key === activeDashboardScope)?.label || "Alcance";
+  }
+  if (segScopeMobileMenu) {
+    segScopeMobileMenu.innerHTML = tabs.map(tab => `
+      <button type="button" class="seg-view-mobile-option${tab.key === activeDashboardScope ? " is-active" : ""}" data-scope="${escapeHtml(tab.key)}" role="option" aria-selected="${tab.key === activeDashboardScope ? "true" : "false"}">
+        ${escapeHtml(tab.label)}
+      </button>
+    `).join("");
+  }
+  if (segScopeMobileSwitch) segScopeMobileSwitch.hidden = !hasMultipleScopes;
+  if (!segAccessScopeTabs.dataset.wired) {
+    segAccessScopeTabs.dataset.wired = "1";
+    segAccessScopeTabs.addEventListener("click", (ev) => {
+      const btn = ev.target.closest(".dashboard-scope-tab");
+      if (!btn) return;
+      const newScope = btn.dataset.scope;
+      if (!newScope || newScope === activeDashboardScope) return;
+      activeDashboardScope = newScope;
+      renderSegAccessScopeTabs();
+      rerenderActiveSeguimientoTab();
+    });
+  }
+  if (segScopeMobileMenu && !segScopeMobileMenu.dataset.wired) {
+    segScopeMobileMenu.dataset.wired = "1";
+    segScopeMobileMenu.addEventListener("click", (ev) => {
+      const btn = ev.target.closest(".seg-view-mobile-option[data-scope]");
+      if (!btn) return;
+      const newScope = String(btn.dataset.scope || "").trim();
+      if (!newScope || newScope === activeDashboardScope) return;
+      activeDashboardScope = newScope;
+      closeSegScopeMobileMenu();
+      renderSegAccessScopeTabs();
+      rerenderActiveSeguimientoTab();
+    });
+  }
+  return true;
+}
 
 function activateSegTab(tabName) {
   // Regular users (no admin, no supervisor) can only see dashboard sub-tab
@@ -759,12 +990,18 @@ function activateSegTab(tabName) {
   const segPanel = document.getElementById("seg-tab-seguimiento");
   const supPanel = document.getElementById("seg-tab-supervisor");
   const dashPanel = document.getElementById("seg-tab-dashboard");
+  const goalsPanel = document.getElementById("seg-tab-goals");
   if (segPanel)  segPanel.hidden  = tabName !== "seguimiento";
   if (supPanel)  supPanel.hidden  = tabName !== "supervisor";
   if (dashPanel) dashPanel.hidden = tabName !== "dashboard";
+  if (goalsPanel) goalsPanel.hidden = tabName !== "goals";
+  syncSegTabSelect(tabName);
+  renderSegAccessScopeTabs();
+  closeSegViewMobileMenu();
   if (tabName === "dashboard") renderDashboard(reportsData);
   if (tabName === "seguimiento") renderSeguimiento(reportsData);
   if (tabName === "supervisor")  renderSeguimientoSupervisor(reportsData);
+  if (tabName === "goals") loadFriendTrackingPanel();
 }
 
 function showView(viewName) {
@@ -956,6 +1193,8 @@ function reportHasMeaningfulData(report) {
   if (kids.some(k => String(k?.name || "").trim())) return true;
   const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms : [];
   if (baptisms.some(b => String(b?.name || "").trim())) return true;
+  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+  if (reachSupervisorVisits.length) return true;
   const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
   return members.some(m =>
     m?.planningAttended || m?.reachAttended || m?.sundayAttended ||
@@ -971,6 +1210,19 @@ function isReportEffectivelyDraft(report) {
   const fd = report?.formData || {};
   if (fd._draft === true || fd._draft === "true") return true;
   return !reportHasMeaningfulData(report);
+}
+
+async function confirmEditingSubmittedReport(report) {
+  if (!report || isReportEffectivelyDraft(report)) {
+    return true;
+  }
+
+  const cell = String(report.cellNumber || report.formData?.cellNumber || "").trim() || "—";
+  const week = String(getReportWeek(report) || report.formData?.week || report.week || "").trim() || "—";
+  return appConfirm(
+    t('conf.editSubmittedReportMsg', { c: cell, w: week }),
+    t('conf.editSubmittedReport')
+  );
 }
 
 function getReportAttendanceSummary(report) {
@@ -1029,7 +1281,12 @@ function isNextPeriod(previousKey, currentKey) {
 }
 
 function normalizeVisitorName(name) {
-  return String(name || "").trim().toLowerCase();
+  return String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function getVisitorHistory() {
@@ -1050,13 +1307,14 @@ function getVisitorHistory() {
         if (!normalizedName) {
           return;
         }
-        const previous = visitorMap.get(normalizedName) || { name: String(visitor?.name || "").trim(), invitedBy: "", phone: "", converted: false, kind: "amigo", visitCount: 0 };
+        const previous = visitorMap.get(normalizedName) || { name: String(visitor?.name || "").trim(), invitedBy: "", phone: "", converted: false, kind: "amigo", visitCount: 0, lateRegistration: false };
         visitorMap.set(normalizedName, {
           name: previous.name || String(visitor?.name || "").trim(),
           invitedBy: String(visitor?.invitedBy || previous.invitedBy || "").trim(),
           phone: String(visitor?.phone || previous.phone || "").trim(),
           converted: Boolean(visitor?.converted) || Boolean(previous.converted),
           kind: normalizeVisitorKind(visitor?.kind || previous.kind),
+          lateRegistration: Boolean(visitor?.lateRegistration) || Boolean(previous.lateRegistration),
           visitCount: previous.visitCount + 1,
         });
       });
@@ -1070,6 +1328,25 @@ function findVisitorHistoryByName(name) {
     return null;
   }
   return getVisitorHistory().find((visitor) => normalizeVisitorName(visitor.name) === normalizedName) || null;
+}
+
+function syncQuickLateRegistrationState(name = "") {
+  if (!(visitorQuickLate instanceof HTMLInputElement)) {
+    return;
+  }
+  const history = findVisitorHistoryByName(name);
+  const alreadyRegistered = Boolean(history?.visitCount);
+  visitorQuickLate.disabled = alreadyRegistered;
+  if (alreadyRegistered) {
+    visitorQuickLate.checked = false;
+    visitorQuickLate.title = `"${history.name}" ya fue anotado anteriormente y no puede volver marcarse como tardío.`;
+  } else {
+    visitorQuickLate.title = "";
+  }
+  if (visitorQuickLateField) {
+    const kind = normalizeVisitorKind(visitorQuickKind?.value);
+    visitorQuickLateField.hidden = kind !== "amigo" || !isLateRegistrationAvailable() || alreadyRegistered;
+  }
 }
 
 function renderVisitorHistoryOptions() {
@@ -1090,6 +1367,7 @@ function renderVisitorHistoryOptions() {
 
 function applyQuickVisitorHistory(name) {
   const visitor = findVisitorHistoryByName(name);
+  syncQuickLateRegistrationState(name);
   if (!visitor) {
     return;
   }
@@ -1137,26 +1415,11 @@ function getAbsenceAlertSeverity(entry) {
 
 // ── SCOPE HELPERS (filtra por rol de usuario activo) ─────────────────────────
 function getScopedCells() {
-  if (!currentUser || currentUser.isAdmin) return catalogs.cells;
-  if (currentUser.isSupervisor && currentUser.supervisedSector) {
-    return catalogs.cells.filter(c => String(c.sector || "").trim() === String(currentUser.supervisedSector).trim());
-  }
-  const cellNum = String(currentUser.assignedCellNumber || "");
-  return catalogs.cells.filter(c => String(c.cellNumber) === cellNum);
+  return filterItemsByUserScope(catalogs.cells || [], cell => cell.cellNumber);
 }
 
 function getScopedReports(reports) {
-  if (!currentUser || currentUser.isAdmin) return reports;
-  if (currentUser.isSupervisor && currentUser.supervisedSector) {
-    const sectorCellNums = new Set(
-      catalogs.cells
-        .filter(c => String(c.sector || "").trim() === String(currentUser.supervisedSector).trim())
-        .map(c => String(c.cellNumber))
-    );
-    return reports.filter(r => sectorCellNums.has(String(r.cellNumber || r.formData?.cellNumber || "")));
-  }
-  const cellNum = String(currentUser.assignedCellNumber || "");
-  return reports.filter(r => String(r.cellNumber || r.formData?.cellNumber || "") === cellNum);
+  return filterItemsByUserScope(reports || [], report => report.cellNumber || report.formData?.cellNumber);
 }
 
 function getDashboardScopeLabel() {
@@ -1179,15 +1442,7 @@ function getDashboardScopeLabel() {
 // - "sector" → su sector (requiere supervisedSector)
 // - "all"    → todas las células (solo admin)
 function getDashboardScopeTabs() {
-  const tabs = [];
-  if (!currentUser) return tabs;
-  const myCell   = String(currentUser.assignedCellNumber || "").trim();
-  const mySector = String(currentUser.supervisedSector || "").trim();
-  const isAdmin  = !!currentUser.isAdmin;
-  if (myCell)         tabs.push({ key: "cell",   label: t('dash.scopeMyCell'),   sublabel: t('cell.numbered', { n: myCell }) });
-  if (mySector)       tabs.push({ key: "sector", label: t('dash.scopeMySector'), sublabel: `Sector ${mySector}` });
-  if (isAdmin)        tabs.push({ key: "all",    label: t('dash.scopeAll'),      sublabel: t('dash.scopeAllSub') });
-  return tabs;
+  return getUserScopeTabs();
 }
 
 // Filtra reports (ya escopados por rol con getScopedReports) según la sub-pestaña activa.
@@ -1201,12 +1456,10 @@ function applyDashboardScopeFilter(reports) {
     return reports.filter(r => String(r.cellNumber || r.formData?.cellNumber || "") === myCell);
   }
   if (scope === "sector" && mySector) {
-    const sectorCellNums = new Set(
-      (catalogs.cells || [])
-        .filter(c => String(c.sector || "").trim() === mySector)
-        .map(c => String(c.cellNumber))
-    );
-    return reports.filter(r => sectorCellNums.has(String(r.cellNumber || r.formData?.cellNumber || "")));
+    return filterItemsByUserScope(reports, report => report.cellNumber || report.formData?.cellNumber, "sector");
+  }
+  if (scope === "all") {
+    return filterItemsByUserScope(reports, report => report.cellNumber || report.formData?.cellNumber, "all");
   }
   return reports;
 }
@@ -1347,6 +1600,7 @@ function renderDashboardPeriodOptions(reports) {
 function formatRole(role) {
   switch (role) {
     case "coordinator": return t("role.coordinator");
+    case "pastor":      return t("role.pastor");
     case "supervisor":  return t("role.supervisor");
     case "leader":      return t("role.leader");
     case "assistant":   return t("role.assistant");
@@ -1359,7 +1613,7 @@ function formatRole(role) {
 
 function getDerivedFunction(person) {
   if (person.role === "kid") return "kid";
-  if (person.isCoordinator) return "coordinator";
+  if (hasCoordinatorAccess(person)) return "coordinator";
   if (person.supervisorSector) return "supervisor";
   const id = String(person.id);
   for (const cell of catalogs.cells) {
@@ -1374,7 +1628,7 @@ function getDerivedFunction(person) {
 function getDerivedFunctions(person) {
   if (person.role === "kid") return ["kid"];
   const fns = [];
-  if (person.isCoordinator)    fns.push("coordinator");
+  if (hasCoordinatorAccess(person)) fns.push("coordinator");
   if (person.supervisorSector) fns.push("supervisor");
   const id = String(person.id);
   for (const cell of catalogs.cells) {
@@ -1383,6 +1637,26 @@ function getDerivedFunctions(person) {
     if (String(cell.hostPersonId)      === id) { fns.push("host");      break; }
   }
   return fns.length ? fns : ["member"];
+}
+
+function getDisplayFunctions(person) {
+  if (person.role === "kid") return ["kid"];
+  const fns = [];
+  if (person.role === "pastor") fns.push("pastor");
+  else if (hasCoordinatorAccess(person)) fns.push("coordinator");
+  if (person.supervisorSector) fns.push("supervisor");
+  const id = String(person.id);
+  for (const cell of catalogs.cells) {
+    if (String(cell.leaderPersonId) === id) { fns.push("leader"); break; }
+    if (String(cell.assistantPersonId) === id) { fns.push("assistant"); break; }
+    if (String(cell.hostPersonId) === id) { fns.push("host"); break; }
+  }
+  return fns.length ? fns : ["member"];
+}
+
+function getPrimaryDisplayFunction(person) {
+  const displayFunctions = getDisplayFunctions(person);
+  return displayFunctions[0] || "member";
 }
 
 function getCellMembers(cell) {
@@ -1537,7 +1811,7 @@ function renderGuardianSelect(selectedPersonId = "") {
   }
   renderSelect(
     peopleGuardianPerson,
-    getGuardianCandidates(selectedPersonId).map((person) => ({ value: String(person.id), label: `${person.name} · ${formatRole(getDerivedFunction(person))}` })),
+    getGuardianCandidates(selectedPersonId).map((person) => ({ value: String(person.id), label: `${person.name} · ${formatRole(getPrimaryDisplayFunction(person))}` })),
     t('sel.responsible')
   );
 }
@@ -1551,6 +1825,29 @@ function syncPeopleGuardianFields() {
     if (peopleGuardianPerson instanceof HTMLSelectElement) peopleGuardianPerson.value = "";
     if (peopleGuardianName instanceof HTMLInputElement) peopleGuardianName.value = "";
   }
+}
+
+function syncPeopleAccessFields() {
+  const pastorCheck = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-pastor"));
+  const coordCheck = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-coordinator"));
+  if (!pastorCheck || !coordCheck) return;
+
+  if (pastorCheck.checked) {
+    if (coordCheck.dataset.pastorLocked !== "true") {
+      coordCheck.dataset.prePastorChecked = coordCheck.checked ? "true" : "false";
+      coordCheck.dataset.pastorLocked = "true";
+    }
+    coordCheck.checked = true;
+    coordCheck.disabled = true;
+    return;
+  }
+
+  if (coordCheck.dataset.pastorLocked === "true") {
+    coordCheck.checked = coordCheck.dataset.prePastorChecked === "true";
+  }
+  delete coordCheck.dataset.pastorLocked;
+  delete coordCheck.dataset.prePastorChecked;
+  coordCheck.disabled = false;
 }
 
 function getQuarterWeekNumber(dateValue = "") {
@@ -1851,6 +2148,7 @@ function syncPhaseIndicator() {
   rcmPhaseIndicator.classList.remove("is-hidden");
   rcmPhaseIndicator.dataset.phase = phaseKey;
   syncEventWeekVisitorUI(info);
+  syncVisitorQuickKindUI();
 }
 
 function syncEventWeekVisitorUI(info) {
@@ -1928,7 +2226,11 @@ function getVisibleCells() {
 }
 
 function renderSelect(selectElement, options, placeholder) {
+  const currentValue = selectElement?.value ?? "";
   selectElement.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>${options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join("")}`;
+  if (currentValue && options.some((option) => String(option.value) === String(currentValue))) {
+    selectElement.value = currentValue;
+  }
 }
 
 function renderReportPersonSelects() {
@@ -2006,7 +2308,7 @@ function renderPeopleRows() {
         <strong>${escapeHtml(person.name)}</strong><br>
         <span class="member-admin-caption">${escapeHtml(getGuardianDisplay(person) || person.phone || person.email || t('person.noContact'))}</span>
       </td>
-      <td data-label="Función">${getDerivedFunctions(person).map(fn => `<span class="fn-tag fn-tag--${fn}">${escapeHtml(formatRole(fn))}</span>`).join(" ")}</td>
+      <td data-label="Función">${getDisplayFunctions(person).map(fn => `<span class="fn-tag fn-tag--${fn}">${escapeHtml(formatRole(fn))}</span>`).join(" ")}</td>
       <td data-label="Asignación"><span class="catalog-assignment-chip${person.assignedCellNumber ? "" : " is-unassigned"}">${escapeHtml(getPersonAssignmentLabel(person))}</span></td>
       <td class="col-rcm" data-label="Progreso RCM">${rcmCell}</td>
       <td data-label="Acciones">
@@ -2021,7 +2323,7 @@ function renderPeopleRows() {
 
   const buildPersonCard = (person) => {
     const { rcmCell, activeCount, totalCount, rcmPct, isTrackable } = buildPersonData(person);
-    const fns = getDerivedFunctions(person).map(fn => `<span class="fn-tag fn-tag--${fn}">${escapeHtml(formatRole(fn))}</span>`).join(" ");
+    const fns = getDisplayFunctions(person).map(fn => `<span class="fn-tag fn-tag--${fn}">${escapeHtml(formatRole(fn))}</span>`).join(" ");
     const assignment = `<span class="catalog-assignment-chip${person.assignedCellNumber ? "" : " is-unassigned"}">${escapeHtml(getPersonAssignmentLabel(person))}</span>`;
     return `<details class="pc-card">
       <summary class="pc-sum">
@@ -2075,7 +2377,8 @@ function renderSystemAccountsTable() {
     const perms = [];
     if (p.isSystemAccount) perms.push('<span class="fn-tag fn-tag--leader">Cuenta sistema</span>');
     if (p.isAdmin) perms.push('<span class="fn-tag fn-tag--leader">Administrador</span>');
-    if (p.isCoordinator) perms.push('<span class="fn-tag fn-tag--assistant">Coord.</span>');
+    if (p.role === "pastor") perms.push('<span class="fn-tag fn-tag--pastor">Pastor</span>');
+    else if (hasCoordinatorAccess(p)) perms.push('<span class="fn-tag fn-tag--assistant">Coord.</span>');
     if (p.supervisorSector) perms.push(`<span class="fn-tag">Sup. ${escapeHtml(p.supervisorSector)}</span>`);
     return `<tr>
       <td data-label="Nombre"><strong>${escapeHtml(p.name)}</strong></td>
@@ -2107,7 +2410,7 @@ function renderAdminSummary() {
   const leaderIds    = new Set(catalogs.cells.map(c => c.leaderPersonId).filter(Boolean).map(String));
   const assistantIds = new Set(catalogs.cells.map(c => c.assistantPersonId).filter(Boolean).map(String));
   const hostIds      = new Set(catalogs.cells.map(c => c.hostPersonId).filter(Boolean).map(String));
-  const coordinators = catalogs.people.filter(p => p.isCoordinator).length;
+  const coordinators = catalogs.people.filter(p => hasCoordinatorAccess(p)).length;
   const supervisors  = catalogs.people.filter(p => p.supervisorSector).length;
 
   const kids    = catalogs.people.filter(p => p.role === "kid").length;
@@ -2438,7 +2741,7 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
     return ak.localeCompare(bk);
   });
 
-  let totalReach = 0, totalSunday = 0, converted = false, invitedBy = "";
+  let totalReach = 0, totalSunday = 0, converted = false, invitedBy = "", lateRegistration = false;
   const weekRows = [];
 
   sorted.forEach(r => {
@@ -2450,6 +2753,7 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
     if (reach)  totalReach++;
     if (sunday) totalSunday++;
     if (entry.converted) converted = true;
+    if (entry.lateRegistration) lateRegistration = true;
     if (!invitedBy && entry.invitedBy) invitedBy = String(entry.invitedBy).trim();
     const rd = r.formData?.reportDate || r.reportDate || "";
     const dateLabel = rd ? new Date(rd + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "";
@@ -2482,6 +2786,7 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
       <strong class="mdl-stat-good">${converted ? "Sí" : "No"}</strong>
       <span>convertido</span>
     </div>
+    ${lateRegistration ? `<div class="mdl-stat"><strong class="mdl-stat-warn">Sí</strong><span>anotado tardío</span></div>` : ""}
     ${invitedBy ? `<div class="mdl-stat"><strong style="font-size:1rem">${escapeHtml(invitedBy)}</strong><span>lo invitó</span></div>` : ""}
     <div class="mdl-stat-bar">
       <span class="mdl-stat-pct">${overallPct}%</span>
@@ -2562,7 +2867,7 @@ function openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel) {
 }
 
 // ── Totals panel (seguimiento tab) ───────────────────────────────────────────
-function renderSegTotalsPanel(weeklyReps) {
+function renderSegTotalsPanel(weeklyReps, options = {}) {
   if (!segTotalsPanel || !segTotalsBody) return;
   if (!weeklyReps || weeklyReps.length === 0) { segTotalsPanel.hidden = true; return; }
   segTotalsPanel.hidden = false;
@@ -2643,7 +2948,7 @@ function renderSegTotalsPanel(weeklyReps) {
     if (agg.reachPrivileged) reachMissParts.push(`<span title="Hermanos con privilegios asignados durante el alcance (ofrenda, lectura, oración, etc.)">★ ${agg.reachPrivileged} con privilegio${agg.reachPrivileged!==1?'s':''}</span>`);
     if (agg.reachAbsentMembers > 0) reachMissParts.push(`${agg.reachAbsentMembers} no fue${agg.reachAbsentMembers!==1?'ron':''} al alcance`);
     const sundayMissTxt = agg.sundayAbsentMembers > 0 ? `${agg.sundayAbsentMembers} no fue${agg.sundayAbsentMembers!==1?'ron':''} al culto` : '';
-    const rosterHint = roster && roster > 0 ? `de ${roster} miembros activos` : '';
+    const rosterHint = roster && roster > 0 ? `de ${roster} hermanos asignados en esa semana` : '';
 
     return `<div class="tot-group">
       <p class="tot-group-label">${escapeHtml(label)}${rosterHint ? ` · <span class="tot-roster-hint">${rosterHint}</span>` : ''}</p>
@@ -2675,9 +2980,9 @@ function renderSegTotalsPanel(weeklyReps) {
   }
 
   function renderScope(scope) {
-    // Helper: roster efectivo = max(roster actual del catálogo, snapshot máximo en reportes).
-    // Los reportes guardan attendanceSummary.totalMembers como snapshot al momento del reporte.
-    // Si el roster actual cambió (alta/baja de hermanos) usamos el snapshot histórico.
+    // Helper: cuando existe reporte para esa célula en la ventana, el denominador
+    // debe salir del snapshot histórico guardado en ese reporte. Solo usamos el
+    // roster actual del catálogo como fallback para células sin reporte.
     const snapshotMaxForCell = (cellNum) => {
       let maxSnap = 0;
       weeklyReps.forEach(r => {
@@ -2688,7 +2993,11 @@ function renderSegTotalsPanel(weeklyReps) {
       });
       return maxSnap;
     };
-    const effectiveRosterForCell = (cellNum) => Math.max(rosterForCell(cellNum), snapshotMaxForCell(cellNum));
+    const effectiveRosterForCell = (cellNum) => {
+      if (options.isCurrentWeekScope) return rosterForCell(cellNum);
+      const snap = snapshotMaxForCell(cellNum);
+      return snap > 0 ? snap : rosterForCell(cellNum);
+    };
     const effectiveRosterForSector = (sec) => {
       const cellsInSec = scopedCellsList.filter(c => String(c.sector || '').trim() === String(sec).trim());
       return cellsInSec.reduce((sum, c) => sum + effectiveRosterForCell(c.cellNumber), 0);
@@ -2785,42 +3094,20 @@ function renderSegTotalsPanel(weeklyReps) {
 function renderDashboardForLeader(reports) {
   // Pintar sub-pestañas (si el usuario es solo líder, no se muestran).
   renderDashboardScopeTabs();
-  const cellNum = currentUser?.assignedCellNumber
-    ? String(currentUser.assignedCellNumber)
-    : cellField?.value || "";
-
-  // OJO: no usamos getScopedReports() aquí porque si el usuario es líder Y
-  // supervisor a la vez, getScopedReports filtra a las células del sector
-  // supervisado y descarta la célula propia (que puede estar en otro sector).
-  // La vista "Mi célula" siempre debe ver TODOS los reportes filtrados por
-  // su propia célula directamente.
-  const scopedReports = (reports || []).filter(r =>
-    String(r.cellNumber || r.formData?.cellNumber || "") === cellNum
-  );
-  renderDashboardPeriodOptions(scopedReports);
-
+  const allCellReports = Array.isArray(reports) ? reports : [];
+  renderDashboardPeriodOptions(allCellReports);
+  const leaderCellNumber = String(currentUser?.assignedCellNumber || allCellReports[0]?.cellNumber || allCellReports[0]?.formData?.cellNumber || cellField?.value || "").trim();
   const { year: parsedYear, quarter: parsedQuarter, week: parsedWeek } = parsePeriodKey(activeDashboardPeriod);
-  const selectedWeek    = String(parsedWeek    || getQuarterWeekNumber());
-  const selectedYear    = String(parsedYear    || new Date().getFullYear());
+  const selectedYear = String(parsedYear || new Date().getFullYear());
+  const selectedWeek = parsedWeek || Number(getQuarterWeekNumber());
   const selectedQuarter = String(parsedQuarter || getCurrentQuarter());
-
-  // All reports for this cell
-  const allCellReports = scopedReports.filter(r =>
-    String(r.cellNumber || r.formData?.cellNumber || "") === cellNum
-  );
-
-  // Week report: always uses current week period (for absence alerts)
-  const weekReport = allCellReports.find(r =>
-    getReportWeek(r) === selectedWeek &&
-    getReportYear(r) === selectedYear &&
-    String(getReportQuarter(r)) === selectedQuarter
-  );
-
-  // Determine report set and labels based on active time scope
-  let scopeReports, scopeChipText, scopeTitleText;
+  const weekReport = allCellReports.find((report) => Number(getReportWeek(report)) === Number(selectedWeek) && getReportYear(report) === selectedYear) || null;
+  let scopeReports = [];
+  let scopeChipText = "";
+  let scopeTitleText = "";
   if (activeDashboardTimeScope === "quarter") {
     // selectedQuarter from parsePeriodKey is 0 when key is "2026-Q2" format → use currentQuarter fallback
-    const q = String(parsedQuarter || getCurrentQuarter());
+    const q = selectedQuarter;
     scopeReports   = allCellReports.filter(r => getReportYear(r) === selectedYear && String(getReportQuarter(r)) === q);
     scopeChipText  = `C${q} ${selectedYear}`;
     scopeTitleText = t('qfull.title', { range: t(q === "1" ? 'qrange.q1' : q === "2" ? 'qrange.q2' : 'qrange.q3'), year: selectedYear });
@@ -3063,17 +3350,18 @@ function renderDashboardForLeader(reports) {
       });
 
       // ── Amigos ───────────────────────────────────────────────────────────────
-      const visitorStats = new Map(); // normalizedName → { name, invitedBy, visits, reachCount, sundayCount, converted }
+      const visitorStats = new Map(); // normalizedName → { name, invitedBy, visits, reachCount, sundayCount, converted, lateRegistration }
       scopeReports.forEach(r => {
         const visitors = Array.isArray(r.formData?.visitors) ? r.formData.visitors : [];
         visitors.forEach(v => {
           const norm = normalizeVisitorName(v.name);
           if (!norm) return;
-          const prev = visitorStats.get(norm) || { name: String(v.name || norm).trim(), invitedBy: String(v.invitedBy || "").trim(), visits: 0, reachCount: 0, sundayCount: 0, converted: false, kind: 'amigo' };
+          const prev = visitorStats.get(norm) || { name: String(v.name || norm).trim(), invitedBy: String(v.invitedBy || "").trim(), visits: 0, reachCount: 0, sundayCount: 0, converted: false, kind: 'amigo', lateRegistration: false };
           prev.visits++;
           if (v.reachAttended)  prev.reachCount++;
           if (v.sundayAttended) prev.sundayCount++;
           if (v.converted)      prev.converted = true;
+          if (v.lateRegistration) prev.lateRegistration = true;
           if (!prev.invitedBy && v.invitedBy) prev.invitedBy = String(v.invitedBy).trim();
           if ((v.kind || 'amigo') === 'visita') prev.kind = 'visita';
           visitorStats.set(norm, prev);
@@ -3124,13 +3412,14 @@ function renderDashboardForLeader(reports) {
           const reachPct  = v.visits > 0 ? Math.round((v.reachCount  / v.visits) * 100) : 0;
           const sundayPct = v.visits > 0 ? Math.round((v.sundayCount / v.visits) * 100) : 0;
           const convertedBadge = v.converted ? `<span class="visitor-conv-badge">Convertido ✓</span>` : "";
+          const lateBadge = v.lateRegistration ? `<span class="visitor-conv-badge" style="background:#fff4cc;color:#8a6d00;border-color:#f3d574;">Tardío</span>` : "";
           const invitadoBadge  = v.invitedBy ? `<span class="attend-ev-detail">Invitado por ${escapeHtml(v.invitedBy)}</span>` : "";
           const vKind = v.kind === 'visita' ? 'visita' : 'amigo';
           const kindLbl = vKind === 'visita' ? t('vis.kindRest') : t('vis.friend');
           const kindChip = `<span class="visitor-kind-chip is-${vKind}" title="${vKind === 'visita' ? t('vis.bapInRest') : t('vis.notBaptized')}">${escapeHtml(kindLbl)}</span>`;
           return `<tr class="attend-row attend-row-clickable" data-visitor-key="${escapeHtml(normKey)}" data-visitor-name="${escapeHtml(v.name)}" title="Ver detalle de ${escapeHtml(v.name)}">
             <td class="attend-name">
-              ${kindChip} ${escapeHtml(v.name)} ${convertedBadge}
+              ${kindChip} ${escapeHtml(v.name)} ${convertedBadge} ${lateBadge}
               ${invitadoBadge}
             </td>
             <td class="attend-falta-cell">
@@ -3213,7 +3502,7 @@ function renderDashboardForLeader(reports) {
   }
 
   // Metrics: scoped to this cell, selected time scope
-  renderDashboardMetrics(scopeReports, t('cell.numbered', { n: cellNum }));
+  renderDashboardMetrics(scopeReports, leaderCellNumber ? t('cell.numbered', { n: leaderCellNumber }) : t('dash.scopeMyCell'));
   // Donas: usar el MISMO periodo de tiempo que las tarjetas para evitar discrepancias
   // (ej. tarjeta dice 91 esta semana y dona decía 134 del cuatrimestre).
   renderDashboardTrends(scopeReports, { selectedYear, selectedQuarter });
@@ -3578,6 +3867,7 @@ function aggregateMetrics(reportsList, opts = {}) {
   const kidsCellSet = new Set();    // niños de catálogo (parte de la célula)
   const kidsVisitSet = new Set();   // niños de visita (no son de la célula)
   const friendsSet = new Set();     // amigos únicos (kind=amigo)
+  const lateFriendsSet = new Set(); // amigos anotados tardío únicos
   const restorSet = new Set();      // visitas en restauración únicas (kind=visita)
   // Mapas de ausentes por evento: {nameLower → {name, count}}
   const planAbsMap   = new Map();
@@ -3632,6 +3922,10 @@ function aggregateMetrics(reportsList, opts = {}) {
         if (v.sundayAttended) acc.sundayRestor += 1;
       } else {
         friendsSet.add(key);
+        if (v.lateRegistration) {
+          lateFriendsSet.add(key);
+          acc.lateFriends += 1;
+        }
         if (v.reachAttended)  acc.reachFriends  += 1;
         if (v.sundayAttended) acc.sundayFriends += 1;
       }
@@ -3676,13 +3970,14 @@ function aggregateMetrics(reportsList, opts = {}) {
        absent: 0, justified: 0, baptisms: 0, offering: 0,
        rosterSlots: 0,
        planningJustEv:   0, reachJustEv:   0, sundayJustEv:   0,
-       reachFriends: 0, reachRestor: 0, sundayFriends: 0, sundayRestor: 0,
+      reachFriends: 0, reachRestor: 0, sundayFriends: 0, sundayRestor: 0, lateFriends: 0,
        reachKidsCell: 0, reachKidsVisit: 0, sundayKidsCell: 0, sundayKidsVisit: 0 });
 
   acc.cellMembersUnique = memberSet.size;
   acc.kidsCellUnique    = kidsCellSet.size;
   acc.kidsVisitUnique   = kidsVisitSet.size;
   acc.friendsUnique     = friendsSet.size;
+  acc.lateFriendsUnique = lateFriendsSet.size;
   acc.restorUnique      = restorSet.size;
   // Listas de ausentes por evento ordenadas por cantidad de faltas desc
   const sortAbs = (map) => [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
@@ -4506,12 +4801,141 @@ function deriveOverallStatus(entry) {
   return "pending";
 }
 
-function buildDefaultMemberAttendance(cell, savedEntries = []) {
+function normalizeCellMemberAttendanceMode(value) {
+  return value === "justified_default" ? "justified_default" : "normal";
+}
+
+function normalizeCellMemberAttendanceDefaults(value, mode = "normal") {
+  const normalizedMode = normalizeCellMemberAttendanceMode(mode);
+  if (normalizedMode !== "justified_default") {
+    return {};
+  }
+  const raw = value && typeof value === "object" ? value : {};
+  const defaults = {
+    planning: Boolean(raw.planning),
+    reach: Boolean(raw.reach),
+    sunday: Boolean(raw.sunday),
+  };
+  if (!defaults.planning && !defaults.reach && !defaults.sunday) {
+    return { planning: true, reach: true, sunday: true };
+  }
+  return defaults;
+}
+
+function getAttendanceDefaultsSummary(defaults, mode = "normal") {
+  const normalized = normalizeCellMemberAttendanceDefaults(defaults, mode);
+  const labels = [];
+  if (normalized.planning) labels.push("Planeación");
+  if (normalized.reach) labels.push("Alcance");
+  if (normalized.sunday) labels.push("Culto");
+  return labels.join(" · ");
+}
+
+function readMemberAttendanceDefaultsFromForm() {
+  return normalizeCellMemberAttendanceDefaults({
+    planning: memberDefaultPlanning?.checked,
+    reach: memberDefaultReach?.checked,
+    sunday: memberDefaultSunday?.checked,
+  }, memberAttendanceModeSelect?.value);
+}
+
+function syncMemberAttendanceDefaultsForm() {
+  const mode = normalizeCellMemberAttendanceMode(memberAttendanceModeSelect?.value);
+  if (memberAttendanceDefaultsFields) {
+    memberAttendanceDefaultsFields.hidden = mode !== "justified_default";
+  }
+}
+
+function getCellMemberAttendanceModeLabel(value) {
+  const mode = normalizeCellMemberAttendanceMode(value);
+  return mode === "justified_default" ? "Justificada por defecto" : "Asistencia normal";
+}
+
+function renderCellMemberAttendanceModeOptions(selectedValue) {
+  const selected = normalizeCellMemberAttendanceMode(selectedValue);
+  return [
+    ["normal", "Asistencia normal"],
+    ["justified_default", "Justificada por defecto"],
+  ].map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`).join("");
+}
+
+function isInProgressReportData(savedData) {
+  if (!savedData || typeof savedData !== "object") return false;
+  if (savedData._draft === true || savedData._draft === "true") return true;
+  return Boolean(savedData.lastStage && savedData.lastStage !== "cierre");
+}
+
+function savedMemberEntryHasActivity(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  return Boolean(
+    entry.planningAttended
+    || entry.reachAttended
+    || entry.sundayAttended
+    || entry.reachPrivileged
+    || (entry.planningStatus && entry.planningStatus !== "pending")
+    || (entry.reachStatus && entry.reachStatus !== "pending")
+    || (entry.sundayStatus && entry.sundayStatus !== "pending")
+    || String(entry.note || "").trim()
+  );
+}
+
+function getReportMemberRoster(cell, savedEntries = [], savedData = null) {
+  const currentMembers = getCellMembers(cell);
+  const normalizedSavedEntries = Array.isArray(savedEntries)
+    ? savedEntries.filter((entry) => String(entry?.personId || entry?.name || "").trim())
+    : [];
+
+  if (!normalizedSavedEntries.length) {
+    return currentMembers;
+  }
+
+  const mapEntryToRosterMember = (entry) => {
+    const catalogMember = currentMembers.find((member) => (
+      String(member.id || "") === String(entry.personId || "")
+      || String(member.name || "") === String(entry.name || "")
+    ));
+    return {
+      id: entry.personId ?? catalogMember?.id ?? null,
+      name: entry.name || catalogMember?.name || "",
+      role: entry.role || catalogMember?.role || "member",
+      attendanceMode: normalizeCellMemberAttendanceMode(entry.attendanceMode || catalogMember?.attendanceMode),
+      attendanceDefaults: normalizeCellMemberAttendanceDefaults(entry.attendanceDefaults || catalogMember?.attendanceDefaults, entry.attendanceMode || catalogMember?.attendanceMode),
+      rcmProgress: entry.rcmProgress || catalogMember?.rcmProgress || {},
+    };
+  };
+
+  if (!isInProgressReportData(savedData)) {
+    return normalizedSavedEntries.map(mapEntryToRosterMember);
+  }
+
+  const mergedRoster = currentMembers.map((member) => {
+    const savedEntry = normalizedSavedEntries.find((entry) => (
+      String(member.id || "") === String(entry.personId || "")
+      || String(member.name || "") === String(entry.name || "")
+    ));
+    if (!savedEntry) return member;
+    return {
+      ...member,
+      attendanceMode: normalizeCellMemberAttendanceMode(savedEntry.attendanceMode || member.attendanceMode),
+      attendanceDefaults: normalizeCellMemberAttendanceDefaults(savedEntry.attendanceDefaults || member.attendanceDefaults, savedEntry.attendanceMode || member.attendanceMode),
+      rcmProgress: savedEntry.rcmProgress || member.rcmProgress || {},
+    };
+  });
+
+  const currentKeys = new Set(mergedRoster.map((member) => String(member.id || member.name || "")));
+  const preservedSavedMembers = normalizedSavedEntries
+    .filter((entry) => !currentKeys.has(String(entry.personId || entry.name || "")) && savedMemberEntryHasActivity(entry))
+    .map(mapEntryToRosterMember);
+
+  return [...mergedRoster, ...preservedSavedMembers];
+}
+
+function buildDefaultMemberAttendance(cell, savedEntries = [], savedData = null) {
   const savedByPersonId = new Map(
     (Array.isArray(savedEntries) ? savedEntries : []).map((entry) => [String(entry.personId || entry.name || ""), entry])
   );
 
-  return getCellMembers(cell).map((member) => {
+  return getReportMemberRoster(cell, savedEntries, savedData).map((member) => {
     const savedEntry = savedByPersonId.get(String(member.id)) || savedByPersonId.get(String(member.name));
     // Cada sub-estado parte como "pending" por defecto. Solo se hereda
     // un valor explícitamente guardado para esa etapa.
@@ -4528,14 +4952,19 @@ function buildDefaultMemberAttendance(cell, savedEntries = []) {
     const planningStatus = sanitize(savedEntry?.planningStatus, savedEntry?.planningAttended);
     const reachStatus    = sanitize(savedEntry?.reachStatus,    savedEntry?.reachAttended);
     const sundayStatus   = sanitize(savedEntry?.sundayStatus,   savedEntry?.sundayAttended);
+    const attendanceMode = normalizeCellMemberAttendanceMode(savedEntry?.attendanceMode || member.attendanceMode);
+    const attendanceDefaults = normalizeCellMemberAttendanceDefaults(savedEntry?.attendanceDefaults || member.attendanceDefaults, attendanceMode);
+    const useJustifiedDefaults = !savedEntry && attendanceMode === "justified_default";
     const entry = {
       personId: member.id,
       name: member.name,
       role: member.role,
+      attendanceMode,
+      attendanceDefaults,
       rcmProgress: member.rcmProgress || {},
-      planningStatus,
-      reachStatus,
-      sundayStatus,
+      planningStatus: useJustifiedDefaults && attendanceDefaults.planning ? "justified" : planningStatus,
+      reachStatus: useJustifiedDefaults && attendanceDefaults.reach ? "justified" : reachStatus,
+      sundayStatus: useJustifiedDefaults && attendanceDefaults.sunday ? "justified" : sundayStatus,
       status: "pending", // se sobreescribe abajo
       planningAttended: Boolean(savedEntry?.planningAttended),
       reachAttended: Boolean(savedEntry?.reachAttended),
@@ -4600,6 +5029,7 @@ function normalizeVisitors(savedVisitors = []) {
       kind,
       invitedBy: visitor?.invitedBy || "",
       reachAttended: Boolean(visitor?.reachAttended),
+      lateRegistration: kind === "amigo" ? Boolean(visitor?.lateRegistration) : false,
       sundayAttended: Boolean(visitor?.sundayAttended),
       firstVisit: Boolean(visitor?.firstVisit),
       // "converted" solo aplica a amigos (no bautizados); para visitas siempre false.
@@ -4614,6 +5044,109 @@ function normalizeVisitors(savedVisitors = []) {
   });
 }
 
+function normalizeReachSupervisorVisits(value) {
+  let source = value;
+  if (typeof source === "string") {
+    try {
+      source = JSON.parse(source);
+    } catch {
+      source = [];
+    }
+  }
+  if (!Array.isArray(source)) {
+    return [];
+  }
+  const seen = new Set();
+  return source.map((entry) => {
+    const rawPersonId = entry && typeof entry === "object" ? entry.personId ?? entry.id : entry;
+    const personId = rawPersonId == null || rawPersonId === "" ? null : String(rawPersonId).trim();
+    const catalogPerson = personId
+      ? catalogs.people.find((person) => String(person.id || "") === personId)
+      : null;
+    const name = String((entry && typeof entry === "object" ? entry.name : "") || catalogPerson?.name || "").trim();
+    const supervisorSector = String((entry && typeof entry === "object" ? entry.supervisorSector : "") || catalogPerson?.supervisorSector || "").trim();
+    return { personId, name, supervisorSector };
+  }).filter((entry) => {
+    const key = entry.personId || entry.name.toLowerCase();
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function getReachSupervisorCandidates(cell) {
+  const cellSector = String(cell?.sector || "").trim();
+  return catalogs.people
+    .filter((person) => {
+      const supervisorSector = String(person.supervisorSector || "").trim();
+      if (!supervisorSector) {
+        return false;
+      }
+      return !cellSector || supervisorSector === cellSector;
+    })
+    .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "es"));
+}
+
+function syncReachSupervisorVisitFields() {
+  if (reachSupervisionSectorCountField instanceof HTMLInputElement) {
+    reachSupervisionSectorCountField.value = String(currentReachSupervisorVisits.length);
+  }
+  if (reachSupervisorVisitsJsonField instanceof HTMLInputElement) {
+    reachSupervisorVisitsJsonField.value = JSON.stringify(currentReachSupervisorVisits);
+  }
+  if (reachSupervisorVisitSummary) {
+    if (!currentReachSupervisorVisits.length) {
+      reachSupervisorVisitSummary.textContent = "Sin supervisión capturada.";
+    } else {
+      const names = currentReachSupervisorVisits.map((entry) => entry.name).filter(Boolean);
+      const countLabel = `${currentReachSupervisorVisits.length} supervisor${currentReachSupervisorVisits.length === 1 ? "" : "es"} presente${currentReachSupervisorVisits.length === 1 ? "" : "s"}`;
+      reachSupervisorVisitSummary.textContent = names.length ? `${countLabel}: ${names.join(", ")}` : countLabel;
+    }
+  }
+}
+
+function renderReachSupervisorVisits(cell) {
+  if (!reachSupervisorVisitList) {
+    return;
+  }
+  const candidates = getReachSupervisorCandidates(cell);
+  const extras = currentReachSupervisorVisits.filter((entry) => !candidates.some((person) => String(person.id || "") === String(entry.personId || "")));
+  const rows = [...candidates, ...extras.map((entry) => ({
+    id: entry.personId,
+    name: entry.name,
+    supervisorSector: entry.supervisorSector,
+  }))];
+  if (!cell) {
+    currentReachSupervisorVisits = [];
+    reachSupervisorVisitList.innerHTML = '<p class="member-admin-caption">Selecciona una célula para capturar supervisión.</p>';
+    syncReachSupervisorVisitFields();
+    return;
+  }
+  if (!rows.length) {
+    currentReachSupervisorVisits = [];
+    reachSupervisorVisitList.innerHTML = '<p class="member-admin-caption">No hay supervisores asignados para el sector de esta célula.</p>';
+    syncReachSupervisorVisitFields();
+    return;
+  }
+  const selectedKeys = new Set(currentReachSupervisorVisits.map((entry) => String(entry.personId || entry.name || "")));
+  reachSupervisorVisitList.innerHTML = rows.map((person) => {
+    const personId = String(person.id || person.personId || "").trim();
+    const key = personId || String(person.name || "").trim();
+    const sector = String(person.supervisorSector || "").trim();
+    const checked = selectedKeys.has(key);
+    return `
+      <label class="reach-supervision-option">
+        <input type="checkbox" data-supervision-person-id="${escapeHtml(personId)}" data-supervision-name="${escapeHtml(String(person.name || ""))}" data-supervision-sector="${escapeHtml(sector)}"${checked ? " checked" : ""}>
+        <span class="reach-supervision-option-name">${escapeHtml(String(person.name || ""))}</span>
+        ${sector ? `<span class="reach-supervision-option-meta">Sector ${escapeHtml(sector)}</span>` : ""}
+      </label>
+    `;
+  }).join("");
+  syncReachSupervisorVisitFields();
+}
+
 function computeWeeklySummary() {
   const namedVisitors = currentVisitors.filter((visitor) => String(visitor.name || "").trim());
   const namedKids = currentKids.filter((kid) => String(kid.name || "").trim());
@@ -4626,6 +5159,7 @@ function computeWeeklySummary() {
     reachFriendsPresent: 0,
     reachConversions: 0,
     reachKidsPresent: 0,
+    reachSupervisorVisits: 0,
     winSpiritualParents: 0,
     winFriendsContacted: 0,
     winRiseEventFriends: 0,
@@ -4652,6 +5186,9 @@ function computeWeeklySummary() {
     else if (entry.status === "service") counts.service += 1;
     else counts.pending += 1;
   });
+
+  counts.reachSupervisorVisits = currentReachSupervisorVisits.length;
+  counts.reachMembersPresent += counts.reachSupervisorVisits;
 
   const spiritualParentsSet = new Set();
   namedVisitors.forEach((visitor) => {
@@ -4696,6 +5233,7 @@ function syncDerivedMetricFields() {
     planningMembersPresent:    summary.planningMembersPresent,
     planningMembersAbsent:     summary.planningMembersAbsent,
     reachMembersPresent:       summary.reachMembersPresent,
+    supervisionSector:         summary.reachSupervisorVisits,
     reachPrivilegedMembers:    summary.reachPrivilegedMembers,
     reachFriendsPresent:       summary.reachFriendsPresent,
     reachConversions:          summary.reachConversions,
@@ -5164,12 +5702,14 @@ function renderBaptismTable() {
 }
 
 function applyWeeklyCollectionsForCell(cell, savedData = null) {
-  currentMemberAttendance = buildDefaultMemberAttendance(cell, savedData?.memberAttendance);
+  currentMemberAttendance = buildDefaultMemberAttendance(cell, savedData?.memberAttendance, savedData);
   currentVisitors = normalizeVisitors(savedData?.visitors);
   currentKids = buildDefaultKidsAttendance(cell, savedData?.kids);
   currentBaptisms = normalizeBaptisms(savedData?.baptisms);
+  currentReachSupervisorVisits = normalizeReachSupervisorVisits(savedData?.reachSupervisorVisits || savedData?.reachSupervisorVisitsJson);
   resetVisitorQuickForm();
   resetKidQuickForm();
+  renderReachSupervisorVisits(cell);
   renderAttendanceTable();
   renderVisitorTable();
   renderKidsTable();
@@ -5193,6 +5733,9 @@ function resetVisitorQuickForm() {
   if (visitorQuickReach instanceof HTMLInputElement) {
     visitorQuickReach.checked = true;
   }
+  if (visitorQuickLate instanceof HTMLInputElement) {
+    visitorQuickLate.checked = false;
+  }
   if (visitorQuickSunday instanceof HTMLInputElement) {
     visitorQuickSunday.checked = false;
   }
@@ -5208,6 +5751,11 @@ function resetVisitorQuickForm() {
   syncVisitorQuickKindUI();
 }
 
+function isLateRegistrationAvailable() {
+  const selectedWeek = parseInt(String(weekField?.value || "0"), 10);
+  return Number.isFinite(selectedWeek) && selectedWeek > 2;
+}
+
 // Cuando el tipo es "visita" (bautizado), oculta el toggle de Conversión.
 function syncVisitorQuickKindUI() {
   const kind = normalizeVisitorKind(visitorQuickKind?.value);
@@ -5217,6 +5765,10 @@ function syncVisitorQuickKindUI() {
   if (kind === "visita" && visitorQuickConverted instanceof HTMLInputElement) {
     visitorQuickConverted.checked = false;
   }
+  if ((kind !== "amigo" || !isLateRegistrationAvailable()) && visitorQuickLate instanceof HTMLInputElement) {
+    visitorQuickLate.checked = false;
+  }
+  syncQuickLateRegistrationState(String(visitorQuickName?.value || "").trim());
 }
 
 function toggleHelperButtons() {
@@ -5588,6 +6140,28 @@ let seguimientoScope = (typeof localStorage !== "undefined" && (localStorage.get
   : "current";
 // Offset de semana para Seguimiento: 0 = esta semana, -1 = semana anterior.
 let seguimientoWeekOffset = -1;
+let friendTrackingRenderToken = 0;
+let friendTrackingCellFilterValue = "";
+let friendTrackingScopeContext = null;
+
+function getFriendTrackingCellFilterLabel(value) {
+  const normalized = String(value || "").trim();
+  return normalized ? `Célula ${normalized}` : "Vista general";
+}
+
+function closeFriendTrackingCellFilterMenu() {
+  if (friendTrackingFilterMenu) friendTrackingFilterMenu.hidden = true;
+  if (friendTrackingFilterPicker) friendTrackingFilterPicker.classList.remove("is-open");
+  if (friendTrackingFilterButton) friendTrackingFilterButton.setAttribute("aria-expanded", "false");
+}
+
+function toggleFriendTrackingCellFilterMenu(forceOpen) {
+  if (!friendTrackingFilterMenu || !friendTrackingFilterPicker || !friendTrackingFilterButton || friendTrackingFilterPicker.hidden) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : friendTrackingFilterMenu.hidden;
+  friendTrackingFilterMenu.hidden = !shouldOpen;
+  friendTrackingFilterPicker.classList.toggle("is-open", shouldOpen);
+  friendTrackingFilterButton.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
 
 // Oculta los reportes en borrador (_draft) según rol:
 //  - Super-admin: ve todos los borradores.
@@ -5605,10 +6179,356 @@ function filterVisibleReports(list) {
   });
 }
 
+function getFriendTrackingQueryParams() {
+  const params = new URLSearchParams();
+  const activeScope = activeDashboardScope || (currentUser?.assignedCellNumber ? "cell" : currentUser?.supervisedSector ? "sector" : "all");
+  params.set("scope", seguimientoScope === "all" ? "all" : "current");
+  if (seguimientoScope !== "all") {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    const month = now.getMonth();
+    const quarter = String(month <= 3 ? 1 : month <= 7 ? 2 : 3);
+    params.set("year", year);
+    params.set("quarter", quarter);
+  }
+  if (activeScope !== "cell" && friendTrackingCellFilterValue) {
+    params.set("cellNumber", String(friendTrackingCellFilterValue));
+    return params;
+  }
+  if (activeScope === "cell" && currentUser?.assignedCellNumber) {
+    params.set("cellNumber", String(currentUser.assignedCellNumber));
+  } else if (activeScope === "sector" && currentUser?.supervisedSector) {
+    params.set("sector", String(currentUser.supervisedSector));
+  }
+  return params;
+}
+
+function syncFriendTrackingCellFilter() {
+  if (!(friendTrackingCellFilter instanceof HTMLSelectElement)) return;
+  const activeScope = activeDashboardScope || (currentUser?.assignedCellNumber ? "cell" : currentUser?.supervisedSector ? "sector" : "all");
+  const allowedCellNumbers = Array.from(getUserScopedCellNumbers(activeScope)).sort((left, right) => Number(left) - Number(right));
+  const shouldShow = activeScope !== "cell" && allowedCellNumbers.length > 1;
+  if (!shouldShow) {
+    friendTrackingCellFilter.hidden = true;
+    if (friendTrackingFilterPicker) friendTrackingFilterPicker.hidden = true;
+    friendTrackingCellFilterValue = "";
+    friendTrackingCellFilter.innerHTML = '<option value="">Vista general</option>';
+    if (friendTrackingFilterButtonText) friendTrackingFilterButtonText.textContent = "Vista general";
+    if (friendTrackingFilterMenu) friendTrackingFilterMenu.innerHTML = "";
+    closeFriendTrackingCellFilterMenu();
+    return;
+  }
+  const options = allowedCellNumbers.map(cellNumber => `<option value="${escapeHtml(String(cellNumber))}">Célula ${escapeHtml(String(cellNumber))}</option>`).join("");
+  friendTrackingCellFilter.innerHTML = `<option value="">Vista general</option>${options}`;
+  if (friendTrackingCellFilterValue && allowedCellNumbers.includes(String(friendTrackingCellFilterValue))) {
+    friendTrackingCellFilter.value = String(friendTrackingCellFilterValue);
+  } else {
+    friendTrackingCellFilterValue = "";
+    friendTrackingCellFilter.value = "";
+  }
+  friendTrackingCellFilter.hidden = true;
+  if (friendTrackingFilterPicker) friendTrackingFilterPicker.hidden = false;
+  if (friendTrackingFilterButtonText) friendTrackingFilterButtonText.textContent = getFriendTrackingCellFilterLabel(friendTrackingCellFilter.value);
+  if (friendTrackingFilterMenu) {
+    friendTrackingFilterMenu.innerHTML = ["", ...allowedCellNumbers].map((cellNumber) => {
+      const value = String(cellNumber || "");
+      const isActive = value === String(friendTrackingCellFilter.value || "");
+      return `
+        <button type="button" class="friend-tracking-filter-option${isActive ? " is-active" : ""}" data-cell-filter="${escapeHtml(value)}" role="option" aria-selected="${isActive ? "true" : "false"}">
+          ${escapeHtml(getFriendTrackingCellFilterLabel(value))}
+        </button>
+      `;
+    }).join("");
+  }
+}
+
+friendTrackingCellFilter?.addEventListener("change", () => {
+  friendTrackingCellFilterValue = String(friendTrackingCellFilter.value || "").trim();
+  loadFriendTrackingPanel();
+});
+
+friendTrackingFilterButton?.addEventListener("click", () => {
+  toggleFriendTrackingCellFilterMenu();
+});
+
+friendTrackingFilterMenu?.addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".friend-tracking-filter-option[data-cell-filter]");
+  if (!btn || !(friendTrackingCellFilter instanceof HTMLSelectElement)) return;
+  const nextValue = String(btn.dataset.cellFilter || "").trim();
+  friendTrackingCellFilterValue = nextValue;
+  friendTrackingCellFilter.value = nextValue;
+  closeFriendTrackingCellFilterMenu();
+  syncFriendTrackingCellFilter();
+  loadFriendTrackingPanel();
+});
+
+function formatTrackingRange(start, end) {
+  if (!start && !end) return "Sin fechas";
+  if (!end || start === end) return start || end;
+  return `${start} - ${end}`;
+}
+
+function formatTrackingDateLabel(value) {
+  if (!value) return "";
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(value);
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function formatTrackingRangeLabel(start, end) {
+  const startLabel = formatTrackingDateLabel(start);
+  const endLabel = formatTrackingDateLabel(end);
+  if (!startLabel && !endLabel) return "Sin fechas";
+  if (!endLabel || startLabel === endLabel) return startLabel || endLabel;
+  return `${startLabel} — ${endLabel}`;
+}
+
+function getFriendTrackingStatusLabel(friend) {
+  if (friend.completed && friend.converted) return "Completó y decidió";
+  if (friend.completed) return "Terminó proceso";
+  if ((friend.sundayCount || 0) > 0) return "Asiste a culto";
+  if ((friend.reachCount || 0) > 0) return "En alcance";
+  if (friend.converted) return "Decidió";
+  return "En proceso";
+}
+
+function renderFriendTrackingPanel(payload) {
+  if (!friendTrackingSummaryGrid || !friendTrackingFriendsList || !friendTrackingGoals || !friendTrackingQuickChips) return;
+
+  const summary = payload?.summary || {};
+  const quickSignals = payload?.quickSignals || {};
+  const goals = payload?.goals || {};
+  const friends = Array.isArray(payload?.friends) ? payload.friends : [];
+  const scope = payload?.scope || {};
+  friendTrackingScopeContext = scope;
+  const activeScope = activeDashboardScope || (currentUser?.assignedCellNumber ? "cell" : currentUser?.supervisedSector ? "sector" : "all");
+  const sortedFriends = [...friends].sort((left, right) => {
+    const leftWeight = (right?.weeksSeen || 0) - (left?.weeksSeen || 0);
+    if (leftWeight !== 0) return leftWeight;
+    return String(right?.lastReportDate || "").localeCompare(String(left?.lastReportDate || ""));
+  });
+
+  if (friendTrackingScopeChip) {
+    friendTrackingScopeChip.textContent = scope.year && scope.quarter ? `Q${scope.quarter}/${scope.year}` : "Histórico";
+  }
+  if (friendTrackingGoalsTabButton) {
+    friendTrackingGoalsTabButton.textContent = scope.year && scope.quarter ? `Metas - Q${scope.quarter}/${scope.year}` : "Metas";
+  }
+  if (friendTrackingGoalsTitle) {
+    friendTrackingGoalsTitle.textContent = scope.year && scope.quarter ? "En curso" : "Metas";
+  }
+
+  friendTrackingSummaryGrid.innerHTML = [
+    {
+      label: "Amigos activos",
+      value: String(summary.activeFriends || 0),
+      hint: "con alcance o culto en el periodo",
+      accent: "accent-faith",
+    },
+    {
+      label: "Padres espirituales",
+      value: String(summary.spiritualParents || 0),
+      hint: "personas trayendo amigos en el ciclo",
+      accent: "accent-success",
+    },
+    {
+      label: "Recurrentes",
+      value: String(summary.recurrentFriends || 0),
+      hint: "2 o más entradas al proceso",
+      accent: "accent-neutral",
+    },
+    {
+      label: "Largo plazo",
+      value: String(summary.longTermFriends || 0),
+      hint: "historial de 1 año o más",
+      accent: "accent-neutral",
+    },
+    {
+      label: "Seguimiento clave",
+      value: summary.keyFollowUp
+        ? `${String(summary.keyFollowUp.name || "")} · ${String(summary.keyFollowUp.processCount || 0)} veces`
+        : "-",
+      hint: summary.keyFollowUp
+        ? "caso con mayor continuidad"
+        : "sin caso destacado en este periodo",
+      accent: "accent-faith friend-summary-card-key",
+    },
+  ].map(({ label, value, hint, accent }) => `
+    <article class="summary-card summary-card-dashboard friend-summary-card ${escapeHtml(accent || "")}">
+      <span class="summary-label">${escapeHtml(label)}</span>
+      <strong class="summary-value">${escapeHtml(value)}</strong>
+      <span class="summary-hint">${escapeHtml(hint)}</span>
+    </article>
+  `).join("");
+
+  friendTrackingQuickChips.innerHTML = [
+    ["En proceso", summary.activeFriends || 0],
+    ["Ganados", summary.wonFriends || 0],
+    ["Más de un ciclo", summary.recurrentFriends || 0],
+    ["Con culto", quickSignals.withSunday || 0],
+    ["Reactivados", quickSignals.reactivatedWon || 0],
+  ].map(([label, value]) => `
+    <span class="count-chip friend-tracking-count-chip">
+      <span class="friend-tracking-count-label">${escapeHtml(String(label))}</span>
+      <strong class="friend-tracking-count-value">${escapeHtml(String(value))}</strong>
+    </span>
+  `).join("");
+
+  friendTrackingGoals.innerHTML = [
+    ["Levántate", goals.levantateGoal || 0],
+    ["Santificar", goals.restauracionGoal || 0],
+    ["Bautismos", goals.bautismosGoal || 0],
+  ].map(([label, value]) => `
+    <div class="friend-tracking-goal-row friend-tracking-goal-progress-row">
+      <div class="friend-tracking-goal-topline">
+        <span class="friend-tracking-goal-label">${escapeHtml(label)}</span>
+        <strong class="friend-tracking-goal-value">0/${escapeHtml(String(value))}</strong>
+      </div>
+      <div class="friend-tracking-goal-bar" aria-hidden="true">
+        <div class="friend-tracking-goal-fill" style="width:0%"></div>
+      </div>
+      <span class="friend-tracking-goal-foot">Faltan ${escapeHtml(String(value))}</span>
+    </div>
+  `).join("");
+
+  if (!sortedFriends.length) {
+    friendTrackingFriendsList.innerHTML = '<div class="empty-state" style="padding:16px 0">Sin amigos en seguimiento para este alcance.</div>';
+    return;
+  }
+
+  const renderFriendProcessCard = (friend, options = {}) => {
+    const statusLabel = getFriendTrackingStatusLabel(friend);
+    const statusCls = friend.completed ? "is-complete" : friend.converted ? "is-converted" : "is-progress";
+    const showCellBadge = Boolean(options.showCellBadge) && !!String(friend.cellNumber || "").trim();
+    const participationCount = friend.weeksSeen || 0;
+    const processLabel = `${participationCount} ${participationCount === 1 ? "visita registrada" : "visitas registradas"}`;
+    const visitIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4v6l4 2"/><circle cx="10" cy="10" r="7"/></svg></span>';
+    const reachIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2"/><path d="M15.5 4.5l-2.5 2.5"/></svg></span>';
+    const sundayIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4l6 5.5"/><path d="M6 8.5V16h8V8.5"/><path d="M9 16v-3h2v3"/></svg></span>';
+    const inviteIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><path d="M2.5 16a5 5 0 0 1 9 0"/><path d="M13 7h4M15 5v4"/></svg></span>';
+    return `
+      <article class="friend-process-item">
+        <div class="friend-process-head">
+          <div>
+            <strong class="friend-process-name">${escapeHtml(friend.name)}</strong>
+          </div>
+          <span class="friend-process-status ${statusCls}">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="friend-process-times">${visitIcon}${escapeHtml(processLabel)}</div>
+        <div class="friend-process-meta">
+          <div class="friend-process-statsbar">
+            <span class="friend-process-stat">${reachIcon}Alcance: ${escapeHtml(String(friend.reachCount || 0))}</span>
+            <span class="friend-process-stat-sep" aria-hidden="true">•</span>
+            <span class="friend-process-stat">${sundayIcon}Culto: ${escapeHtml(String(friend.sundayCount || 0))}</span>
+          </div>
+          ${friend.lateEntry ? '<span class="count-chip friend-chip-late">ANOTAR tardío:1</span>' : ''}
+        </div>
+        <div class="friend-process-sub friend-process-date">${escapeHtml(formatTrackingRangeLabel(friend.entryDate, friend.lastReportDate))}</div>
+        <div class="friend-process-sub friend-process-footer">
+          <span class="friend-process-footer-main">${inviteIcon}Invitó: ${escapeHtml(friend.invitedBy || "—")}</span>
+          <span class="friend-process-footer-actions">
+            <button type="button" class="friend-process-detail-btn" data-action="friend-process-detail" data-friend-name="${escapeHtml(friend.name)}" data-friend-key="${escapeHtml(normalizeVisitorName(friend.name))}" data-friend-cell="${escapeHtml(String(friend.cellNumber || ""))}">Detalle</button>
+            ${showCellBadge ? `<span class="friend-process-cell-badge friend-process-footer-badge">Célula ${escapeHtml(String(friend.cellNumber))}</span>` : ""}
+          </span>
+        </div>
+      </article>
+    `;
+  };  
+
+  const distinctCellNumbers = [...new Set(sortedFriends.map(friend => String(friend.cellNumber || "").trim()).filter(Boolean))];
+  const shouldGroupByCell = activeScope !== "cell" && distinctCellNumbers.length > 1;
+  friendTrackingFriendsList.classList.toggle("is-grouped", shouldGroupByCell);
+
+  if (!shouldGroupByCell) {
+    const showCellBadge = activeScope !== "cell" && distinctCellNumbers.length === 1;
+    friendTrackingFriendsList.innerHTML = sortedFriends.map(friend => renderFriendProcessCard(friend, { showCellBadge })).join("");
+    return;
+  }
+
+  const groupedFriends = new Map();
+  sortedFriends.forEach(friend => {
+    const cellNumber = String(friend.cellNumber || "").trim() || "Sin célula";
+    if (!groupedFriends.has(cellNumber)) groupedFriends.set(cellNumber, []);
+    groupedFriends.get(cellNumber).push(friend);
+  });
+
+  const orderedGroupedFriends = [...groupedFriends.entries()].sort(([leftCell], [rightCell]) => {
+    const leftIsNumeric = /^\d+$/.test(leftCell);
+    const rightIsNumeric = /^\d+$/.test(rightCell);
+    if (leftIsNumeric && rightIsNumeric) return Number(leftCell) - Number(rightCell);
+    if (leftIsNumeric) return -1;
+    if (rightIsNumeric) return 1;
+    return leftCell.localeCompare(rightCell, "es", { numeric: true, sensitivity: "base" });
+  });
+
+  friendTrackingFriendsList.innerHTML = orderedGroupedFriends.map(([cellNumber, items]) => {
+    const label = /^\d+$/.test(cellNumber) ? `Célula ${cellNumber}` : cellNumber;
+    const subtitle = `${items.length} ${items.length === 1 ? "amigo en proceso" : "amigos en proceso"}`;
+    return `
+      <details class="friend-process-group">
+        <summary class="friend-process-group-summary">
+          <div class="friend-process-group-heading">
+            <strong class="friend-process-group-title">${escapeHtml(label)}</strong>
+            <span class="friend-process-group-count">${escapeHtml(subtitle)}</span>
+          </div>
+          <span class="friend-process-group-toggle" aria-hidden="true">Ver</span>
+        </summary>
+        <div class="friend-process-group-grid">
+          ${items.map(friend => renderFriendProcessCard(friend)).join("")}
+        </div>
+      </details>
+    `;
+  }).join("");
+}
+
+async function loadFriendTrackingPanel() {
+  if (!friendTrackingSummaryGrid) return;
+  renderSegAccessScopeTabs();
+  syncFriendTrackingCellFilter();
+  const token = ++friendTrackingRenderToken;
+  try {
+    const params = getFriendTrackingQueryParams();
+    const payload = await request(`/api/friend-tracking?${params.toString()}`);
+    if (token !== friendTrackingRenderToken) return;
+    renderFriendTrackingPanel(payload);
+  } catch (err) {
+    if (token !== friendTrackingRenderToken) return;
+    friendTrackingScopeContext = null;
+    if (friendTrackingFriendsList) {
+      friendTrackingFriendsList.innerHTML = `<div class="empty-state" style="padding:16px 0">${escapeHtml(err.message || "No se pudo cargar el seguimiento de amigos.")}</div>`;
+    }
+  }
+}
+
+friendTrackingFriendsList?.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action='friend-process-detail']");
+  if (!button) return;
+  const visitorKey = String(button.dataset.friendKey || "").trim();
+  const visitorName = String(button.dataset.friendName || "").trim();
+  const cellNumber = String(button.dataset.friendCell || "").trim();
+  if (!visitorKey || !visitorName) return;
+
+  const scopeReports = filterVisibleReports(Array.isArray(reportsData) ? reportsData : []).filter((report) => {
+    const reportCell = String(report.cellNumber || report.formData?.cellNumber || "").trim();
+    if (cellNumber && reportCell !== cellNumber) return false;
+    const scopeYear = String(friendTrackingScopeContext?.year || "").trim();
+    const scopeQuarter = String(friendTrackingScopeContext?.quarter || "").trim();
+    if (scopeYear && String(getReportYear(report)) !== scopeYear) return false;
+    if (scopeQuarter && String(getReportQuarter(report)) !== scopeQuarter) return false;
+    return true;
+  });
+
+  const periodLabel = friendTrackingScopeContext?.year && friendTrackingScopeContext?.quarter
+    ? `Célula ${cellNumber || "—"} · Q${friendTrackingScopeContext.quarter} ${friendTrackingScopeContext.year}`
+    : `Célula ${cellNumber || "—"} · Histórico`;
+  openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel);
+});
+
 function renderSeguimiento(reports) {
   const cyclesList = document.querySelector("#seguimiento-cycles-list");
   const countChip  = document.querySelector("#seg-report-count");
   if (!cyclesList) return;
+  renderSegAccessScopeTabs();
   reports = filterVisibleReports(reports);
 
   // Selector de alcance (cuatrimestre actual / todo el historial)
@@ -5626,17 +6546,13 @@ function renderSeguimiento(reports) {
     }
   }
 
-  // Filtrar por alcance del usuario
-  if (currentUser && !currentUser.isAdmin) {
-    if (currentUser.isSupervisor && currentUser.supervisedSector) {
-      const sectorCells = new Set(
-        (catalogs.cells || [])
-          .filter(c => c.sector === currentUser.supervisedSector)
-          .map(c => String(c.cellNumber))
-      );
-      reports = reports.filter(r => sectorCells.has(String(r.cellNumber || r.formData?.cellNumber || "")));
-    }
+  const seguimientoScopeTabs = getUserScopeTabs();
+  if (!activeDashboardScope || !seguimientoScopeTabs.some(tab => tab.key === activeDashboardScope)) {
+    activeDashboardScope = seguimientoScopeTabs[0]?.key || null;
   }
+
+  // Filtrar por alcance del usuario
+  reports = filterItemsByUserScope(reports, report => report.cellNumber || report.formData?.cellNumber, activeDashboardScope);
 
   // Filtrar por cuatrimestre
   if (seguimientoScope === "current") {
@@ -5681,9 +6597,7 @@ function renderSeguimiento(reports) {
 
   // También mostrar células sin reporte si es cuatrimestre actual
   if (seguimientoScope === "current") {
-    const myCells = currentUser?.isAdmin
-      ? (catalogs.cells || [])
-      : (catalogs.cells || []).filter(c => c.sector === currentUser?.supervisedSector);
+    const myCells = filterItemsByUserScope(catalogs.cells || [], cell => cell.cellNumber, activeDashboardScope);
     const currentYear = String(new Date().getFullYear());
     const currentMonth = new Date().getMonth();
     const currentQ = currentMonth <= 3 ? "1" : currentMonth <= 7 ? "2" : "3";
@@ -5942,7 +6856,8 @@ function renderSeguimiento(reports) {
     }
 
     // ── Totals panel ────────────────────────────────────────────────────────
-    renderSegTotalsPanel(weeklyReps);
+    const isCurrentWeekScope = !isPrevWeek;
+    renderSegTotalsPanel(weeklyReps, { isCurrentWeekScope });
   }
 }
 
@@ -6295,7 +7210,8 @@ function compactPersonName(full) {
 }
 
 function renderReportCellMembers(cell) {
-  const members = getCellMembers(cell);
+  const savedData = arguments[1] || null;
+  const members = getReportMemberRoster(cell, savedData?.memberAttendance, savedData);
   const kids = getCellKids(cell);
   memberCountChip.textContent = `${members.length} miembro${members.length === 1 ? "" : "s"}`;
   reportMemberPills.innerHTML = members.length
@@ -6336,7 +7252,7 @@ function renderAdminCellMembers(cell) {
       ];
       cellMemberRoleTable.innerHTML = `
         <table class="catalog-table cell-role-table">
-          <thead><tr><th>Nombre</th><th>Rol en la célula</th><th></th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Rol en la célula</th><th>Asistencia semanal</th><th></th></tr></thead>
           <tbody>
             ${roster.map(member => {
               const mid = String(member.id);
@@ -6349,9 +7265,24 @@ function renderAdminCellMembers(cell) {
                   const active = currentRole === r.key;
                   return `<button type="button" class="fn-tag ${active ? r.cls : "fn-tag--off"}" data-action="set-cell-role" data-person-id="${mid}" data-role="${r.key}">${r.label}</button>`;
                 }).join("");
+              const attendanceMode = normalizeCellMemberAttendanceMode(member.attendanceMode);
+              const attendanceDefaults = normalizeCellMemberAttendanceDefaults(member.attendanceDefaults, attendanceMode);
               return `<tr>
                 <td><strong>${escapeHtml(member.name)}</strong></td>
                 <td>${roleChips}</td>
+                <td class="cell-member-mode-cell">
+                  <div class="cell-member-mode-wrap">
+                    <select class="cell-member-mode-select" data-action="set-membership-mode" data-person-id="${mid}" aria-label="Asistencia semanal de ${escapeHtml(member.name)}">
+                      ${renderCellMemberAttendanceModeOptions(attendanceMode)}
+                    </select>
+                    <div class="cell-member-defaults"${attendanceMode === "justified_default" ? "" : " hidden"}>
+                      <span>${escapeHtml(getAttendanceDefaultsSummary(attendanceDefaults, attendanceMode) ? "Justificar en:" : "Justificar en:")}</span>
+                      <label><input type="checkbox" data-action="set-membership-default" data-person-id="${mid}" data-stage="planning"${attendanceDefaults.planning ? " checked" : ""}> Planeación</label>
+                      <label><input type="checkbox" data-action="set-membership-default" data-person-id="${mid}" data-stage="reach"${attendanceDefaults.reach ? " checked" : ""}> Alcance</label>
+                      <label><input type="checkbox" data-action="set-membership-default" data-person-id="${mid}" data-stage="sunday"${attendanceDefaults.sunday ? " checked" : ""}> Culto</label>
+                    </div>
+                  </div>
+                </td>
                 <td><button type="button" class="btn-remove-member" data-action="remove-member" data-person-id="${mid}" title=t('cell.removeFromCell')>✕</button></td>
               </tr>`;
             }).join("")}
@@ -6365,6 +7296,13 @@ function renderAdminCellMembers(cell) {
   const available   = catalogs.people.filter(p => p.role !== "kid" && !selectedIds.has(String(p.id)) && !p.assignedCellId);
   renderSelect(memberPersonSelect, available.map(p => ({ value: String(p.id), label: p.name })),
     available.length ? t('cell.addMemberDots') : t('cell.noMembersAvail'));
+  if (memberAttendanceModeSelect instanceof HTMLSelectElement) {
+    memberAttendanceModeSelect.value = "normal";
+  }
+  if (memberDefaultPlanning instanceof HTMLInputElement) memberDefaultPlanning.checked = true;
+  if (memberDefaultReach instanceof HTMLInputElement) memberDefaultReach.checked = true;
+  if (memberDefaultSunday instanceof HTMLInputElement) memberDefaultSunday.checked = true;
+  syncMemberAttendanceDefaultsForm();
 }
 
 function setCellLinkedFieldsLocked(locked) {
@@ -6414,7 +7352,7 @@ function syncReportWithCell(force = false, savedData = null) {
     hostField.value = cell.hostName || "";
   }
 
-  renderReportCellMembers(cell);
+  renderReportCellMembers(cell, savedData);
   applyWeeklyCollectionsForCell(cell, savedData);
   populateVisitorInvitedBySelect();
   // Refrescar dropdown "Visita previa" cada vez que cambia la célula activa
@@ -6429,13 +7367,37 @@ function syncReportWithCell(force = false, savedData = null) {
 // assignedCellNumber) o un super-admin pueden guardar/finalizar. Pastores,
 // coordinadores y supervisores ven el reporte en modo solo-lectura para
 // evitar que modifiquen reportes de células ajenas por error.
-function canEditCurrentReport() {
+function canModifyReportForCell(cellNumber) {
   if (!currentUser) return false;
-  if (currentUser.isAdmin) return true;
-  const activeCell = String(cellField?.value || "").trim();
-  if (!activeCell) return true; // no cell selected yet → no restricción aún
+  if (currentUser.isSystemAccount) return true;
+  const activeCell = String(cellNumber || "").trim();
+  if (!activeCell) return true;
   const ownCell = String(currentUser.assignedCellNumber || "").trim();
   return !!ownCell && ownCell === activeCell;
+}
+
+function canEditCurrentReport() {
+  if (!currentUser) return false;
+  const activeCell = String(cellField?.value || "").trim();
+  return canModifyReportForCell(activeCell);
+}
+
+function isReportWithinEditableWindow(report) {
+  const reportWeek = Number(getReportWeek(report));
+  if (!reportWeek) return false;
+  const realWeek = getQuarterWeekNumber();
+  if (reportWeek === realWeek) return true;
+  // Grace check: allow previous week during grace period
+  const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
+  if (graceHours > 0 && reportWeek === realWeek - 1) {
+    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
+    const now = new Date();
+    const rollover = new Date(now); rollover.setHours(0,0,0,0);
+    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
+    rollover.setDate(rollover.getDate() - diff);
+    if ((now.getTime() - rollover.getTime()) / 3600000 < graceHours) return true;
+  }
+  return false;
 }
 
 function applyReportFormPermissions() {
@@ -6466,6 +7428,8 @@ function populatePeopleForm(person = null) {
   peopleForm.name.value = person?.name || "";
   const isKidCheckbox = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-kid"));
   if (isKidCheckbox) isKidCheckbox.checked = person?.role === "kid";
+  const isPastorCheckbox = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-pastor"));
+  if (isPastorCheckbox) isPastorCheckbox.checked = person?.role === "pastor";
   peopleForm.phone.value = person?.phone || "";
   peopleForm.email.value = person?.email || "";
   if (peopleGuardianPerson instanceof HTMLSelectElement) {
@@ -6509,6 +7473,7 @@ function populatePeopleForm(person = null) {
     }
   }
   syncPeopleGuardianFields();
+  syncPeopleAccessFields();
   renderPeopleRcmPanel(person);
 }
 
@@ -6553,9 +7518,10 @@ function populateCellsForm(cell = null) {
 }
 
 // ── Read-only view mode for closed-week reports ──────────────────────────────
-function enterReadOnlyMode(report) {
+function enterReadOnlyMode(report, options = {}) {
   reportReadOnlyMode = true;
   editingReportId = null;
+  const reason = options.reason === "permission" ? "permission" : "closed";
 
   // Load form data
   const formData = report.formData || report;
@@ -6587,12 +7553,24 @@ function enterReadOnlyMode(report) {
       el.disabled = true;
     }
   });
+  if (reason === "permission") {
+    if (weekField) weekField.disabled = false;
+    if (cellField) cellField.disabled = false;
+  }
 
   // Show closed banner (fixed element in HTML)
   const banner = document.getElementById("form-readonly-banner");
   if (banner) {
     const week = formData.week || report.week || "?";
-    banner.innerHTML = `${t('form.weekClosedBanner', { w: week })} <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">${t('form.newReport')}</button>`;
+    if (reason === "permission") {
+      banner.hidden = true;
+      banner.innerHTML = "";
+      return;
+    }
+    const bannerMessage = reason === "permission"
+      ? t('form.readonlyLeader')
+      : t('form.weekClosedBanner', { w: week });
+    banner.innerHTML = `${bannerMessage} <button type="button" id="form-readonly-exit-btn" style="margin-left:10px;font-size:0.8rem;padding:3px 10px">${t('form.newReport')}</button>`;
     banner.hidden = false;
     document.getElementById("form-readonly-exit-btn")?.addEventListener("click", () => {
       resetReportForm();
@@ -6614,6 +7592,7 @@ function exitReadOnlyMode() {
 function resetReportForm() {
   exitReadOnlyMode();
   editingReportId = null;
+  submittedEditConfirmedReportId = null;
   suppressWeekChangeHandler = true;
   reportForm.reset();
   suppressWeekChangeHandler = false;
@@ -6621,6 +7600,7 @@ function resetReportForm() {
   currentMemberAttendance = [];
   currentKids = [];
   currentBaptisms = [];
+  currentReachSupervisorVisits = [];
   // Clear all stage badges and draft indicators
   document.querySelectorAll(".stage-tab-badge").forEach(b => b.hidden = true);
   document.querySelectorAll(".stage-tab").forEach(t => t.classList.remove("has-draft"));
@@ -6646,6 +7626,7 @@ function resetReportForm() {
   }
   syncPhaseIndicator();
   renderBaptismTable();
+  renderReachSupervisorVisits(findCellByNumber(cellField.value));
   // Refrescar permisos (oculta/show el banner de solo-lectura segun la celula activa)
   applyReportFormPermissions();
   // Llevar al usuario de regreso a la primera etapa (Inicio) para empezar limpio
@@ -6717,6 +7698,26 @@ function renderSettingsForm() {
   const graceInput = document.getElementById("setting-grace-hours");
   if (graceInput && appSettings.report_grace_hours !== undefined && appSettings.report_grace_hours !== "") {
     graceInput.value = appSettings.report_grace_hours;
+  }
+  const levantateInput = document.getElementById("setting-goal-levantate");
+  if (levantateInput) levantateInput.value = appSettings.rcm_goal_levantate ?? "4";
+  const restauracionInput = document.getElementById("setting-goal-restauracion");
+  if (restauracionInput) restauracionInput.value = appSettings.rcm_goal_restauracion ?? "3";
+  const bautismosInput = document.getElementById("setting-goal-bautismos");
+  if (bautismosInput) bautismosInput.value = appSettings.rcm_goal_bautismos ?? "2";
+  const goalsScope = document.getElementById("settings-goals-scope");
+  if (goalsScope) {
+    const now = new Date();
+    const quarter = now.getMonth() <= 3 ? 1 : now.getMonth() <= 7 ? 2 : 3;
+    const scopeParts = [`Q${quarter}/${now.getFullYear()}`];
+    if (currentUser?.assignedCellNumber) {
+      scopeParts.push(`Célula ${currentUser.assignedCellNumber}`);
+    } else if (currentUser?.isSupervisor && currentUser?.supervisedSector) {
+      scopeParts.push(`Sector ${currentUser.supervisedSector}`);
+    } else {
+      scopeParts.push("Metas generales");
+    }
+    goalsScope.textContent = scopeParts.join(" · ");
   }
   // Sync history scope radio
   const radio = document.querySelector(`input[name='history_scope'][value='${historyScope}']`);
@@ -6812,6 +7813,58 @@ document.getElementById("settings-save-btn")?.addEventListener("click", async ()
     syncWeekFieldWithReportDate(true);
   } catch {
     if (status) { status.textContent = "Error al guardar."; status.className = "settings-save-status is-error"; }
+  }
+});
+
+document.getElementById("settings-goals-save-btn")?.addEventListener("click", async () => {
+  const status = document.getElementById("settings-goals-status");
+  const levantateGoal = Math.max(0, parseInt(document.getElementById("setting-goal-levantate")?.value ?? "4", 10) || 0);
+  const restauracionGoal = Math.max(0, parseInt(document.getElementById("setting-goal-restauracion")?.value ?? "3", 10) || 0);
+  const bautismosGoal = Math.max(0, parseInt(document.getElementById("setting-goal-bautismos")?.value ?? "2", 10) || 0);
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const quarter = String(now.getMonth() <= 3 ? 1 : now.getMonth() <= 7 ? 2 : 3);
+
+  try {
+    await request("/api/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        rcm_goal_levantate: String(levantateGoal),
+        rcm_goal_restauracion: String(restauracionGoal),
+        rcm_goal_bautismos: String(bautismosGoal),
+      }),
+    });
+    appSettings.rcm_goal_levantate = String(levantateGoal);
+    appSettings.rcm_goal_restauracion = String(restauracionGoal);
+    appSettings.rcm_goal_bautismos = String(bautismosGoal);
+
+    if (currentUser?.assignedCellNumber) {
+      await request("/api/friend-tracking/goals", {
+        method: "PUT",
+        body: JSON.stringify({
+          cellNumber: String(currentUser.assignedCellNumber),
+          year,
+          quarter,
+          levantateGoal,
+          restauracionGoal,
+          bautismosGoal,
+        }),
+      });
+    }
+
+    if (status) {
+      status.textContent = "✓ Metas guardadas";
+      status.className = "settings-save-status is-ok";
+    }
+    if (!document.getElementById("seguimiento-view")?.hidden) {
+      loadFriendTrackingPanel();
+    }
+    setTimeout(() => { if (status) status.textContent = ""; }, 3000);
+  } catch {
+    if (status) {
+      status.textContent = "Error al guardar metas.";
+      status.className = "settings-save-status is-error";
+    }
   }
 });
 
@@ -7237,6 +8290,7 @@ async function openSupervisorReportPreview(reportId) {
     const week = String(report.formData?.week || report.week || "—");
     if (previewDialogTitle) previewDialogTitle.textContent = t('preview.cellWeekTitle', { c: cell, w: week });
     if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
+    activePreviewVisitorContext = { report };
     // Footer en modo solo-lectura (sin botón de editar — el supervisor solo revisa)
     if (previewDialogFooter) previewDialogFooter.hidden = false;
     const cancelBtn      = document.getElementById("preview-cancel-btn");
@@ -7269,6 +8323,7 @@ async function openSupervisorReportPreview(reportId) {
 async function handleReportSubmit(event) {
   event.preventDefault();
   clearFeedback();
+  const stageAfterSave = currentStage || "encabezado";
 
   // Validate week is not in the future
   const selectedWeek = parseInt(weekField.value, 10);
@@ -7291,6 +8346,7 @@ async function handleReportSubmit(event) {
   payload.hostName = hostField.value || payload.hostName || "";
   payload.address = reportAddress.value || payload.address || "";
   payload.memberAttendance = currentMemberAttendance;
+  payload.reachSupervisorVisits = currentReachSupervisorVisits;
   payload.visitors = currentVisitors.filter((visitor) => String(visitor.name || "").trim());
   payload.kids = currentKids.filter((kid) => String(kid.name || "").trim());
   payload.baptisms = normalizeBaptisms(currentBaptisms).filter((entry) => entry.name);
@@ -7302,24 +8358,31 @@ async function handleReportSubmit(event) {
   const successMessage = editingReportId ? updatedMessage : createdMessage;
 
   try {
+    let savedReportId = editingReportId;
     if (editingReportId) {
       await request(`/api/reports/${editingReportId}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
     } else {
-      await request("/api/reports", {
+      const result = await request("/api/reports", {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      savedReportId = Number(result?.id || 0) || null;
     }
-    resetReportForm();
     await loadCatalogs();
-    if (payload.cellNumber) {
+    await loadReports();
+    if (savedReportId) {
+      editingReportId = Number(savedReportId);
+      const savedPayload = await request(`/api/reports/${savedReportId}`);
+      loadReportIntoForm(savedPayload.report, Number(savedReportId));
+      showStage(stageAfterSave, { skipWeekCheck: true });
+    } else if (payload.cellNumber) {
       cellField.value = String(payload.cellNumber);
       syncReportWithCell(true);
+      showStage(stageAfterSave, { skipWeekCheck: true });
     }
-    await loadReports();
     setFeedback(successMessage);
   } catch (error) {
     setFeedback(error.message, true);
@@ -7331,8 +8394,9 @@ async function handlePeopleSubmit(event) {
   clearFeedback();
   const payload = Object.fromEntries(new FormData(peopleForm).entries());
   // Map isKid checkbox to role field (all adults are just "member")
-  payload.role = payload.isKid === "on" ? "kid" : "member";
+  payload.role = payload.isKid === "on" ? "kid" : payload.isPastor === "on" ? "pastor" : "member";
   delete payload.isKid;
+  delete payload.isPastor;
   // Normalize boolean-like fields from form
   payload.isCoordinator = payload.isCoordinator === "on";
   // Solo enviamos isAdmin si el usuario actual es cuenta de sistema (el backend lo valida igual)
@@ -7595,6 +8659,8 @@ async function handleMemberSubmit(event) {
   setCellDialogMsg("");
   let cellId = cellsEditId.value || memberList?.dataset.cellId || "";
   const pendingPersonId = memberPersonSelect.value;
+  const attendanceMode = normalizeCellMemberAttendanceMode(memberAttendanceModeSelect?.value);
+  const attendanceDefaults = readMemberAttendanceDefaultsFromForm();
 
   if (!pendingPersonId) {
     setCellDialogMsg(t('fb.selectPersonForMember'), true);
@@ -7625,7 +8691,7 @@ async function handleMemberSubmit(event) {
   try {
     await request(`/api/catalogs/cells/${cellId}/members`, {
       method: "POST",
-      body: JSON.stringify({ personId: pendingPersonId }),
+      body: JSON.stringify({ personId: pendingPersonId, attendanceMode, attendanceDefaults }),
     });
     await loadCatalogs();
     const activeCell = findCellById(cellId);
@@ -7647,29 +8713,8 @@ async function handleMemberSubmit(event) {
 //   - Adicionalmente, la semana del reporte debe ser la semana actual, o
 //     bien estar dentro del periodo de gracia de la semana anterior.
 function isReportEditable(report) {
-  // Permission check: solo líder/asistente de la célula (o admin)
-  if (currentUser && !currentUser.isAdmin) {
-    const reportCell = String(
-      report?.cellNumber ?? report?.formData?.cellNumber ?? ""
-    ).trim();
-    const ownCell = String(currentUser.assignedCellNumber || "").trim();
-    if (!ownCell || ownCell !== reportCell) return false;
-  }
-  const reportWeek = Number(getReportWeek(report));
-  if (!reportWeek) return false;
-  const realWeek = getQuarterWeekNumber();
-  if (reportWeek === realWeek) return true;
-  // Grace check: allow previous week during grace period
-  const graceHours = parseInt(appSettings?.report_grace_hours ?? "0", 10) || 0;
-  if (graceHours > 0 && reportWeek === realWeek - 1) {
-    const weekStartDay = parseInt(appSettings?.week_start_day ?? "0", 10);
-    const now = new Date();
-    const rollover = new Date(now); rollover.setHours(0,0,0,0);
-    const diff = (rollover.getDay() - weekStartDay + 7) % 7;
-    rollover.setDate(rollover.getDate() - diff);
-    if ((now.getTime() - rollover.getTime()) / 3600000 < graceHours) return true;
-  }
-  return false;
+  const reportCell = String(report?.cellNumber ?? report?.formData?.cellNumber ?? "").trim();
+  return canModifyReportForCell(reportCell) && isReportWithinEditableWindow(report);
 }
 
 function getReportByRowId(reportId) {
@@ -7707,7 +8752,7 @@ async function handleReportTableClick(event) {
       try {
         const payload = await request(`/api/reports/${reportId}`);
         const report = payload.report;
-        if (currentUser && !currentUser.isAdmin) {
+        if (currentUser && !currentUser.isSystemAccount) {
           const reportCell = String(report?.cellNumber ?? report?.formData?.cellNumber ?? "").trim();
           const ownCell = String(currentUser.assignedCellNumber || "").trim();
           if (!ownCell || ownCell !== reportCell) {
@@ -7812,7 +8857,8 @@ function openPeopleEditDialog(person = null) {
     peopleDialogInfoRow.hidden = false;
     if (peopleDialogFnBadges) {
       const chips = [];
-      if (person.isCoordinator)    chips.push("coordinator");
+      if (person.role === "pastor") chips.push("pastor");
+      else if (hasCoordinatorAccess(person)) chips.push("coordinator");
       if (person.supervisorSector) chips.push("supervisor");
       // Check cell FKs directly so coordinator/supervisor + leader can coexist
       const pid = String(person.id);
@@ -8127,8 +9173,10 @@ function handleVisitorTableInput(event) {
     visitor.kind = normalizeVisitorKind(target.value);
     if (visitor.kind === "visita") {
       visitor.converted = false;
+      visitor.lateRegistration = false;
     } else {
       visitor.promoteToMember = false;
+      visitor.lateRegistration = Boolean(visitor.lateRegistration);
     }
     renderAttendanceSummary();
     renderVisitorTable();
@@ -8230,7 +9278,7 @@ function handleBaptismTableClick(event) {
 }
 
 function handleAddVisitorClick() {
-  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, sundayAttended: false, firstVisit: true, converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
+  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, lateRegistration: false, sundayAttended: false, firstVisit: true, converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
   renderVisitorTable();
 }
 
@@ -8352,11 +9400,17 @@ function handleVisitorQuickSubmit() {
   applyQuickVisitorHistory(name);
   const history = findVisitorHistoryByName(name);
   const quickKind = normalizeVisitorKind(visitorQuickKind?.value);
+  if (quickKind === "amigo" && Boolean(visitorQuickLate?.checked) && history?.visitCount) {
+    setFeedback(`"${history.name}" ya existe en el historial de la célula. Regístralo solo como asistencia normal, no como anotado tardío.`, true);
+    visitorQuickLate?.focus?.();
+    return;
+  }
   currentVisitors.push({
     name,
     kind: quickKind,
     invitedBy: String(visitorQuickInvitedBy?.value || "").trim(),
     reachAttended: Boolean(visitorQuickReach?.checked),
+    lateRegistration: quickKind === "amigo" && isLateRegistrationAvailable() ? Boolean(visitorQuickLate?.checked) : false,
     sundayAttended: Boolean(visitorQuickSunday?.checked),
     firstVisit: Boolean(visitorQuickFirstVisit?.checked),
     converted: quickKind === "visita" ? false : Boolean(visitorQuickConverted?.checked),
@@ -8426,6 +9480,39 @@ reportForm.addEventListener("submit", handleReportSubmit);
 peopleForm.addEventListener("submit", handlePeopleSubmit);
 cellsForm.addEventListener("submit", handleCellsSubmit);
 memberForm.addEventListener("submit", handleMemberSubmit);
+memberAttendanceModeSelect?.addEventListener("change", syncMemberAttendanceDefaultsForm);
+
+const pendingMembershipAttendanceUpdates = new Map();
+
+function queueMembershipAttendanceUpdate(cellId, personId, payload) {
+  const key = `${cellId}:${personId}`;
+  const previous = pendingMembershipAttendanceUpdates.get(key) || Promise.resolve();
+  const next = previous
+    .catch(() => {})
+    .then(async () => {
+      await request(`/api/catalogs/cells/${cellId}/members/${personId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      await loadCatalogs();
+      const fresh = findCellById(cellId);
+      populateCellsForm(fresh);
+      if (cellField.value === fresh?.cellNumber) {
+        syncReportWithCell(false, formData);
+      }
+    });
+
+  pendingMembershipAttendanceUpdates.set(
+    key,
+    next.finally(() => {
+      if (pendingMembershipAttendanceUpdates.get(key) === next) {
+        pendingMembershipAttendanceUpdates.delete(key);
+      }
+    })
+  );
+
+  return next;
+}
 
 // Role-picker inside cell dialog
 cellMemberRoleTable?.addEventListener("click", async (e) => {
@@ -8476,7 +9563,36 @@ cellMemberRoleTable?.addEventListener("click", async (e) => {
     } catch (err) { setFeedback(err.message, true); }
   }
 });
-weekField.addEventListener("change", syncPhaseIndicator);
+
+cellMemberRoleTable?.addEventListener("change", async (e) => {
+  const modeSelect = e.target.closest("select[data-action='set-membership-mode']");
+  const defaultsCheckbox = e.target.closest("input[data-action='set-membership-default']");
+  if (!modeSelect && !defaultsCheckbox) return;
+  const cellId = memberList?.dataset.cellId || cellsEditId?.value || "";
+  if (!cellId) return;
+  const personId = modeSelect?.dataset.personId || defaultsCheckbox?.dataset.personId;
+  const row = (modeSelect || defaultsCheckbox)?.closest("tr");
+  const mode = normalizeCellMemberAttendanceMode(row?.querySelector("select[data-action='set-membership-mode']")?.value);
+  const attendanceDefaults = normalizeCellMemberAttendanceDefaults({
+    planning: row?.querySelector("input[data-action='set-membership-default'][data-stage='planning']")?.checked,
+    reach: row?.querySelector("input[data-action='set-membership-default'][data-stage='reach']")?.checked,
+    sunday: row?.querySelector("input[data-action='set-membership-default'][data-stage='sunday']")?.checked,
+  }, mode);
+  try {
+    await queueMembershipAttendanceUpdate(cellId, personId, {
+      attendanceMode: mode,
+      attendanceDefaults,
+    });
+  } catch (err) {
+    setFeedback(err.message, true);
+  }
+});
+weekField.addEventListener("change", () => {
+  syncPhaseIndicator();
+  if (reportReadOnlyMode && cellField?.value && weekField?.value) {
+    autoLoadExistingReportIfAny(cellField.value, Number(weekField.value));
+  }
+});
 // Past weeks that are still selectable (grace period) — no special load needed.
 // Past weeks with existing reports are now `disabled` in the dropdown.
 showReportViewButton.addEventListener("click", () => showView("report"));
@@ -8490,6 +9606,41 @@ document.getElementById("seg-view-tab-bar")?.addEventListener("click", (e) => {
   const btn = e.target.closest(".seg-view-tab[data-segtab]");
   if (!btn) return;
   activateSegTab(btn.dataset.segtab);
+});
+segViewMobileButton?.addEventListener("click", () => {
+  toggleSegViewMobileMenu();
+});
+segScopeMobileButton?.addEventListener("click", () => {
+  toggleSegScopeMobileMenu();
+});
+segViewMobileMenu?.addEventListener("click", (e) => {
+  const btn = e.target.closest(".seg-view-mobile-option[data-segtab]");
+  if (!btn) return;
+  const nextTab = String(btn.dataset.segtab || "").trim();
+  if (!nextTab) return;
+  activateSegTab(nextTab);
+});
+document.addEventListener("click", (e) => {
+  if (!segViewMobilePicker?.classList.contains("is-open")) return;
+  if (segViewMobilePicker.contains(e.target)) return;
+  closeSegViewMobileMenu();
+});
+document.addEventListener("click", (e) => {
+  if (!segScopeMobilePicker?.classList.contains("is-open")) return;
+  if (segScopeMobilePicker.contains(e.target)) return;
+  closeSegScopeMobileMenu();
+});
+document.addEventListener("click", (e) => {
+  if (!friendTrackingFilterPicker?.classList.contains("is-open")) return;
+  if (friendTrackingFilterPicker.contains(e.target)) return;
+  closeFriendTrackingCellFilterMenu();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeSegViewMobileMenu();
+    closeSegScopeMobileMenu();
+    closeFriendTrackingCellFilterMenu();
+  }
 });
 
 // ── Stage nav ────────────────────────────────────────────────────────────────
@@ -8774,7 +9925,9 @@ async function autoLoadExistingReportIfAny(cell, week) {
   if (!isReportEditable(existing)) {
     try {
       const payload = await request(`/api/reports/${existing.id}`);
-      enterReadOnlyMode(payload.report);
+      const reportCell = String(existing.cellNumber || existing.formData?.cellNumber || "").trim();
+      const reason = canModifyReportForCell(reportCell) ? "closed" : "permission";
+      enterReadOnlyMode(payload.report, { reason });
     } catch (e) {
       console.error("[autoLoad] error cargando reporte readonly", e);
     }
@@ -8807,6 +9960,7 @@ function loadReportIntoForm(report, reportId) {
   const formData = report.formData || report;
 
   editingReportId = Number(reportId || report.id);
+  submittedEditConfirmedReportId = null;
 
   // 0. Limpiar badges/draft de las pestañas antes de re-marcarlas según el
   //    estado real del reporte que vamos a cargar. Evita que palomitas
@@ -8890,13 +10044,14 @@ function loadReportIntoForm(report, reportId) {
 // Guardar borrador — saves current form state without browser validation
 async function saveDraft(stage) {
   clearFeedback();
+  const stageBeforeSave = currentStage || stage || "encabezado";
   // Defensa: si el reporte cargado pertenece a una semana ya cerrada (fuera
   // de gracia), no permitir guardar cambios — ni siquiera como borrador.
   if (editingReportId) {
     const _existing = (reportsData || []).find(r => Number(r.id) === Number(editingReportId));
     if (_existing && !isReportEditable(_existing)) {
       setFeedback(t('fb.reportClosedNoEdit') || "Esta semana ya está cerrada, no se puede modificar.", true);
-      return;
+      return false;
     }
   }
   const fd = new FormData(reportForm);
@@ -8908,6 +10063,7 @@ async function saveDraft(stage) {
   payload.hostName      = hostField.value      || payload.hostName      || "";
   payload.address       = reportAddress.value  || payload.address       || "";
   payload.memberAttendance  = currentMemberAttendance;
+  payload.reachSupervisorVisits = currentReachSupervisorVisits;
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
@@ -8929,21 +10085,33 @@ async function saveDraft(stage) {
 
   if (!payload.week || !payload.cellNumber) {
     setFeedback(t("err.selectWeekCell"), true);
-    return;
+    return false;
   }
   try {
+    let savedReportId = editingReportId;
     if (editingReportId) {
       await request(`/api/reports/${editingReportId}`, { method: "PUT", body: JSON.stringify(payload) });
     } else {
       const result = await request("/api/reports", { method: "POST", body: JSON.stringify(payload) });
-      if (result?.id) editingReportId = result.id;
+      if (result?.id) {
+        savedReportId = Number(result.id);
+        editingReportId = savedReportId;
+      }
     }
     // Marca ✓ en la pestaña de la etapa que el usuario acaba de guardar.
     markStageSaved(stage);
+    await loadCatalogs();
     await loadReports();
+    if (savedReportId) {
+      const savedPayload = await request(`/api/reports/${savedReportId}`);
+      loadReportIntoForm(savedPayload.report, Number(savedReportId));
+      showStage(stageBeforeSave, { skipWeekCheck: true });
+    }
     setFeedback(t("err.draftSaved", { stage }));
+    return true;
   } catch (err) {
     setFeedback(err.message, true);
+    return false;
   }
 }
 
@@ -8962,6 +10130,7 @@ function stageHasData(stage) {
   if (stage === "alcance") {
     if (members.some(m => m.reachAttended || m.reachPrivileged || (m.reachStatus && m.reachStatus !== "pending"))) return true;
     if (visitors.some(v => v.reachAttended)) return true;
+    if (currentReachSupervisorVisits.length) return true;
     return false;
   }
   if (stage === "culto") {
@@ -8976,6 +10145,15 @@ function stageHasData(stage) {
 
 // Guardar y continuar — saves then advances to next stage
 async function saveDraftAndAdvance(stage) {
+  if (editingReportId && submittedEditConfirmedReportId !== Number(editingReportId)) {
+    const editingExisting = (reportsData || []).find(r => Number(r.id) === Number(editingReportId));
+    const confirmed = await confirmEditingSubmittedReport(editingExisting);
+    if (!confirmed) {
+      setFeedback(t('fb.reportEditCancelled'));
+      return;
+    }
+    submittedEditConfirmedReportId = Number(editingReportId);
+  }
   if (["planificacion", "alcance", "culto"].includes(stage) && !stageHasData(stage)) {
     const labels = { planificacion: t('dash.planning'), alcance: t('dash.reach'), culto: t('dash.sunday') };
     const ok = await appConfirm(
@@ -8984,7 +10162,8 @@ async function saveDraftAndAdvance(stage) {
     );
     if (!ok) return;
   }
-  await saveDraft(stage);
+  const saved = await saveDraft(stage);
+  if (!saved) return;
   const idx = STAGES.indexOf(stage);
   if (idx >= 0 && idx < STAGES.length - 1) showStage(STAGES[idx + 1]);
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -9002,6 +10181,7 @@ async function finalizarReporte() {
   payload.hostName      = hostField.value      || payload.hostName      || "";
   payload.address       = reportAddress.value  || payload.address       || "";
   payload.memberAttendance  = currentMemberAttendance;
+  payload.reachSupervisorVisits = currentReachSupervisorVisits;
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
@@ -9020,7 +10200,7 @@ async function finalizarReporte() {
   // no llenó nada, esto sería un reporte fantasma en verde en el dashboard.
   if (!reportHasMeaningfulData({ formData: payload })) {
     const ok = await appConfirm(
-      "Este reporte no tiene asistencias, visitas, niños ni bautismos capturados.\n¿Seguro que deseas finalizarlo así?",
+      "Este reporte no tiene asistencias, supervisión, visitas, niños ni bautismos capturados.\n¿Seguro que deseas finalizarlo así?",
       t('conf.reportNoData')
     );
     if (!ok) return;
@@ -9041,6 +10221,7 @@ async function finalizarReporte() {
     emptyStages.push("Planeación");
   }
   if (!anyMarked("reachStatus") && !anyChecked("reachAttended") &&
+      normalizeReachSupervisorVisits(payload.reachSupervisorVisits || payload.reachSupervisorVisitsJson).length === 0 &&
       (!Array.isArray(payload.visitors) || payload.visitors.length === 0) &&
       (!Array.isArray(payload.kids)     || payload.kids.length === 0)) {
     emptyStages.push("Alcance");
@@ -9253,8 +10434,21 @@ reportForm.elements.namedItem("reportDate")?.addEventListener?.("change", () => 
   syncWeekFieldWithReportDate(true);
   renderBaptismTable();
 });
-// people-is-kid lives inside the modal, attach after DOM is ready
-document.getElementById("people-is-kid")?.addEventListener("change", syncPeopleGuardianFields);
+// people role toggles live inside the modal, attach after DOM is ready
+document.getElementById("people-is-kid")?.addEventListener("change", () => {
+  const pastorCheck = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-pastor"));
+  const kidCheck = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-kid"));
+  if (kidCheck?.checked && pastorCheck) pastorCheck.checked = false;
+  syncPeopleGuardianFields();
+  syncPeopleAccessFields();
+});
+document.getElementById("people-is-pastor")?.addEventListener("change", () => {
+  const pastorCheck = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-pastor"));
+  const kidCheck = /** @type {HTMLInputElement|null} */ (document.getElementById("people-is-kid"));
+  if (pastorCheck?.checked && kidCheck) kidCheck.checked = false;
+  syncPeopleGuardianFields();
+  syncPeopleAccessFields();
+});
 reportTableBody.addEventListener("click", handleReportTableClick);
 document.getElementById("report-cycles-list")?.addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-action]");
@@ -9285,6 +10479,7 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
       const week = String(report.formData?.week || report.week || "—");
       if (previewDialogTitle) previewDialogTitle.textContent = t('preview.cellWeekTitle', { c: cell, w: week });
       if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
+      activePreviewVisitorContext = { report };
       if (previewDialogFooter) previewDialogFooter.hidden = false;
       const cancelBtn  = document.getElementById("preview-cancel-btn");
       const confirmBtn = document.getElementById("preview-confirm-btn");
@@ -9294,8 +10489,8 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
       if (editFromSegBtn) {
         editFromSegBtn.hidden = !isReportEditable(report);
         editFromSegBtn.onclick = async () => {
-          reportPreviewDialog.close();
           const fullPayload = await request(`/api/reports/${reportId}`);
+          reportPreviewDialog.close();
           loadReportIntoForm(fullPayload.report, Number(reportId));
           showView("report");
           showStage("encabezado", { skipWeekCheck: true });
@@ -9346,6 +10541,7 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
       const week = String(report.formData?.week || report.week || "—");
       if (previewDialogTitle) previewDialogTitle.textContent = t('preview.cellWeekTitle', { c: cell, w: week });
       if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtmlFromData(report);
+      activePreviewVisitorContext = { report };
       // Show read-only footer with "Editar" button
       if (previewDialogFooter) previewDialogFooter.hidden = false;
       const cancelBtn  = document.getElementById("preview-cancel-btn");
@@ -9358,8 +10554,8 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
         editFromSegBtn.hidden = !isReportEditable(report);
         // Wire once so no stale listeners
         const handler = async () => {
-          reportPreviewDialog.close();
           const fullPayload = await request(`/api/reports/${reportId}`);
+          reportPreviewDialog.close();
           loadReportIntoForm(fullPayload.report, Number(reportId));
           showView("report");
           showStage("encabezado", { skipWeekCheck: true });
@@ -9525,6 +10721,14 @@ if (visitorQuickName instanceof HTMLInputElement) {
 if (visitorQuickKind) {
   visitorQuickKind.addEventListener("change", syncVisitorQuickKindUI);
 }
+if (visitorQuickName instanceof HTMLInputElement) {
+  visitorQuickName.addEventListener("input", () => {
+    syncQuickLateRegistrationState(String(visitorQuickName.value || "").trim());
+  });
+  visitorQuickName.addEventListener("change", () => {
+    syncQuickLateRegistrationState(String(visitorQuickName.value || "").trim());
+  });
+}
 if (resetVisitorQuickButton) {
   resetVisitorQuickButton.addEventListener("click", handleVisitorQuickReset);
 }
@@ -9534,6 +10738,7 @@ if (visitorQuickHistory instanceof HTMLSelectElement) {
     if (visitorQuickName instanceof HTMLInputElement) {
       visitorQuickName.value = selectedName;
     }
+    syncQuickLateRegistrationState(selectedName);
     if (selectedName) {
       applyQuickVisitorHistory(selectedName);
     }
@@ -9553,6 +10758,17 @@ copyKidReachToSundayButton?.addEventListener("click", handleCopyKidReachToSunday
 fillSundayKidsButton?.addEventListener("click", handleFillSundayKids);
 clearKidActivitiesButton?.addEventListener("click", handleClearKidActivities);
 memberList.addEventListener("click", handleMemberListClick);
+reachSupervisorVisitList?.addEventListener("change", (event) => {
+  const input = event.target.closest("input[type='checkbox'][data-supervision-name]");
+  if (!(input instanceof HTMLInputElement) || !reachSupervisorVisitList) return;
+  currentReachSupervisorVisits = Array.from(reachSupervisorVisitList.querySelectorAll("input[type='checkbox'][data-supervision-name]:checked")).map((checkbox) => ({
+    personId: String(checkbox.dataset.supervisionPersonId || "").trim() || null,
+    name: String(checkbox.dataset.supervisionName || "").trim(),
+    supervisorSector: String(checkbox.dataset.supervisionSector || "").trim(),
+  }));
+  syncReachSupervisorVisitFields();
+  renderAttendanceSummary();
+});
 
 // ── Report preview dialog ────────────────────────────────────────────────────
 const reportPreviewDialog = /** @type {HTMLDialogElement|null} */ (document.querySelector("#report-preview-dialog"));
@@ -9563,10 +10779,89 @@ const previewConfirmBtn     = document.querySelector("#preview-confirm-btn");
 const previewDialogTitle    = document.querySelector("#preview-dialog-title");
 const previewDialogBody     = document.querySelector("#preview-dialog-body");
 const previewDialogFooter   = document.querySelector("#preview-dialog-footer");
+const previewVisitorsDialog = /** @type {HTMLDialogElement|null} */ (document.querySelector("#preview-visitors-dialog"));
+const previewVisitorsDialogTitle = document.querySelector("#preview-visitors-dialog-title");
+const previewVisitorsDialogBody = document.querySelector("#preview-visitors-dialog-body");
+const previewVisitorsCloseBtn = document.querySelector("#preview-visitors-close-btn");
+const previewVisitorsCancelBtn = document.querySelector("#preview-visitors-cancel-btn");
 
 // Texto de WhatsApp más reciente generado por buildReportPreviewHtml()
 // (sirve para que los botones del modal lo reusen sin reconstruirlo).
 let lastPreviewWhatsAppText = "";
+let activePreviewVisitorContext = null;
+
+function buildPreviewReportSnapshot() {
+  return {
+    cellNumber: cellField.value || "",
+    reportDate: getReportDateValue(),
+    formData: {
+      cellNumber: cellField.value || "",
+      reportDate: getReportDateValue(),
+      week: weekField.value || "",
+      visitors: currentVisitors.filter((entry) => String(entry?.name || "").trim()),
+    },
+  };
+}
+
+function getPreviewVisitorScopeReports(reportLike) {
+  const cell = String(reportLike?.cellNumber || reportLike?.formData?.cellNumber || "").trim();
+  const year = String(getReportYear(reportLike) || "").trim();
+  const quarter = String(getReportQuarter(reportLike) || "").trim();
+  return filterVisibleReports(Array.isArray(reportsData) ? reportsData : []).filter((entry) => {
+    const entryCell = String(entry.cellNumber || entry.formData?.cellNumber || "").trim();
+    if (!cell || entryCell !== cell) return false;
+    if (year && String(getReportYear(entry)) !== year) return false;
+    if (quarter && String(getReportQuarter(entry)) !== quarter) return false;
+    return true;
+  });
+}
+
+function getPreviewVisitorPeriodLabel(reportLike) {
+  const cell = String(reportLike?.cellNumber || reportLike?.formData?.cellNumber || "").trim() || "—";
+  const year = String(getReportYear(reportLike) || new Date().getFullYear());
+  const quarter = String(getReportQuarter(reportLike) || "").trim();
+  return quarter ? `Célula ${cell} · Q${quarter} ${year}` : `Célula ${cell} · ${year}`;
+}
+
+function openPreviewVisitorsDialog() {
+  if (!previewVisitorsDialog || !previewVisitorsDialogBody || !activePreviewVisitorContext?.report) return;
+  const reportLike = activePreviewVisitorContext.report;
+  const visitors = (Array.isArray(reportLike?.formData?.visitors) ? reportLike.formData.visitors : [])
+    .filter((entry) => String(entry?.name || "").trim());
+
+  if (previewVisitorsDialogTitle) {
+    previewVisitorsDialogTitle.textContent = `Detalle de amigos (${visitors.length})`;
+  }
+
+  if (!visitors.length) {
+    previewVisitorsDialogBody.innerHTML = '<p class="empty-state">No hay amigos capturados en este reporte.</p>';
+    previewVisitorsDialog.showModal();
+    return;
+  }
+
+  previewVisitorsDialogBody.innerHTML = `
+    <div class="preview-visitors-picker-list">
+      ${visitors.map((entry) => {
+        const key = normalizeVisitorName(entry.name || "");
+        const kind = (entry.kind || "amigo") === "visita" ? "Restauración" : "Amigo";
+        const badges = [
+          entry.reachAttended ? "Alcance" : "",
+          entry.sundayAttended ? "Culto" : "",
+          entry.converted ? "Conversión" : "",
+        ].filter(Boolean).join(" · ");
+        const meta = [kind, entry.invitedBy ? `Invitó: ${entry.invitedBy}` : "", badges].filter(Boolean).join(" · ");
+        return `
+          <div class="preview-visitors-picker-row">
+            <div class="preview-visitors-picker-main">
+              <span class="preview-visitors-picker-name">${escapeHtml(entry.name || "")}</span>
+              <span class="preview-visitors-picker-meta">${escapeHtml(meta || "Sin detalle adicional")}</span>
+            </div>
+            <button type="button" class="preview-section-action" data-action="open-visitor-history" data-key="${escapeHtml(key)}" data-name="${escapeHtml(entry.name || "")}">Ver detalle</button>
+          </div>`;
+      }).join("")}
+    </div>`;
+  previewVisitorsDialog.showModal();
+}
 
 function buildReportPreviewHtml() {
   const data = Object.fromEntries(new FormData(reportForm).entries());
@@ -9578,6 +10873,7 @@ function buildReportPreviewHtml() {
   const summary = computeWeeklySummary();
   const weekInfo = getRcmWeekInfo(weekField.value);
   const phaseLabel = weekInfo ? `${weekInfo.phaseLabel}` : "";
+  const namedVisitors = currentVisitors.filter((entry) => String(entry?.name || "").trim());
 
   // Header card
   const headerHtml = `
@@ -9670,9 +10966,13 @@ function buildReportPreviewHtml() {
     const absent  = currentMemberAttendance.filter(e => e[field] === "absent");
     const justified = currentMemberAttendance.filter(e => e[field] === "justified");
     const pending = currentMemberAttendance.filter(e => !e[field] || e[field] === "pending");
+    const reachSupervisors = field === "reachStatus"
+      ? normalizeReachSupervisorVisits(currentReachSupervisorVisits)
+      : [];
     const presentPills = present.map(e => `<span class="preview-pill is-present">${escapeHtml(e.name)}${e[field] === "service" ? " · sirviendo" : ""}</span>`).join("");
     const absentPills = absent.map(e => `<span class="preview-pill is-absent">${escapeHtml(e.name)}</span>`).join("");
     const justifiedPills = justified.map(e => `<span class="preview-pill is-justified">${escapeHtml(e.name)}</span>`).join("");
+    const supervisorPills = reachSupervisors.map(entry => `<span class="preview-pill is-present">Supervisor · ${escapeHtml(entry.name || "")}</span>`).join("");
     const pendingNote = pending.length ? `<div class="preview-empty-note" style="margin-top:6px">${pending.length} sin marcar</div>` : "";
     return `
       <details class="preview-event-tree">
@@ -9682,6 +10982,7 @@ function buildReportPreviewHtml() {
             <span class="ev-tally ev-tally--ok">✓ ${present.length}</span>
             <span class="ev-tally ev-tally--miss">✗ ${absent.length}</span>
             ${justified.length ? `<span class="ev-tally ev-tally--just">J ${justified.length}</span>` : ""}
+            ${reachSupervisors.length ? `<span class="ev-tally ev-tally--ok">Sup ${reachSupervisors.length}</span>` : ""}
           </span>
         </summary>
         <div class="preview-event-tree-body">
@@ -9689,6 +10990,11 @@ function buildReportPreviewHtml() {
             <div class="preview-event-tree-group">
               <span class="preview-event-tree-grouplabel">Asistieron (${present.length})</span>
               <div class="preview-pills">${presentPills}</div>
+            </div>` : ""}
+          ${reachSupervisors.length ? `
+            <div class="preview-event-tree-group">
+              <span class="preview-event-tree-grouplabel">Supervisión (${reachSupervisors.length})</span>
+              <div class="preview-pills">${supervisorPills}</div>
             </div>` : ""}
           ${absent.length ? `
             <div class="preview-event-tree-group">
@@ -9763,8 +11069,16 @@ function buildReportPreviewHtml() {
   // Exponer el texto generado para que botones externos (compartir/descargar) puedan reusarlo.
   lastPreviewWhatsAppText = buildWhatsAppText();
 
+  const friendsPreviewHtml = namedVisitors.length ? `
+    <div class="preview-section-head">
+      <div class="preview-section-title">Amigos capturados (${namedVisitors.length})</div>
+      <button type="button" class="preview-section-action" data-action="open-preview-visitors">Ver detalle</button>
+    </div>
+    <div class="preview-pills">${namedVisitors.map((entry) => `<span class="preview-pill is-visitor">${escapeHtml(entry.name || "")}</span>`).join("")}</div>` : "";
+
   return headerHtml + attendanceHtml +
     `<div class="preview-section-title">${t('met.reportMetrics')}</div><div class="preview-metrics-grid">${metricsHtml}</div>` +
+    friendsPreviewHtml +
     membersHtml + notesHtml;
 }
 
@@ -9776,6 +11090,7 @@ function openReportPreviewDialog() {
   const cellVal = cellField.value || "—";
   if (previewDialogTitle) previewDialogTitle.textContent = t('preview.weekCellTitle', { w: weekVal, c: cellVal });
   if (previewDialogBody)  previewDialogBody.innerHTML = buildReportPreviewHtml();
+  activePreviewVisitorContext = { report: buildPreviewReportSnapshot() };
   // Restore normal footer buttons
   if (previewDialogFooter) previewDialogFooter.hidden = false;
   const cancelBtn  = document.getElementById("preview-cancel-btn");
@@ -9809,14 +11124,41 @@ if (reportPreviewDialog) {
     const wa = document.getElementById('preview-whatsapp-btn');
     if (dl) { dl.hidden = true; dl.onclick = null; }
     if (wa) { wa.hidden = true; wa.onclick = null; }
+    activePreviewVisitorContext = null;
   });
 }
 if (previewCancelBtn && reportPreviewDialog) previewCancelBtn.addEventListener("click", () => reportPreviewDialog.close());
 if (reportPreviewDialog) reportPreviewDialog.addEventListener("click", (e) => { if (e.target === reportPreviewDialog) reportPreviewDialog.close(); });
+if (previewDialogBody) {
+  previewDialogBody.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action='open-preview-visitors']");
+    if (!button) return;
+    openPreviewVisitorsDialog();
+  });
+}
 if (previewConfirmBtn) previewConfirmBtn.addEventListener("click", () => {
   if (reportPreviewDialog) reportPreviewDialog.close();
   reportForm.requestSubmit();
 });
+
+if (previewVisitorsDialogBody) {
+  previewVisitorsDialogBody.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action='open-visitor-history']");
+    if (!button || !activePreviewVisitorContext?.report) return;
+    const visitorKey = String(button.dataset.key || "");
+    const visitorName = String(button.dataset.name || "");
+    previewVisitorsDialog?.close();
+    openVisitorDetail(
+      visitorKey,
+      visitorName,
+      getPreviewVisitorScopeReports(activePreviewVisitorContext.report),
+      getPreviewVisitorPeriodLabel(activePreviewVisitorContext.report)
+    );
+  });
+}
+if (previewVisitorsCloseBtn && previewVisitorsDialog) previewVisitorsCloseBtn.addEventListener("click", () => previewVisitorsDialog.close());
+if (previewVisitorsCancelBtn && previewVisitorsDialog) previewVisitorsCancelBtn.addEventListener("click", () => previewVisitorsDialog.close());
+if (previewVisitorsDialog) previewVisitorsDialog.addEventListener("click", (e) => { if (e.target === previewVisitorsDialog) previewVisitorsDialog.close(); });
 
 // ── Preview read-only desde dashboard ───────────────────────────────────────
 
@@ -9843,6 +11185,7 @@ function buildReportPreviewHtmlFromData(report) {
   const memberAttendance = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
   const namedVisitors = (Array.isArray(fd.visitors) ? fd.visitors : []).filter(v => String(v.name || "").trim());
   const namedKids     = (Array.isArray(fd.kids)     ? fd.kids     : []).filter(k => String(k.name || "").trim());
+  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
 
   // ── Resumen global (badges) ─────────────────────────────────────────────────
   const conversions  = Number(s.reachConversions || 0);
@@ -9899,12 +11242,26 @@ function buildReportPreviewHtmlFromData(report) {
   const reachOfrenda    = Number(s.reachOffering || fd.reachOffering || 0);
   const friendsCount = namedVisitors.filter(v => (v.kind || 'amigo') !== 'visita').length;
   const restorCount  = namedVisitors.filter(v => (v.kind || 'amigo') === 'visita').length;
+  const supervisorHtml = reachSupervisorVisits.length ? `
+    <div class="ev-subsection">
+      <p class="ev-subsection-title">Supervisión (${reachSupervisorVisits.length})</p>
+      <div class="ev-visitor-list">
+        ${reachSupervisorVisits.map(entry => `
+          <div class="ev-visitor-row">
+            <span class="ev-visitor-name">Supervisor · ${escapeHtml(entry.name || "")}</span>
+            ${entry.supervisorSector ? `<span class="ev-visitor-meta">Sector ${escapeHtml(entry.supervisorSector)}</span>` : ""}
+          </div>`).join("")}
+      </div>
+    </div>` : "";
   const visitorsTitle = restorCount > 0
     ? `Amigos (${friendsCount}) · Restauración (${restorCount})`
     : `Amigos (${friendsCount})`;
   const visitorsHtml = namedVisitors.length ? `
     <div class="ev-subsection">
-      <p class="ev-subsection-title">${visitorsTitle}</p>
+      <div class="ev-subsection-head">
+        <p class="ev-subsection-title">${visitorsTitle}</p>
+        <button type="button" class="preview-section-action" data-action="open-preview-visitors">Ver detalle</button>
+      </div>
       <div class="ev-visitor-list">
         ${namedVisitors.map(v => {
           const vKind = (v.kind || 'amigo') === 'visita' ? 'visita' : 'amigo';
@@ -9939,10 +11296,11 @@ function buildReportPreviewHtmlFromData(report) {
     <div class="ev-section">
       <div class="ev-head ev-head--reach">
         <span class="ev-title">🌱 Alcance</span>
-        <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""} · ${friendsCount} amigos${restorCount ? ` · ${restorCount} restauración` : ""} · ${namedKids.length} niños</span>
+        <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""}${reachSupervisorVisits.length ? ` · ${reachSupervisorVisits.length} supervisor${reachSupervisorVisits.length === 1 ? "" : "es"}` : ""} · ${friendsCount} amigos${restorCount ? ` · ${restorCount} restauración` : ""} · ${namedKids.length} niños</span>
       </div>
       <div class="ev-body">
         ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.reachAttended, m.reachPrivileged ? "privileged" : null, m.reachStatus)).join("")}</div>` : ""}
+        ${supervisorHtml}
         ${visitorsHtml}
         ${kidsHtml}
         ${reachOfrenda ? `<p class="ev-offering">Ofrenda alcance: $${reachOfrenda.toFixed(0)}</p>` : ""}
@@ -10260,7 +11618,7 @@ if (_savedSession) {
       currentUser.isSupervisor = !!(currentUser.supervisedSector);
     }
     if (currentUser.isAdmin === undefined) {
-      currentUser.isAdmin = !!(currentUser.isCoordinator);
+      currentUser.isAdmin = !!(currentUser.isCoordinator || currentUser.role === "pastor");
     }
     loginOverlay?.classList.add("is-hidden");
   } catch {
