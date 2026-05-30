@@ -165,6 +165,8 @@ const addKidButton = document.querySelector("#add-kid-button");
 const addBaptismButton = document.querySelector("#add-baptism-button");
 const visitorQuickForm = document.querySelector("#visitor-quick-form");
 const visitorQuickHistory = document.querySelector("#visitor-quick-history");
+const visitorQuickHistoryHideButton = document.querySelector("#visitor-quick-history-hide-button");
+const visitorQuickHistoryRestoreButton = document.querySelector("#visitor-quick-history-restore-button");
 const visitorQuickName = document.querySelector("#visitor-quick-name");
 const visitorQuickInvitedBy = document.querySelector("#visitor-quick-invited-by");
 const visitorQuickReach = document.querySelector("#visitor-quick-reach");
@@ -172,6 +174,9 @@ const visitorQuickLate = document.querySelector("#visitor-quick-late");
 const visitorQuickLateField = document.querySelector("#visitor-quick-late-field");
 const visitorQuickSunday = document.querySelector("#visitor-quick-sunday");
 const visitorQuickFirstVisit = document.querySelector("#visitor-quick-first-visit");
+const visitorQuickProcessField = document.querySelector("#visitor-quick-process-field");
+const visitorQuickProcessEntry = document.querySelector("#visitor-quick-process-entry");
+const visitorQuickProcessSummary = document.querySelector("#visitor-quick-process-summary");
 const visitorQuickConverted = document.querySelector("#visitor-quick-converted");
 const visitorQuickConvertedField = document.querySelector("#visitor-quick-converted-field");
 const visitorQuickKind = document.querySelector("#visitor-quick-kind");
@@ -211,6 +216,7 @@ const dashboardPendingCells = document.querySelector("#dashboard-pending-cells")
 const reportContextStrip    = document.querySelector("#report-context-strip");
 const segTotalsPanel        = document.querySelector("#seg-totals-panel");
 const segTotalsBody         = document.querySelector("#seg-totals-body");
+const friendTrackingPanel = document.querySelector("#friend-tracking-panel");
 const friendTrackingScopeChip = document.querySelector("#friend-tracking-scope-chip");
 const friendTrackingCellFilter = document.querySelector("#friend-tracking-cell-filter");
 const friendTrackingFilterPicker = document.querySelector("#friend-tracking-filter-picker");
@@ -220,6 +226,10 @@ const friendTrackingFilterMenu = document.querySelector("#friend-tracking-filter
 const friendTrackingSummaryGrid = document.querySelector("#friend-tracking-summary-grid");
 const friendTrackingQuickChips = document.querySelector("#friend-tracking-quick-chips");
 const friendTrackingFriendsList = document.querySelector("#friend-tracking-friends-list");
+const friendTrackingRestorationChips = document.querySelector("#friend-tracking-restoration-chips");
+const friendTrackingRestorationList = document.querySelector("#friend-tracking-restoration-list");
+const friendTrackingControlChips = document.querySelector("#friend-tracking-control-chips");
+const friendTrackingControlList = document.querySelector("#friend-tracking-control-list");
 const friendTrackingGoals = document.querySelector("#friend-tracking-goals");
 const friendTrackingSignals = document.querySelector("#friend-tracking-signals");
 const friendTrackingGoalsTabButton = document.querySelector("#seg-tab-goals-button");
@@ -239,6 +249,37 @@ const memberModalName        = document.querySelector("#member-modal-name");
 const memberModalPeriod      = document.querySelector("#member-modal-period");
 const memberModalStats       = document.querySelector("#member-modal-stats");
 const memberModalBody        = document.querySelector("#member-modal-body");
+
+function isEditableReportNumberInput(target) {
+  return target instanceof HTMLInputElement
+    && target.type === "number"
+    && target.closest("#report-form") === reportForm
+    && !target.disabled
+    && !target.readOnly;
+}
+
+function isZeroLikeNumericValue(value) {
+  return /^0(?:\.0+)?$/.test(String(value || "").trim());
+}
+
+function handleReportNumberInputFocusIn(event) {
+  const input = event.target;
+  if (!isEditableReportNumberInput(input) || !isZeroLikeNumericValue(input.value)) return;
+  input.dataset.zeroAutoclear = "1";
+  input.value = "";
+}
+
+function handleReportNumberInputFocusOut(event) {
+  const input = event.target;
+  if (!isEditableReportNumberInput(input)) return;
+  if (String(input.value || "").trim() !== "") {
+    delete input.dataset.zeroAutoclear;
+    return;
+  }
+  input.value = "0";
+  delete input.dataset.zeroAutoclear;
+}
+
 if (memberModalClose) memberModalClose.addEventListener("click", () => memberDetailModal?.close());
 if (memberDetailModal) memberDetailModal.addEventListener("click", e => { if (e.target === memberDetailModal) memberDetailModal.close(); });
 const dashboardRecentActivity = document.querySelector("#dashboard-recent-activity");
@@ -357,6 +398,11 @@ let historyScope = (typeof localStorage !== "undefined" && (localStorage.getItem
   ? localStorage.getItem("historyScope")
   : "current"; // "current" = solo cuatrimestre activo, "all" = todo
 let editingReportId = null;
+let editingReportWasFinalized = false;
+let editingReportOriginWasFinalized = false;
+let editingReportLoadedData = null;
+let reportDirtySlices = createReportDirtySlices();
+let recentFinalizedReportContext = null;
 let submittedEditConfirmedReportId = null;
 let reportReadOnlyMode = false;  // true when viewing a closed-week report in the form
 let suppressWeekChangeHandler = false;  // prevents re-entrant change events from form.reset()
@@ -427,11 +473,33 @@ function getUserScopeTabs(user = currentUser) {
   return tabs;
 }
 
+function getPreferredDashboardScope(user = currentUser, tabs = getUserScopeTabs(user)) {
+  const availableScopes = new Set((tabs || []).map(tab => tab.key));
+  if (availableScopes.has("all")) return "all";
+  if (availableScopes.has("sector")) return "sector";
+  if (availableScopes.has("cell")) return "cell";
+  return tabs[0]?.key || null;
+}
+
+function getEffectiveDashboardScope(scope = null, user = currentUser) {
+  if (!user) return scope || activeDashboardScope || "all";
+  const explicitScope = String(scope || activeDashboardScope || "").trim();
+  const tabs = getUserScopeTabs(user);
+  const availableScopes = new Set(tabs.map(tab => tab.key));
+  if (explicitScope && availableScopes.has(explicitScope)) return explicitScope;
+  return getPreferredDashboardScope(user, tabs);
+}
+
+function isCellScopedLeaderView(user = currentUser) {
+  return getEffectiveDashboardScope(null, user) === "cell"
+    && getUserScopedCellNumbers("cell", user).size > 0;
+}
+
 function getUserScopedCellNumbers(scope = null, user = currentUser) {
   if (!user) {
     return new Set((catalogs.cells || []).map(cell => String(cell.cellNumber || "")).filter(Boolean));
   }
-  const activeScope = scope || (canUserViewAllCells(user) ? "all" : (user.supervisedSector ? "sector" : "cell"));
+  const activeScope = getEffectiveDashboardScope(scope, user);
   const myCell = String(user.assignedCellNumber || "").trim();
   const mySector = String(user.supervisedSector || "").trim();
   if (activeScope === "cell") {
@@ -489,7 +557,7 @@ function applyUserSession(user) {
   }
   const segSubTab = document.querySelector(".seg-view-tab[data-segtab='seguimiento']");
   if (segSubTab) {
-    segSubTab.hidden = !(user.isAdmin || user.isSupervisor);
+    segSubTab.hidden = !(user.assignedCellNumber || user.isAdmin || user.isSupervisor);
   }
   const supSubTab = document.querySelector(".seg-view-tab[data-segtab='supervisor']");
   if (supSubTab) {
@@ -910,16 +978,104 @@ function rerenderActiveSeguimientoTab() {
   if (activeTab === "goals") loadFriendTrackingPanel();
 }
 
+function renderIntegratedScopeMarkup(tabs, activeScope, bridgeClassName, stateClassName, tabsClassName) {
+  if (tabs.length > 1) {
+    return `
+      <div class="dashboard-scope-tabs ${tabsClassName}" role="tablist">
+        ${tabs.map(tab => `
+          <button type="button" class="dashboard-scope-tab ${tab.key === activeScope ? "is-active" : ""}" data-scope="${escapeHtml(tab.key)}" role="tab" aria-selected="${tab.key === activeScope}">
+            ${escapeHtml(tab.label)}
+            ${tab.sublabel ? `<span class="scope-tab-sub">${escapeHtml(tab.sublabel)}</span>` : ""}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  const tab = tabs[0];
+  return `
+    <div class="dashboard-scope-state ${stateClassName}" role="status" aria-live="polite">
+      <span class="dashboard-scope-state-label">${escapeHtml(tab.label)}</span>
+      ${tab.sublabel ? `<span class="dashboard-scope-state-sub">${escapeHtml(tab.sublabel)}</span>` : ""}
+    </div>
+  `;
+}
+
+function syncIntegratedSegScopeState(tabs, activeSegTab, shouldShow) {
+  const stripBridge = reportContextStrip?.querySelector(".rcs-scope-bridge");
+  const goalsBridge = friendTrackingPanel?.querySelector(".ft-scope-bridge");
+
+  if (stripBridge) stripBridge.remove();
+  if (goalsBridge) goalsBridge.remove();
+  reportContextStrip?.classList.remove("has-scope-bridge");
+  friendTrackingPanel?.classList.remove("has-scope-bridge");
+
+  const canIntegrate = shouldShow && tabs.length > 0;
+
+  if (!canIntegrate) {
+    return false;
+  }
+
+  let container = null;
+  let bridgeClassName = "";
+  let stateClassName = "";
+  let tabsClassName = "";
+
+  if (activeSegTab === "seguimiento" && reportContextStrip) {
+    container = reportContextStrip;
+    bridgeClassName = "rcs-scope-bridge";
+    stateClassName = "rcs-scope-state";
+    tabsClassName = "rcs-scope-tabs";
+  } else if (activeSegTab === "goals" && friendTrackingPanel) {
+    container = friendTrackingPanel;
+    bridgeClassName = "ft-scope-bridge";
+    stateClassName = "ft-scope-state";
+    tabsClassName = "ft-scope-tabs";
+  }
+
+  if (!container) {
+    return false;
+  }
+
+  const bridge = document.createElement("div");
+  bridge.className = bridgeClassName;
+  bridge.innerHTML = renderIntegratedScopeMarkup(tabs, activeDashboardScope, bridgeClassName, stateClassName, tabsClassName);
+  container.insertBefore(bridge, container.firstChild);
+  container.classList.add("has-scope-bridge");
+
+  if (!container.dataset.scopeBridgeWired) {
+    container.dataset.scopeBridgeWired = "1";
+    container.addEventListener("click", (ev) => {
+      const btn = ev.target.closest(".dashboard-scope-tab[data-scope]");
+      if (!btn || !container.contains(btn)) return;
+      const newScope = String(btn.dataset.scope || "").trim();
+      if (!newScope || newScope === activeDashboardScope) return;
+      activeDashboardScope = newScope;
+      renderSegAccessScopeTabs();
+      rerenderActiveSeguimientoTab();
+    });
+  }
+  return true;
+}
+
 function renderSegAccessScopeTabs() {
   if (!segAccessScopeTabs) return false;
   const tabs = getUserScopeTabs();
   const activeSegTab = getActiveSegTabName();
   const hasMultipleScopes = tabs.length > 1;
   if (!activeDashboardScope || !tabs.some(tab => tab.key === activeDashboardScope)) {
-    activeDashboardScope = tabs[0]?.key || null;
+    activeDashboardScope = getPreferredDashboardScope(currentUser, tabs);
   }
-  const shouldShow = tabs.length > 0 && (activeSegTab === "seguimiento" || activeSegTab === "dashboard" || activeSegTab === "goals");
+  const shouldShow = tabs.length > 0 && (activeSegTab === "seguimiento" || activeSegTab === "goals");
+  const integratedScope = syncIntegratedSegScopeState(tabs, activeSegTab, shouldShow);
   if (!shouldShow) {
+    segAccessScopeTabs.hidden = true;
+    segAccessScopeTabs.innerHTML = "";
+    if (segScopeMobileSwitch) segScopeMobileSwitch.hidden = true;
+    if (segScopeMobileMenu) segScopeMobileMenu.innerHTML = "";
+    return false;
+  }
+  if (integratedScope) {
     segAccessScopeTabs.hidden = true;
     segAccessScopeTabs.innerHTML = "";
     if (segScopeMobileSwitch) segScopeMobileSwitch.hidden = true;
@@ -981,9 +1137,10 @@ function renderSegAccessScopeTabs() {
 }
 
 function activateSegTab(tabName) {
-  // Regular users (no admin, no supervisor) can only see dashboard sub-tab
-  const canSeeSeg = currentUser?.isAdmin || currentUser?.isSupervisor;
-  if ((tabName === "seguimiento" || tabName === "supervisor") && !canSeeSeg) tabName = "dashboard";
+  const canSeeSeguimiento = currentUser?.assignedCellNumber || currentUser?.isAdmin || currentUser?.isSupervisor;
+  const canSeeSupervisor = currentUser?.isAdmin || currentUser?.isSupervisor;
+  if (tabName === "seguimiento" && !canSeeSeguimiento) tabName = "dashboard";
+  if (tabName === "supervisor" && !canSeeSupervisor) tabName = "dashboard";
 
   const tabs = document.querySelectorAll("#seg-view-tab-bar .seg-view-tab");
   tabs.forEach(btn => btn.classList.toggle("is-active", btn.dataset.segtab === tabName));
@@ -1007,8 +1164,10 @@ function activateSegTab(tabName) {
 function showView(viewName) {
   // "dashboard" is now a sub-tab inside seguimiento
   const resolvedView = viewName === "dashboard" ? "seguimiento" : viewName;
-  // Default sub-tab: dashboard for regular users, seguimiento for admin/supervisor
-  const defaultSegTab = (currentUser?.isAdmin || currentUser?.isSupervisor) ? "seguimiento" : "dashboard";
+  // Default sub-tab: seguimiento for anyone with cell/supervisor/admin scope.
+  const defaultSegTab = (currentUser?.assignedCellNumber || currentUser?.isAdmin || currentUser?.isSupervisor)
+    ? "seguimiento"
+    : "dashboard";
   const segTab = viewName === "dashboard" ? "dashboard" : defaultSegTab;
 
   const isReportView      = resolvedView === "report";
@@ -1181,6 +1340,80 @@ function getReportWeek(report) {
   return String(report?.formData?.week || report?.week || "");
 }
 
+function createReportDirtySlices() {
+  return {
+    members: false,
+    visitors: false,
+    kids: false,
+    baptisms: false,
+    reachSupervisor: false,
+  };
+}
+
+function resetReportDirtySlices() {
+  reportDirtySlices = createReportDirtySlices();
+}
+
+function markReportDirty(...sliceNames) {
+  sliceNames.forEach((sliceName) => {
+    if (Object.prototype.hasOwnProperty.call(reportDirtySlices, sliceName)) {
+      reportDirtySlices[sliceName] = true;
+    }
+  });
+}
+
+function cloneReportData(value) {
+  try {
+    return JSON.parse(JSON.stringify(value ?? null));
+  } catch {
+    return value ?? null;
+  }
+}
+
+function getReportRecencyValue(report) {
+  const raw = String(report?.updatedAt || report?.createdAt || report?.reportDate || report?.formData?.reportDate || "").trim();
+  const parsed = raw ? Date.parse(raw) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function findExistingReportForCellWeek(cell, week) {
+  const normalizedCell = String(cell || "").trim();
+  const normalizedWeek = String(week || "").trim();
+  if (!normalizedCell || !normalizedWeek) return null;
+
+  const cycleStartStr = String(appSettings?.cycle_start_date || "").trim();
+  const targetYear = String(new Date().getFullYear());
+  const targetQuarter = String(getCurrentQuarter());
+
+  const candidates = (reportsData || []).filter((report) => {
+    const reportCell = String(report.cellNumber || report.formData?.cellNumber || "").trim();
+    const reportWeek = String(getReportWeek(report) || "").trim();
+    if (reportCell !== normalizedCell || reportWeek !== normalizedWeek) return false;
+
+    const reportDate = String(report.reportDate || report.formData?.reportDate || "").trim();
+    if (cycleStartStr) {
+      return !!reportDate && reportDate >= cycleStartStr;
+    }
+
+    return getReportYear(report) === targetYear && String(getReportQuarter(report)) === targetQuarter;
+  });
+
+  return candidates.sort((left, right) => {
+    const leftFinalized = !isReportEffectivelyDraft(left);
+    const rightFinalized = !isReportEffectivelyDraft(right);
+    if (leftFinalized !== rightFinalized) return leftFinalized ? -1 : 1;
+
+    const leftMeaningful = reportHasMeaningfulData(left);
+    const rightMeaningful = reportHasMeaningfulData(right);
+    if (leftMeaningful !== rightMeaningful) return leftMeaningful ? -1 : 1;
+
+    const recencyDiff = getReportRecencyValue(right) - getReportRecencyValue(left);
+    if (recencyDiff !== 0) return recencyDiff;
+
+    return Number(right?.id || 0) - Number(left?.id || 0);
+  })[0] || null;
+}
+
 // True si el reporte tiene contenido capturado (asistencias marcadas,
 // visitas, niños o bautismos). Se usa para tratar reportes "vacíos"
 // (cabecera sin datos) como borradores en el dashboard, evitando que
@@ -1206,10 +1439,127 @@ function reportHasMeaningfulData(report) {
   );
 }
 
+function computeWeeklySummaryFromPayload(payload = {}) {
+  const members = Array.isArray(payload.memberAttendance) ? payload.memberAttendance : [];
+  const namedVisitors = normalizeVisitors(payload.visitors).filter((visitor) => String(visitor.name || "").trim());
+  const namedKids = normalizeKids(payload.kids).filter((kid) => String(kid.name || "").trim());
+  const baptisms = normalizeBaptisms(payload.baptisms).filter((entry) => entry.name);
+  const reachSupervisorVisits = normalizeReachSupervisorVisits(payload.reachSupervisorVisits || payload.reachSupervisorVisitsJson);
+  const counts = {
+    totalMembers: members.length,
+    planningMembersPresent: 0,
+    planningMembersAbsent: 0,
+    reachMembersPresent: 0,
+    reachPrivilegedMembers: 0,
+    reachFriendsPresent: 0,
+    reachConversions: 0,
+    reachKidsPresent: 0,
+    reachSupervisorVisits: 0,
+    winSpiritualParents: 0,
+    winFriendsContacted: 0,
+    winRiseEventFriends: 0,
+    sundayMembersPresent: 0,
+    sundayFriendsPresent: 0,
+    sundayKidsPresent: 0,
+    present: 0,
+    absent: 0,
+    justified: 0,
+    service: 0,
+    pending: 0,
+    visitors: namedVisitors.length,
+  };
+
+  members.forEach((entry) => {
+    if (entry.planningAttended) counts.planningMembersPresent += 1;
+    else counts.planningMembersAbsent += 1;
+    if (entry.reachAttended) counts.reachMembersPresent += 1;
+    if (entry.reachPrivileged) counts.reachPrivilegedMembers += 1;
+    if (entry.sundayAttended) counts.sundayMembersPresent += 1;
+    if (entry.status === "present") counts.present += 1;
+    else if (entry.status === "absent") counts.absent += 1;
+    else if (entry.status === "justified") counts.justified += 1;
+    else if (entry.status === "service") counts.service += 1;
+    else counts.pending += 1;
+  });
+
+  counts.reachSupervisorVisits = reachSupervisorVisits.length;
+  counts.reachMembersPresent += counts.reachSupervisorVisits;
+
+  const spiritualParentsSet = new Set();
+  namedVisitors.forEach((visitor) => {
+    if (visitor.reachAttended) counts.reachFriendsPresent += 1;
+    if (visitor.sundayAttended) counts.sundayFriendsPresent += 1;
+    if (visitor.converted) counts.reachConversions += 1;
+    if (visitor.invitedBy) spiritualParentsSet.add(visitor.invitedBy);
+    if (visitor.eventAttended) counts.winRiseEventFriends += 1;
+  });
+  counts.winSpiritualParents = spiritualParentsSet.size;
+  counts.winFriendsContacted = namedVisitors.length;
+
+  RCM_MILESTONES.forEach(({ key, type }) => {
+    counts[`rcm_${key}`] = members.filter((entry) => {
+      const val = entry.rcmProgress?.[key];
+      if (!val) return false;
+      if (type === "clase") return String(val).startsWith("en_curso:");
+      return true;
+    }).length;
+  });
+
+  namedKids.forEach((kid) => {
+    if (kid.reachAttended) counts.reachKidsPresent += 1;
+    if (kid.sundayAttended) counts.sundayKidsPresent += 1;
+  });
+
+  counts.winBaptizedFriends = getBaptismCaptureStatus().isAllowed ? baptisms.length : 0;
+  counts.planningMembersAbsent = Math.max(0, counts.totalMembers - counts.planningMembersPresent);
+  counts.sundayTotal = counts.sundayMembersPresent + counts.sundayFriendsPresent + counts.sundayKidsPresent;
+  counts.reachTotal = counts.reachMembersPresent + counts.reachFriendsPresent;
+
+  return counts;
+}
+
+function preserveUntouchedReportSlices(payload) {
+  if (!editingReportId || !editingReportLoadedData) return payload;
+
+  const base = editingReportLoadedData;
+  if (!reportDirtySlices.members && Array.isArray(base.memberAttendance)) {
+    payload.memberAttendance = cloneReportData(base.memberAttendance);
+  }
+  if (!reportDirtySlices.visitors && Array.isArray(base.visitors)) {
+    payload.visitors = cloneReportData(base.visitors);
+  }
+  if (!reportDirtySlices.kids && Array.isArray(base.kids)) {
+    payload.kids = cloneReportData(base.kids);
+  }
+  if (!reportDirtySlices.baptisms && Array.isArray(base.baptisms)) {
+    payload.baptisms = cloneReportData(base.baptisms);
+  }
+  if (!reportDirtySlices.reachSupervisor) {
+    const baseSupervisorVisits = base.reachSupervisorVisits ?? base.reachSupervisorVisitsJson;
+    if (baseSupervisorVisits != null) {
+      payload.reachSupervisorVisits = cloneReportData(baseSupervisorVisits);
+    }
+  }
+  return payload;
+}
+
 function isReportEffectivelyDraft(report) {
   const fd = report?.formData || {};
   if (fd._draft === true || fd._draft === "true") return true;
   return !reportHasMeaningfulData(report);
+}
+
+function isReportVisuallyDraft(report) {
+  if (isReportEffectivelyDraft(report)) return true;
+  const reportId = Number(report?.id || 0);
+  return Boolean(reportId && editingReportId === reportId && submittedEditConfirmedReportId === reportId);
+}
+
+function refreshReportVisualState() {
+  if (!Array.isArray(reportsData)) return;
+  renderReports(reportsData);
+  renderSeguimiento(reportsData);
+  renderDashboard(reportsData);
 }
 
 async function confirmEditingSubmittedReport(report) {
@@ -1223,6 +1573,36 @@ async function confirmEditingSubmittedReport(report) {
     t('conf.editSubmittedReportMsg', { c: cell, w: week }),
     t('conf.editSubmittedReport')
   );
+}
+
+async function openReportForEditing(report, reportId, options = {}) {
+  if (!report) return false;
+  if (!isReportEditable(report)) {
+    if (!options.silentBlockedFeedback) {
+      setFeedback(t('fb.reportClosedNoEdit'), true);
+    }
+    return false;
+  }
+  if (options.confirmOnOpen !== false) {
+    const confirmed = await confirmEditingSubmittedReport(report);
+    if (!confirmed) {
+      if (!options.silentCancelledFeedback) {
+        setFeedback(t('fb.reportEditCancelled'));
+      }
+      return false;
+    }
+  }
+  loadReportIntoForm(report, Number(reportId || report.id));
+  if (options.confirmOnOpen !== false && !isReportEffectivelyDraft(report)) {
+    submittedEditConfirmedReportId = Number(reportId || report.id);
+  }
+  refreshReportVisualState();
+  showView("report");
+  const formData = report.formData || report;
+  const resumeStage = options.resumeStage || pickResumeStage(formData);
+  showStage(resumeStage, { skipWeekCheck: true });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  return true;
 }
 
 function getReportAttendanceSummary(report) {
@@ -1289,6 +1669,49 @@ function normalizeVisitorName(name) {
     .trim();
 }
 
+const VISITOR_HISTORY_HIDDEN_KEY = "visitor_history_hidden_map";
+
+function getVisitorHistoryHiddenMap() {
+  try {
+    const parsed = JSON.parse(String(appSettings?.[VISITOR_HISTORY_HIDDEN_KEY] || "{}"));
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getHiddenVisitorNamesForCell(cellNumber = String(cellField?.value || "").trim()) {
+  if (!cellNumber) return new Set();
+  const hiddenMap = getVisitorHistoryHiddenMap();
+  const list = Array.isArray(hiddenMap[cellNumber]) ? hiddenMap[cellNumber] : [];
+  return new Set(list.map((name) => normalizeVisitorName(name)).filter(Boolean));
+}
+
+function updateVisitorHistoryHideButton() {
+  if (!(visitorQuickHistory instanceof HTMLSelectElement)) {
+    return;
+  }
+  const cellNumber = String(cellField?.value || "").trim();
+  const selectedName = String(visitorQuickHistory.value || "").trim();
+  const hasSelection = Boolean(selectedName) && Boolean(cellNumber);
+  if (visitorQuickHistoryHideButton instanceof HTMLButtonElement) {
+    visitorQuickHistoryHideButton.hidden = !hasSelection;
+    visitorQuickHistoryHideButton.disabled = !hasSelection;
+  }
+  if (visitorQuickHistoryRestoreButton instanceof HTMLButtonElement) {
+    const hiddenCount = getHiddenVisitorNamesForCell(cellNumber).size;
+    const label = visitorQuickHistoryRestoreButton.querySelector(".visitor-quick-history-toolbar-label");
+    visitorQuickHistoryRestoreButton.hidden = !cellNumber || hiddenCount === 0;
+    visitorQuickHistoryRestoreButton.disabled = !cellNumber || hiddenCount === 0;
+    const nextLabel = hiddenCount > 0
+      ? `Restaurar ocultos (${hiddenCount})`
+      : "Restaurar ocultos";
+    if (label instanceof HTMLSpanElement) {
+      label.textContent = nextLabel;
+    }
+  }
+}
+
 function getVisitorHistory() {
   // El historial de visitas/amigos se restringe SIEMPRE a la célula seleccionada
   // en el reporte actual. Esto evita fugas de datos entre células incluso si el
@@ -1307,7 +1730,13 @@ function getVisitorHistory() {
         if (!normalizedName) {
           return;
         }
-        const previous = visitorMap.get(normalizedName) || { name: String(visitor?.name || "").trim(), invitedBy: "", phone: "", converted: false, kind: "amigo", visitCount: 0, lateRegistration: false };
+        const processEntry = normalizeVisitorProcessEntry(visitor?.processEntry, visitor?.kind, {
+          lateRegistration: Boolean(visitor?.lateRegistration),
+        });
+        const previous = visitorMap.get(normalizedName) || {
+          name: String(visitor?.name || "").trim(), invitedBy: "", phone: "", converted: false, kind: "amigo", visitCount: 0, lateRegistration: false,
+          processEntry: "none", processRegisteredWeek: "", processRegisteredDate: "",
+        };
         visitorMap.set(normalizedName, {
           name: previous.name || String(visitor?.name || "").trim(),
           invitedBy: String(visitor?.invitedBy || previous.invitedBy || "").trim(),
@@ -1315,6 +1744,9 @@ function getVisitorHistory() {
           converted: Boolean(visitor?.converted) || Boolean(previous.converted),
           kind: normalizeVisitorKind(visitor?.kind || previous.kind),
           lateRegistration: Boolean(visitor?.lateRegistration) || Boolean(previous.lateRegistration),
+          processEntry: previous.processEntry !== "none" ? previous.processEntry : processEntry,
+          processRegisteredWeek: previous.processRegisteredWeek || (processEntry !== "none" ? String(report?.week || report?.formData?.week || "") : ""),
+          processRegisteredDate: previous.processRegisteredDate || (processEntry !== "none" ? String(report?.reportDate || report?.formData?.reportDate || "") : ""),
           visitCount: previous.visitCount + 1,
         });
       });
@@ -1330,39 +1762,242 @@ function findVisitorHistoryByName(name) {
   return getVisitorHistory().find((visitor) => normalizeVisitorName(visitor.name) === normalizedName) || null;
 }
 
-function syncQuickLateRegistrationState(name = "") {
-  if (!(visitorQuickLate instanceof HTMLInputElement)) {
+const mobileFormPickerState = new WeakMap();
+
+function closeAllMobileFormPickers(exceptSelect = null) {
+  Array.from(reportForm?.querySelectorAll("select.mobile-form-picker-native") || []).forEach((select) => {
+    if (exceptSelect && select === exceptSelect) return;
+    const state = mobileFormPickerState.get(select);
+    if (!state) return;
+    state.menu.hidden = true;
+    state.picker.classList.remove("is-open");
+    state.button.setAttribute("aria-expanded", "false");
+  });
+}
+
+function getMobileFormPickerLabel(select) {
+  const label = select.closest("label");
+  const labelSpan = label?.querySelector(":scope > span");
+  return String(labelSpan?.textContent || select.getAttribute("aria-label") || select.name || "Seleccionar").trim();
+}
+
+function syncMobileFormPicker(select) {
+  const state = mobileFormPickerState.get(select);
+  if (!state) return;
+  const options = Array.from(select.options || []);
+  const selectedOption = options.find((option) => option.selected) || options[0] || null;
+  state.buttonText.textContent = String(selectedOption?.textContent || "Seleccionar").trim();
+  state.button.disabled = Boolean(select.disabled) || options.length === 0;
+  state.menu.innerHTML = options.map((option) => {
+    const value = String(option.value || "");
+    const isActive = Boolean(option.selected);
+    return `<button type="button" class="mobile-form-picker-option${isActive ? " is-active" : ""}" data-mobile-picker-value="${escapeHtml(value)}" role="option" aria-selected="${isActive ? "true" : "false"}"${option.disabled ? " disabled" : ""}>${escapeHtml(String(option.textContent || value).trim())}</button>`;
+  }).join("");
+  if (select.hidden || !select.offsetParent) {
+    state.picker.hidden = true;
+    closeAllMobileFormPickers();
     return;
   }
+  state.picker.hidden = false;
+  if (select.disabled) {
+    closeAllMobileFormPickers();
+  }
+}
+
+function ensureMobileFormPicker(select) {
+  if (!(select instanceof HTMLSelectElement)) return null;
+  const existing = mobileFormPickerState.get(select);
+  if (existing) {
+    syncMobileFormPicker(select);
+    return existing;
+  }
+  const picker = document.createElement("div");
+  picker.className = "mobile-form-picker";
+  picker.hidden = false;
+  picker.innerHTML = `
+    <button type="button" class="mobile-form-picker-button" aria-haspopup="listbox" aria-expanded="false">
+      <span class="mobile-form-picker-button-text"></span>
+    </button>
+    <div class="mobile-form-picker-menu" role="listbox" hidden></div>
+  `;
+  select.classList.add("mobile-form-picker-native");
+  select.insertAdjacentElement("afterend", picker);
+  const button = picker.querySelector(".mobile-form-picker-button");
+  const buttonText = picker.querySelector(".mobile-form-picker-button-text");
+  const menu = picker.querySelector(".mobile-form-picker-menu");
+  if (!(button instanceof HTMLButtonElement) || !(buttonText instanceof HTMLSpanElement) || !(menu instanceof HTMLDivElement)) {
+    return null;
+  }
+  button.setAttribute("aria-label", getMobileFormPickerLabel(select));
+  const state = { picker, button, buttonText, menu };
+  mobileFormPickerState.set(select, state);
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const shouldOpen = menu.hidden;
+    closeAllMobileFormPickers(shouldOpen ? select : null);
+    menu.hidden = !shouldOpen;
+    picker.classList.toggle("is-open", shouldOpen);
+    button.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  });
+  menu.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const optionButton = event.target.closest(".mobile-form-picker-option[data-mobile-picker-value]");
+    if (!(optionButton instanceof HTMLButtonElement)) return;
+    const nextValue = String(optionButton.dataset.mobilePickerValue || "");
+    if (select.value !== nextValue) {
+      select.value = nextValue;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      syncMobileFormPicker(select);
+    }
+    closeAllMobileFormPickers();
+  });
+  picker.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  const observer = new MutationObserver(() => syncMobileFormPicker(select));
+  observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "hidden", "style", "class"] });
+  select.addEventListener("change", () => syncMobileFormPicker(select));
+  syncMobileFormPicker(select);
+  return state;
+}
+
+function initMobileFormPickers() {
+  return;
+}
+
+function syncQuickLateRegistrationState(name = "") {
+  if (!(visitorQuickProcessEntry instanceof HTMLSelectElement)) {
+    return;
+  }
+  const kind = normalizeVisitorKind(visitorQuickKind?.value);
   const history = findVisitorHistoryByName(name);
-  const alreadyRegistered = Boolean(history?.visitCount);
-  visitorQuickLate.disabled = alreadyRegistered;
-  if (alreadyRegistered) {
-    visitorQuickLate.checked = false;
-    visitorQuickLate.title = `"${history.name}" ya fue anotado anteriormente y no puede volver marcarse como tardío.`;
+  const existingProcessEntry = normalizeVisitorProcessEntry(history?.processEntry, kind, {
+    lateRegistration: history?.lateRegistration,
+  });
+  const availability = getCurrentProcessOptionAvailability();
+  const selected = existingProcessEntry !== "none"
+    ? existingProcessEntry
+    : normalizeVisitorProcessEntry(visitorQuickProcessEntry.value, kind);
+  if (existingProcessEntry !== "none") {
+    visitorQuickProcessEntry.innerHTML = `<option value="${selected}">${getVisitorProcessStatusLabel(selected)}</option>`;
+    visitorQuickProcessEntry.value = selected;
+    visitorQuickProcessEntry.disabled = true;
+    visitorQuickProcessEntry.title = `Registrado en semana ${history?.processRegisteredWeek || "?"}${history?.processRegisteredDate ? ` · ${history.processRegisteredDate}` : ""}`;
   } else {
-    visitorQuickLate.title = "";
+    visitorQuickProcessEntry.disabled = false;
+    visitorQuickProcessEntry.title = "";
+    visitorQuickProcessEntry.innerHTML = renderVisitorProcessOptions(selected, availability);
+    if ((!availability.allowNoted && selected === "noted") || (!availability.allowLate && selected === "late")) {
+      visitorQuickProcessEntry.value = "none";
+    }
   }
-  if (visitorQuickLateField) {
-    const kind = normalizeVisitorKind(visitorQuickKind?.value);
-    visitorQuickLateField.hidden = kind !== "amigo" || !isLateRegistrationAvailable() || alreadyRegistered;
+  if (visitorQuickProcessField) {
+    visitorQuickProcessField.hidden = kind !== "amigo";
   }
+  updateVisitorQuickProcessSummary();
+}
+
+function updateVisitorQuickProcessSummary() {
+  if (!visitorQuickProcessSummary) {
+    return;
+  }
+  const kind = normalizeVisitorKind(visitorQuickKind?.value);
+  if (kind === "visita") {
+    visitorQuickProcessSummary.textContent = "Restauración · fuera de proceso";
+    return;
+  }
+  const processEntry = normalizeVisitorProcessEntry(visitorQuickProcessEntry?.value, kind);
+  const countsReachAttendance = Boolean(visitorQuickReach?.checked);
+  const reachLabel = countsReachAttendance ? "sí" : "no";
+  const processLabel = processEntry === "late"
+    ? "tardío"
+    : processEntry === "noted"
+      ? "sí"
+      : "no";
+  visitorQuickProcessSummary.textContent = `Alcance: ${reachLabel} · Proceso: ${processLabel}`;
 }
 
 function renderVisitorHistoryOptions() {
   if (!(visitorQuickHistory instanceof HTMLSelectElement)) {
     return;
   }
-  const history = getVisitorHistory();
+  const hiddenNames = getHiddenVisitorNamesForCell();
+  const history = getVisitorHistory().filter((visitor) => !hiddenNames.has(normalizeVisitorName(visitor.name)));
   const options = history.map((visitor) => {
-    const visits = visitor.visitCount > 1 ? ` · ${visitor.visitCount} visitas` : "";
-    const inv = visitor.invitedBy ? ` · invitó ${visitor.invitedBy}` : "";
-    return `<option value="${escapeHtml(visitor.name)}">${escapeHtml(visitor.name)}${visits}${inv}</option>`;
+    return `<option value="${escapeHtml(visitor.name)}">${escapeHtml(visitor.name)}</option>`;
   }).join("");
   const placeholder = history.length
     ? `<option value="">Elegir del historial (${history.length})</option>`
     : `<option value="">Sin historial para esta célula</option>`;
   visitorQuickHistory.innerHTML = `${placeholder}${options}`;
+  updateVisitorHistoryHideButton();
+}
+
+async function handleHideVisitorHistorySelection() {
+  const cellNumber = String(cellField?.value || "").trim();
+  const selectedName = String(visitorQuickHistory?.value || "").trim();
+  if (!cellNumber || !selectedName) {
+    return;
+  }
+  const ok = await appConfirm(
+    `Ocultar "${selectedName}" de Vista previa para la célula ${cellNumber}?\nYa no se mostrará en este combo. No se borran reportes anteriores ni el historial real.\nPara recuperarlo usa \"Restaurar ocultos\".`,
+    "Ocultar de vista previa"
+  );
+  if (!ok) return;
+
+  const hiddenMap = getVisitorHistoryHiddenMap();
+  const currentList = Array.isArray(hiddenMap[cellNumber]) ? hiddenMap[cellNumber] : [];
+  const nextSet = new Set(currentList.map((name) => normalizeVisitorName(name)).filter(Boolean));
+  nextSet.add(normalizeVisitorName(selectedName));
+  hiddenMap[cellNumber] = Array.from(nextSet.values());
+
+  await request("/api/settings", {
+    method: "POST",
+    body: JSON.stringify({
+      [VISITOR_HISTORY_HIDDEN_KEY]: JSON.stringify(hiddenMap),
+    }),
+  });
+  appSettings[VISITOR_HISTORY_HIDDEN_KEY] = JSON.stringify(hiddenMap);
+  if (visitorQuickHistory instanceof HTMLSelectElement) {
+    visitorQuickHistory.value = "";
+  }
+  renderVisitorHistoryOptions();
+  updateVisitorHistoryHideButton();
+  setFeedback(`"${selectedName}" ya no se mostrará en Vista previa para la célula ${cellNumber}. Puedes recuperarlo con "Restaurar ocultos".`);
+}
+
+async function handleRestoreHiddenVisitorHistory() {
+  const cellNumber = String(cellField?.value || "").trim();
+  if (!cellNumber) {
+    return;
+  }
+  const hiddenMap = getVisitorHistoryHiddenMap();
+  const currentList = Array.isArray(hiddenMap[cellNumber])
+    ? hiddenMap[cellNumber].map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
+  if (!currentList.length) {
+    return;
+  }
+  const ok = await appConfirm(
+    `Restaurar ${currentList.length === 1 ? `\"${currentList[0]}\"` : `${currentList.length} registros ocultos`} en Vista previa para la célula ${cellNumber}?\nVolverán a mostrarse solo en este combo.`,
+    "Restaurar ocultos"
+  );
+  if (!ok) return;
+
+  delete hiddenMap[cellNumber];
+  await request("/api/settings", {
+    method: "POST",
+    body: JSON.stringify({
+      [VISITOR_HISTORY_HIDDEN_KEY]: JSON.stringify(hiddenMap),
+    }),
+  });
+  appSettings[VISITOR_HISTORY_HIDDEN_KEY] = JSON.stringify(hiddenMap);
+  renderVisitorHistoryOptions();
+  updateVisitorHistoryHideButton();
+  setFeedback(`Se restauró la Vista previa de ${currentList.length === 1 ? `\"${currentList[0]}\"` : `${currentList.length} registros`} para la célula ${cellNumber}.`);
 }
 
 function applyQuickVisitorHistory(name) {
@@ -1415,11 +2050,11 @@ function getAbsenceAlertSeverity(entry) {
 
 // ── SCOPE HELPERS (filtra por rol de usuario activo) ─────────────────────────
 function getScopedCells() {
-  return filterItemsByUserScope(catalogs.cells || [], cell => cell.cellNumber);
+  return filterItemsByUserScope(catalogs.cells || [], cell => cell.cellNumber, activeDashboardScope);
 }
 
 function getScopedReports(reports) {
-  return filterItemsByUserScope(reports || [], report => report.cellNumber || report.formData?.cellNumber);
+  return filterItemsByUserScope(reports || [], report => report.cellNumber || report.formData?.cellNumber, activeDashboardScope);
 }
 
 function getDashboardScopeLabel() {
@@ -1472,12 +2107,12 @@ function renderDashboardScopeTabs() {
   if (tabs.length <= 1) {
     wrap.hidden = true;
     wrap.innerHTML = "";
-    activeDashboardScope = tabs[0]?.key || null;
+    activeDashboardScope = getPreferredDashboardScope(currentUser, tabs);
     return false;
   }
   // Inicializar a la primera pestaña si aún no se ha elegido o ya no es válida.
   if (!activeDashboardScope || !tabs.some(t => t.key === activeDashboardScope)) {
-    activeDashboardScope = tabs[0].key;
+    activeDashboardScope = getPreferredDashboardScope(currentUser, tabs);
   }
   wrap.hidden = false;
   wrap.innerHTML = tabs.map(tab => `
@@ -3033,23 +3668,19 @@ function renderSegTotalsPanel(weeklyReps, options = {}) {
   }
 
   // Mostrar/ocultar tabs según rol
+  const activeScope = getEffectiveDashboardScope();
   const isAdmin = !!(currentUser && currentUser.isAdmin);
   const isSupervisor = !!(currentUser && currentUser.isSupervisor && currentUser.supervisedSector);
+  const availableTotalsScopes = activeScope === 'all'
+    ? (isAdmin ? ['total', 'sector', 'cell'] : (isSupervisor ? ['sector', 'cell'] : ['cell']))
+    : (activeScope === 'sector' ? ['sector', 'cell'] : ['cell']);
   segTotalsPanel.querySelectorAll('.seg-totals-tab').forEach(tab => {
     const sc = tab.dataset.tscope;
-    if (isAdmin) {
-      tab.hidden = false;
-    } else if (isSupervisor) {
-      // Supervisor: solo Por sector y Por célula
-      tab.hidden = (sc === 'total');
-    } else {
-      // Líder de célula: solo Por célula
-      tab.hidden = (sc !== 'cell');
-    }
+    tab.hidden = !availableTotalsScopes.includes(sc);
   });
 
   // Scope inicial según rol
-  let currentScope = isAdmin ? 'total' : (isSupervisor ? 'sector' : 'cell');
+  let currentScope = availableTotalsScopes[0] || 'cell';
   // Marcar tab activa correcta
   segTotalsPanel.querySelectorAll('.seg-totals-tab').forEach(tab => {
     tab.classList.toggle('is-active', tab.dataset.tscope === currentScope);
@@ -3516,7 +4147,7 @@ function renderDashboard(reports) {
   renderDashboardScopeTabs();
   // Si el usuario tiene célula asignada y eligió "Mi célula" (o no tiene más opciones),
   // usar la vista de líder enfocada en una sola célula.
-  if (currentUser?.assignedCellNumber && (activeDashboardScope === "cell" || activeDashboardScope === null)) {
+  if (isCellScopedLeaderView()) {
     return renderDashboardForLeader(reports);
   }
 
@@ -4446,7 +5077,9 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   if (!dashboardMetricsBody) return;
 
   const isAdmin = !currentUser || currentUser.isAdmin;
-  if (dashboardMetricsToggle) dashboardMetricsToggle.hidden = !isAdmin || activeDashboardTimeScope !== "week";
+  const canCompareBroadScopes = isAdmin && getEffectiveDashboardScope() === "all";
+  if (!canCompareBroadScopes) activeMetricsScope = "total";
+  if (dashboardMetricsToggle) dashboardMetricsToggle.hidden = !canCompareBroadScopes || activeDashboardTimeScope !== "week";
   if (dashboardMetricsEyebrow) {
     dashboardMetricsEyebrow.textContent = scopeLabel
       ? t('met.scopeTitle', { scope: scopeLabel })
@@ -4471,7 +5104,7 @@ function renderDashboardMetrics(weeklyReports, scopeLabel) {
   }
 
   // Week: existing table breakdown (optionally by sector for admin)
-  if (isAdmin && activeMetricsScope === "sector") {
+  if (canCompareBroadScopes && activeMetricsScope === "sector") {
     const cellSectorMap = new Map(
       (catalogs.cells || []).map(c => [String(c.cellNumber), c.sector || t('dash.noSector')])
     );
@@ -4939,15 +5572,19 @@ function buildDefaultMemberAttendance(cell, savedEntries = [], savedData = null)
     const savedEntry = savedByPersonId.get(String(member.id)) || savedByPersonId.get(String(member.name));
     // Cada sub-estado parte como "pending" por defecto. Solo se hereda
     // un valor explícitamente guardado para esa etapa.
+    // Compatibilidad: algunos reportes legacy sólo guardaron el booleano
+    // `...Attended`; en esos casos hidratamos "present" para que la UI no
+    // se vea como "Sin marcar" aunque el resumen sí lo cuente.
     // Limpieza: si el sub-estado guardado es "present" pero el checkbox
     // de asistencia de esa etapa está en false, es contaminación del
     // bug anterior (migración legacy `status`→3 etapas). Se devuelve
     // "pending" para no mostrar "Presente" falso. Los estados manuales
     // (absent / justified / service) se respetan siempre.
     const sanitize = (status, attended) => {
-      if (!status) return "pending";
-      if (status === "present" && !attended) return "pending";
-      return status;
+      const normalizedStatus = String(status || "").toLowerCase();
+      if (!normalizedStatus) return attended ? "present" : "pending";
+      if (normalizedStatus === "present" && !attended) return "pending";
+      return normalizedStatus;
     };
     const planningStatus = sanitize(savedEntry?.planningStatus, savedEntry?.planningAttended);
     const reachStatus    = sanitize(savedEntry?.reachStatus,    savedEntry?.reachAttended);
@@ -5018,20 +5655,72 @@ function normalizeVisitorKind(value) {
   return String(value || "").toLowerCase() === "visita" ? "visita" : "amigo";
 }
 
+function normalizeVisitorProcessEntry(value, kind = "amigo", fallback = {}) {
+  const normalizedKind = normalizeVisitorKind(kind);
+  if (normalizedKind !== "amigo") return "none";
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "none" || raw === "noted" || raw === "late") {
+    return raw;
+  }
+  if (fallback?.lateRegistration) return "late";
+  return "none";
+}
+
+function getProcessLateGraceWeeks() {
+  const raw = parseInt(String(appSettings?.process_entry_late_weeks ?? "14"), 10);
+  return Number.isFinite(raw) ? Math.max(0, raw) : 14;
+}
+
+function getCurrentProcessOptionAvailability() {
+  const weekNumber = parseInt(String(weekField?.value || "0"), 10);
+  const lateGraceWeeks = getProcessLateGraceWeeks();
+  return {
+    allowNoted: weekNumber === 2,
+    allowLate: Number.isFinite(weekNumber) && weekNumber >= 3 && weekNumber <= (2 + lateGraceWeeks),
+  };
+}
+
+function getVisitorProcessStatusLabel(value) {
+  const normalized = normalizeVisitorProcessEntry(value);
+  if (normalized === "late") return "Proceso tardío";
+  if (normalized === "noted") return "En proceso";
+  return "Sin proceso";
+}
+
+function renderVisitorProcessOptions(selectedValue, availability = getCurrentProcessOptionAvailability()) {
+  const selected = normalizeVisitorProcessEntry(selectedValue);
+  return [
+    ["none", "Sin proceso"],
+    ["noted", "Al proceso"],
+    ["late", "Tardío"],
+  ]
+    .filter(([value]) => {
+      if (value === "noted") return availability.allowNoted || selected === "noted";
+      if (value === "late") return availability.allowLate || selected === "late";
+      return true;
+    })
+    .map(([value, label]) => `<option value="${value}"${selected === value ? " selected" : ""}>${label}</option>`)
+    .join("");
+}
+
 function normalizeVisitors(savedVisitors = []) {
   if (!Array.isArray(savedVisitors)) {
     return [];
   }
   return savedVisitors.map((visitor) => {
     const kind = normalizeVisitorKind(visitor?.kind);
+    const processEntry = normalizeVisitorProcessEntry(visitor?.processEntry, kind, {
+      lateRegistration: Boolean(visitor?.lateRegistration),
+    });
     return {
       name: visitor?.name || "",
       kind,
       invitedBy: visitor?.invitedBy || "",
       reachAttended: Boolean(visitor?.reachAttended),
-      lateRegistration: kind === "amigo" ? Boolean(visitor?.lateRegistration) : false,
+      lateRegistration: kind === "amigo" ? processEntry === "late" : false,
       sundayAttended: Boolean(visitor?.sundayAttended),
       firstVisit: Boolean(visitor?.firstVisit),
+      processEntry,
       // "converted" solo aplica a amigos (no bautizados); para visitas siempre false.
       converted: kind === "visita" ? false : Boolean(visitor?.converted),
       // "promoteToMember" solo aplica a visitas (ya bautizadas).
@@ -5276,7 +5965,14 @@ function syncDerivedMetricFields() {
 
 function renderAttendanceSummary() {
   const summary = computeWeeklySummary();
-  attendanceProgressChip.textContent = `${summary.totalMembers - summary.pending}/${summary.totalMembers} marcados`;
+  const activeStageField = STAGE_STATUS_FIELDS[currentStage] || null;
+  const markedMembers = activeStageField
+    ? currentMemberAttendance.filter((entry) => {
+        const stageStatus = String(entry?.[activeStageField] || "pending").toLowerCase();
+        return stageStatus !== "pending";
+      }).length
+    : (summary.totalMembers - summary.pending);
+  attendanceProgressChip.textContent = `${markedMembers}/${summary.totalMembers} marcados`;
   attendanceSummaryCards.innerHTML = [
     [t('dash.planning'), summary.planningMembersPresent, "planificacion"],
     [t('dash.reach'),    summary.reachTotal,              "alcance"],
@@ -5557,7 +6253,7 @@ function renderVisitorTable() {
   const eventInfo = getRcmWeekInfo(weekField.value);
   const isEventWeek = eventInfo?.isEventWeek && eventInfo?.event;
   const eventName = isEventWeek ? eventInfo.event : null;
-  const totalCols = isEventWeek ? 11 : 10;
+  const totalCols = isEventWeek ? 12 : 11;
 
   if (!currentVisitors.length) {
     visitorTableBody.innerHTML = `<tr><td colspan="${totalCols}" class="empty-state">Todavía no hay visitas registradas para esta semana.</td></tr>`;
@@ -5577,11 +6273,25 @@ function renderVisitorTable() {
     const promoteAction = kind === "visita"
       ? `<label class="visitor-promote-toggle" title=t('vis.promoteHint')><input data-visitor-index="${index}" data-visitor-field="promoteToMember" type="checkbox"${visitor.promoteToMember ? " checked" : ""}> <span>Promover a miembro</span></label>`
       : "";
+    const processEntry = normalizeVisitorProcessEntry(visitor.processEntry, kind, {
+      lateRegistration: visitor.lateRegistration,
+    });
+    const history = findVisitorHistoryByName(visitor.name);
+    const historicalProcessEntry = normalizeVisitorProcessEntry(history?.processEntry, kind, {
+      lateRegistration: history?.lateRegistration,
+    });
+    const effectiveProcessEntry = historicalProcessEntry !== "none" ? historicalProcessEntry : processEntry;
+    const availability = getCurrentProcessOptionAvailability();
+    const processStatusMeta = history?.processRegisteredWeek
+      ? `Registrado sem. ${history.processRegisteredWeek}${history?.processRegisteredDate ? ` · ${history.processRegisteredDate}` : ""}`
+      : "";
     // Resumen para móvil (cabecera colapsable)
     const flags = [];
     if (visitor.reachAttended) flags.push({ key: "reach", label: "Alc" });
     if (visitor.sundayAttended) flags.push({ key: "sunday", label: "Cul" });
     if (visitor.firstVisit) flags.push({ key: "first", label: "1ª" });
+    if (effectiveProcessEntry === "noted") flags.push({ key: "proc", label: "Proc" });
+    if (effectiveProcessEntry === "late") flags.push({ key: "late", label: "Tard" });
     if (visitor.converted) flags.push({ key: "conv", label: "Conv" });
     if (visitor.contacted) flags.push({ key: "cont", label: "Cont" });
     const flagsHtml = flags.length
@@ -5620,6 +6330,11 @@ function renderVisitorTable() {
       <td data-label="${escapeHtml(t('dash.reach'))}" class="checkbox-cell col-alcance"><input data-visitor-index="${index}" data-visitor-field="reachAttended" type="checkbox"${visitor.reachAttended ? " checked" : ""}></td>
       <td data-label="${escapeHtml(t('dash.sunday'))}" class="checkbox-cell col-culto"><input data-visitor-index="${index}" data-visitor-field="sundayAttended" type="checkbox"${visitor.sundayAttended ? " checked" : ""}></td>
       <td data-label="Primera vez" class="checkbox-cell"><input data-visitor-index="${index}" data-visitor-field="firstVisit" type="checkbox"${visitor.firstVisit ? " checked" : ""}></td>
+      <td data-label="Proceso">${kind === "amigo"
+        ? historicalProcessEntry !== "none"
+          ? `<span class="member-admin-caption" title="${escapeHtml(processStatusMeta || getVisitorProcessStatusLabel(historicalProcessEntry))}">${escapeHtml(getVisitorProcessStatusLabel(historicalProcessEntry))}</span>`
+          : `<select data-visitor-index="${index}" data-visitor-field="processEntry">${renderVisitorProcessOptions(processEntry, availability)}</select>`
+        : `<span class="member-admin-caption">Restauración</span>`}</td>
       ${convertedCell}
       ${isEventWeek ? `<td data-label="${escapeHtml(eventName)}" class="checkbox-cell event-col"><input data-visitor-index="${index}" data-visitor-field="eventAttended" type="checkbox"${visitor.eventAttended ? " checked" : ""}></td>` : ""}
       <td data-label="Contactado" class="checkbox-cell col-contactado"><input data-visitor-index="${index}" data-visitor-field="contacted" type="checkbox"${visitor.contacted ? " checked" : ""}></td>
@@ -5648,11 +6363,11 @@ function renderKidsTable() {
     const isCatalogKid = kid.source === "catalog";
     return `
       <tr>
-        <td data-label=t('role.kidShort')><input data-kid-index="${index}" data-kid-field="name" type="text" value="${escapeHtml(kid.name)}" placeholder="Nombre"${isCatalogKid ? " disabled" : ""}></td>
+        <td data-label="${escapeHtml(t('role.kidShort'))}"><input data-kid-index="${index}" data-kid-field="name" type="text" value="${escapeHtml(kid.name)}" placeholder="Nombre"${isCatalogKid ? " disabled" : ""}></td>
         <td data-label="Responsable"><input data-kid-index="${index}" data-kid-field="guardianName" type="text" value="${escapeHtml(kid.guardianName)}" placeholder="Responsable"></td>
         <td data-label="Origen">${escapeHtml(isCatalogKid ? "Célula" : t('vis.visit'))}</td>
-        <td data-label=t('dash.reach') class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="reachAttended" type="checkbox"${kid.reachAttended ? " checked" : ""}></td>
-        <td data-label=t('dash.sunday') class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="sundayAttended" type="checkbox"${kid.sundayAttended ? " checked" : ""}></td>
+        <td data-label="${escapeHtml(t('dash.reach'))}" class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="reachAttended" type="checkbox"${kid.reachAttended ? " checked" : ""}></td>
+        <td data-label="${escapeHtml(t('dash.sunday'))}" class="checkbox-cell"><input data-kid-index="${index}" data-kid-field="sundayAttended" type="checkbox"${kid.sundayAttended ? " checked" : ""}></td>
         <td data-label="Observación"><input data-kid-index="${index}" data-kid-field="note" type="text" value="${escapeHtml(kid.note)}" placeholder="Observación"></td>
         <td data-label="Acciones">${isCatalogKid ? '<span class="member-admin-caption">Precargado</span>' : `<button type="button" class="danger" data-action="remove-kid" data-kid-index="${index}">Quitar</button>`}</td>
       </tr>
@@ -5724,6 +6439,7 @@ function resetVisitorQuickForm() {
   if (visitorQuickHistory instanceof HTMLSelectElement) {
     visitorQuickHistory.value = "";
   }
+  updateVisitorHistoryHideButton();
   if (visitorQuickName instanceof HTMLInputElement) {
     visitorQuickName.value = "";
   }
@@ -5741,6 +6457,9 @@ function resetVisitorQuickForm() {
   }
   if (visitorQuickFirstVisit instanceof HTMLInputElement) {
     visitorQuickFirstVisit.checked = false;
+  }
+  if (visitorQuickProcessEntry instanceof HTMLSelectElement) {
+    visitorQuickProcessEntry.value = "none";
   }
   if (visitorQuickConverted instanceof HTMLInputElement) {
     visitorQuickConverted.checked = false;
@@ -5765,10 +6484,8 @@ function syncVisitorQuickKindUI() {
   if (kind === "visita" && visitorQuickConverted instanceof HTMLInputElement) {
     visitorQuickConverted.checked = false;
   }
-  if ((kind !== "amigo" || !isLateRegistrationAvailable()) && visitorQuickLate instanceof HTMLInputElement) {
-    visitorQuickLate.checked = false;
-  }
   syncQuickLateRegistrationState(String(visitorQuickName?.value || "").trim());
+  updateVisitorQuickProcessSummary();
 }
 
 function toggleHelperButtons() {
@@ -5827,6 +6544,7 @@ function updateMemberActivities(mutator) {
   if (!currentMemberAttendance.length) {
     return;
   }
+  markReportDirty("members");
   currentMemberAttendance.forEach((entry) => {
     mutator(entry);
     syncMemberWeeklyStatus(entry);
@@ -5838,6 +6556,7 @@ function updateVisitors(mutator) {
   if (!currentVisitors.length) {
     return;
   }
+  markReportDirty("visitors");
   currentVisitors.forEach(mutator);
   renderVisitorTable();
 }
@@ -5846,6 +6565,7 @@ function updateKids(mutator) {
   if (!currentKids.length) {
     return;
   }
+  markReportDirty("kids");
   currentKids.forEach(mutator);
   renderKidsTable();
 }
@@ -6073,7 +6793,7 @@ function renderReports(reports) {
         const reps = groups[cell][year][quarter];
         const byWeek = {};
         reps.forEach(r => { byWeek[String(r.week)] = r; });
-        const totalDone = Object.values(byWeek).filter(r => !isReportEffectivelyDraft(r)).length;
+        const totalDone = Object.values(byWeek).filter(r => !isReportVisuallyDraft(r)).length;
 
         const totalWeeks = getRcmTotalWeeks();
         const chips = Array.from({ length: totalWeeks }, (_, i) => {
@@ -6084,7 +6804,7 @@ function renderReports(reports) {
           const verb = info?.verb || (Number(w) === totalWeeks ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            const isDraft = isReportEffectivelyDraft(rep);
+            const isDraft = isReportVisuallyDraft(rep);
             const stateClass = isDraft ? "is-draft" : "is-done";
             const stateTitle = isDraft ? "borrador en progreso" : escapeHtml(formatShortDate(rep.reportDate));
             // Siempre abrir modal preview; el botón "Editar" dentro del modal
@@ -6143,6 +6863,7 @@ let seguimientoWeekOffset = -1;
 let friendTrackingRenderToken = 0;
 let friendTrackingCellFilterValue = "";
 let friendTrackingScopeContext = null;
+let friendTrackingControlEntriesIndex = new Map();
 
 function getFriendTrackingCellFilterLabel(value) {
   const normalized = String(value || "").trim();
@@ -6181,7 +6902,7 @@ function filterVisibleReports(list) {
 
 function getFriendTrackingQueryParams() {
   const params = new URLSearchParams();
-  const activeScope = activeDashboardScope || (currentUser?.assignedCellNumber ? "cell" : currentUser?.supervisedSector ? "sector" : "all");
+  const activeScope = getEffectiveDashboardScope();
   params.set("scope", seguimientoScope === "all" ? "all" : "current");
   if (seguimientoScope !== "all") {
     const now = new Date();
@@ -6205,7 +6926,7 @@ function getFriendTrackingQueryParams() {
 
 function syncFriendTrackingCellFilter() {
   if (!(friendTrackingCellFilter instanceof HTMLSelectElement)) return;
-  const activeScope = activeDashboardScope || (currentUser?.assignedCellNumber ? "cell" : currentUser?.supervisedSector ? "sector" : "all");
+  const activeScope = getEffectiveDashboardScope();
   const allowedCellNumbers = Array.from(getUserScopedCellNumbers(activeScope)).sort((left, right) => Number(left) - Number(right));
   const shouldShow = activeScope !== "cell" && allowedCellNumbers.length > 1;
   if (!shouldShow) {
@@ -6292,16 +7013,414 @@ function getFriendTrackingStatusLabel(friend) {
   return "En proceso";
 }
 
+function getFriendTrackingBackendOutcomeLabel(outcome, status = "") {
+  const normalizedOutcome = String(outcome || "").trim().toLowerCase();
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+  const labelMap = {
+    in_process: "Sigue en proceso",
+    converted_in_process: "Decidió dentro del proceso",
+    converted: "Completó y decidió",
+    completed_no_decision: "Completó sin decisión registrada",
+    completed: "Ciclo completado",
+    won_friend: "Amigo ganado",
+    reactivated_won: "Reactivado en seguimiento",
+    member: "Ya figura como miembro",
+  };
+  if (normalizedOutcome && labelMap[normalizedOutcome]) return labelMap[normalizedOutcome];
+  if (normalizedStatus && labelMap[normalizedStatus]) return labelMap[normalizedStatus];
+  if (normalizedOutcome) return normalizedOutcome.replace(/_/g, " ");
+  if (normalizedStatus) return normalizedStatus.replace(/_/g, " ");
+  return "Sin lectura backend";
+}
+
+function getFriendTrackingScopedReports(scope = friendTrackingScopeContext || {}) {
+  const activeScope = getEffectiveDashboardScope();
+  return filterItemsByUserScope(
+    filterVisibleReports(Array.isArray(reportsData) ? reportsData : []),
+    report => report.cellNumber || report.formData?.cellNumber,
+    activeScope
+  ).filter((report) => {
+    const reportCell = String(report.cellNumber || report.formData?.cellNumber || "").trim();
+    if (activeScope !== "cell" && friendTrackingCellFilterValue && reportCell !== String(friendTrackingCellFilterValue)) {
+      return false;
+    }
+    const scopeYear = String(scope?.year || "").trim();
+    const scopeQuarter = String(scope?.quarter || "").trim();
+    if (scopeYear && String(getReportYear(report)) !== scopeYear) return false;
+    if (scopeQuarter && String(getReportQuarter(report)) !== scopeQuarter) return false;
+    return true;
+  });
+}
+
+function buildRestorationTrackingEntries(scope = friendTrackingScopeContext || {}) {
+  const scopedReports = getFriendTrackingScopedReports(scope);
+
+  const restorationMap = new Map();
+  scopedReports.forEach((report) => {
+    const cellNumber = String(report.cellNumber || report.formData?.cellNumber || "").trim();
+    const sector = String(report.sector || report.formData?.sector || "").trim();
+    const reportDate = String(report.reportDate || report.formData?.reportDate || "").trim();
+    normalizeVisitors(report.formData?.visitors).forEach((visitor) => {
+      if (normalizeVisitorKind(visitor.kind) !== "visita") return;
+      const normalizedName = normalizeVisitorName(visitor.name);
+      if (!normalizedName) return;
+      const key = `${cellNumber}::${normalizedName}`;
+      const previous = restorationMap.get(key) || {
+        key,
+        name: String(visitor.name || "").trim(),
+        cellNumber,
+        sector,
+        invitedBy: "",
+        totalVisits: 0,
+        reachCount: 0,
+        sundayCount: 0,
+        eventCount: 0,
+        lastReportDate: "",
+        firstReportDate: "",
+      };
+      previous.name = previous.name || String(visitor.name || "").trim();
+      previous.cellNumber = previous.cellNumber || cellNumber;
+      previous.sector = previous.sector || sector;
+      previous.invitedBy = String(visitor.invitedBy || previous.invitedBy || "").trim();
+      previous.totalVisits += 1;
+      if (visitor.reachAttended) previous.reachCount += 1;
+      if (visitor.sundayAttended) previous.sundayCount += 1;
+      if (visitor.eventAttended) previous.eventCount += 1;
+      if (!previous.firstReportDate || (reportDate && reportDate < previous.firstReportDate)) previous.firstReportDate = reportDate;
+      if (!previous.lastReportDate || (reportDate && reportDate >= previous.lastReportDate)) previous.lastReportDate = reportDate;
+      restorationMap.set(key, previous);
+    });
+  });
+
+  return [...restorationMap.values()].sort((left, right) => {
+    const weightDiff = (right.totalVisits || 0) - (left.totalVisits || 0);
+    if (weightDiff !== 0) return weightDiff;
+    return String(right.lastReportDate || "").localeCompare(String(left.lastReportDate || ""));
+  });
+}
+
+function buildProcessControlEntries(scope = friendTrackingScopeContext || {}, friends = []) {
+  const scopedReports = getFriendTrackingScopedReports(scope);
+  const friendsByName = new Map(
+    (Array.isArray(friends) ? friends : []).map((friend) => [normalizeVisitorName(friend.name), friend])
+  );
+  const processMap = new Map();
+
+  scopedReports.forEach((report) => {
+    const cellNumber = String(report.cellNumber || report.formData?.cellNumber || "").trim();
+    const sector = String(report.sector || report.formData?.sector || "").trim();
+    const reportDate = String(report.reportDate || report.formData?.reportDate || "").trim();
+    const weekNumber = parseInt(String(report.week || report.formData?.week || "0"), 10) || 0;
+    const weekMeta = getRcmWeekInfo(weekNumber);
+
+    normalizeVisitors(report.formData?.visitors).forEach((visitor) => {
+      if (normalizeVisitorKind(visitor.kind) !== "amigo") return;
+      const normalizedName = normalizeVisitorName(visitor.name);
+      if (!normalizedName) return;
+      const key = `${cellNumber}::${normalizedName}`;
+      const previous = processMap.get(key) || {
+        key,
+        name: String(visitor.name || "").trim(),
+        cellNumber,
+        sector,
+        invitedBy: "",
+        noted: false,
+        lateEntry: false,
+        notedWeek: 0,
+        notedDate: "",
+        levantate: false,
+        levantateWeek: 0,
+        levantateDate: "",
+        restauracion: false,
+        restauracionWeek: 0,
+        restauracionDate: "",
+        currentWeek: 0,
+        firstReportDate: "",
+        lastReportDate: "",
+        totalReports: 0,
+        reachCount: 0,
+        sundayCount: 0,
+      };
+
+      const processEntry = normalizeVisitorProcessEntry(visitor.processEntry, visitor.kind, {
+        lateRegistration: Boolean(visitor.lateRegistration),
+      });
+      previous.name = previous.name || String(visitor.name || "").trim();
+      previous.cellNumber = previous.cellNumber || cellNumber;
+      previous.sector = previous.sector || sector;
+      previous.invitedBy = String(visitor.invitedBy || previous.invitedBy || "").trim();
+      previous.noted = previous.noted || processEntry === "noted" || processEntry === "late";
+      previous.lateEntry = previous.lateEntry || processEntry === "late";
+      if ((processEntry === "noted" || processEntry === "late") && (!previous.notedWeek || (weekNumber && weekNumber < previous.notedWeek))) {
+        previous.notedWeek = weekNumber;
+        previous.notedDate = reportDate;
+      }
+      previous.currentWeek = Math.max(previous.currentWeek || 0, weekNumber || 0);
+      previous.totalReports += 1;
+      if (visitor.reachAttended) previous.reachCount += 1;
+      if (visitor.sundayAttended) previous.sundayCount += 1;
+      if (weekMeta?.rcmKey === "levantate" && visitor.eventAttended) {
+        previous.levantate = true;
+        if (!previous.levantateWeek || (weekNumber && weekNumber < previous.levantateWeek)) {
+          previous.levantateWeek = weekNumber;
+          previous.levantateDate = reportDate;
+        }
+      }
+      if (weekMeta?.rcmKey === "restauracion" && visitor.eventAttended) {
+        previous.restauracion = true;
+        if (!previous.restauracionWeek || (weekNumber && weekNumber < previous.restauracionWeek)) {
+          previous.restauracionWeek = weekNumber;
+          previous.restauracionDate = reportDate;
+        }
+      }
+      if (!previous.firstReportDate || (reportDate && reportDate < previous.firstReportDate)) previous.firstReportDate = reportDate;
+      if (!previous.lastReportDate || (reportDate && reportDate >= previous.lastReportDate)) previous.lastReportDate = reportDate;
+      processMap.set(key, previous);
+    });
+  });
+
+  return [...processMap.values()]
+    .map((entry) => {
+      const backendFriend = friendsByName.get(normalizeVisitorName(entry.name));
+      const cycleClosed = Boolean(backendFriend?.completed) || (entry.currentWeek || 0) >= 16;
+      const outsideCohort = !entry.noted && (entry.levantate || entry.restauracion || cycleClosed);
+      const complete = entry.noted && entry.levantate && entry.restauracion && cycleClosed;
+      const pendingSteps = [];
+      if (!entry.noted) pendingSteps.push("Anotar");
+      if (!entry.levantate) pendingSteps.push("Levántate");
+      if (!entry.restauracion) pendingSteps.push("Restauración");
+      if (!cycleClosed) pendingSteps.push("Cierre semana 16");
+      let statusKey = "pending";
+      let statusLabel = "Pendiente";
+      let statusDetail = pendingSteps.length ? `Pendiente: ${pendingSteps.join(", ")}` : "Sin pendientes detectados.";
+      if (complete) {
+        statusKey = "complete";
+        statusLabel = "Trayecto completo";
+        statusDetail = "Cohorte anotada y hitos principales cubiertos dentro del ciclo.";
+      } else if (outsideCohort) {
+        statusKey = "outside";
+        statusLabel = "Fuera de cohorte";
+        statusDetail = "Aparece en hitos del proceso, pero no viene de la cohorte anotada.";
+      } else if (entry.noted && (entry.levantate || entry.restauracion || cycleClosed)) {
+        statusKey = "progress";
+        statusLabel = cycleClosed ? "Cierre parcial" : "En seguimiento";
+        statusDetail = cycleClosed
+          ? `Cerró ciclo, pero le faltó: ${pendingSteps.filter((step) => step !== "Cierre semana 16").join(", ") || "revisión manual"}`
+          : `Avance detectado; falta: ${pendingSteps.join(", ")}`;
+      }
+      return {
+        ...entry,
+        processCount: Number(backendFriend?.processCount || 0),
+        backendOutcome: String(backendFriend?.outcome || ""),
+        backendStatus: String(backendFriend?.status || ""),
+        cycleClosed,
+        outsideCohort,
+        complete,
+        pendingSteps,
+        statusKey,
+        statusLabel,
+        statusDetail,
+      };
+    })
+    .filter((entry) => entry.noted || entry.levantate || entry.restauracion || entry.cycleClosed)
+    .sort((left, right) => {
+      const weightMap = { complete: 4, progress: 3, outside: 2, pending: 1 };
+      const weightDiff = (weightMap[right.statusKey] || 0) - (weightMap[left.statusKey] || 0);
+      if (weightDiff !== 0) return weightDiff;
+      return String(right.lastReportDate || "").localeCompare(String(left.lastReportDate || ""));
+    });
+}
+
+function wireFriendTrackingDetailClick(container) {
+  container?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-action='friend-process-detail']");
+    if (!button) return;
+    const visitorKey = String(button.dataset.friendKey || "").trim();
+    const visitorName = String(button.dataset.friendName || "").trim();
+    const cellNumber = String(button.dataset.friendCell || "").trim();
+    if (!visitorKey || !visitorName) return;
+
+    if (container === friendTrackingControlList) {
+      const controlEntry = friendTrackingControlEntriesIndex.get(`${cellNumber}::${visitorKey}`)
+        || friendTrackingControlEntriesIndex.get(visitorKey);
+      if (!controlEntry) return;
+      openFriendTrackingControlDetail(controlEntry);
+      return;
+    }
+
+    const scopeReports = filterVisibleReports(Array.isArray(reportsData) ? reportsData : []).filter((report) => {
+      const reportCell = String(report.cellNumber || report.formData?.cellNumber || "").trim();
+      if (cellNumber && reportCell !== cellNumber) return false;
+      const scopeYear = String(friendTrackingScopeContext?.year || "").trim();
+      const scopeQuarter = String(friendTrackingScopeContext?.quarter || "").trim();
+      if (scopeYear && String(getReportYear(report)) !== scopeYear) return false;
+      if (scopeQuarter && String(getReportQuarter(report)) !== scopeQuarter) return false;
+      return true;
+    });
+
+    const periodLabel = friendTrackingScopeContext?.year && friendTrackingScopeContext?.quarter
+      ? `Célula ${cellNumber || "—"} · Q${friendTrackingScopeContext.quarter} ${friendTrackingScopeContext.year}`
+      : `Célula ${cellNumber || "—"} · Histórico`;
+    openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel);
+  });
+}
+
+function openFriendTrackingControlDetail(entry) {
+  if (!previewVisitorsDialog || !previewVisitorsDialogBody) return;
+  previewVisitorsDialog.dataset.mode = "friend-control";
+
+  const cycleText = entry.processCount > 1
+    ? `${entry.processCount} ciclos en histórico`
+    : `${entry.processCount || 0} ciclo${entry.processCount === 1 ? " en histórico" : "s"}`;
+  const missingText = entry.pendingSteps?.length ? entry.pendingSteps.join(", ") : "Ninguno";
+  const outcomeText = entry.backendOutcome || entry.backendStatus
+    ? getFriendTrackingBackendOutcomeLabel(entry.backendOutcome, entry.backendStatus)
+    : entry.cycleClosed
+      ? "Ciclo cerrado con datos actuales"
+      : "Ciclo todavía abierto";
+  const routeItems = [
+    entry.notedWeek ? `Anotó sem. ${entry.notedWeek}` : "Sin semana de anotar",
+    entry.levantateWeek ? `Levántate sem. ${entry.levantateWeek}` : "Sin Levántate",
+    entry.restauracionWeek ? `Restauración sem. ${entry.restauracionWeek}` : "Sin Restauración",
+    entry.cycleClosed ? `Cierre en sem. ${entry.currentWeek || 16}` : `Avance máx. sem. ${entry.currentWeek || 0}`,
+  ];
+  const milestoneTimeline = [
+    {
+      label: entry.lateEntry ? "Anotado tardío" : "Anotado",
+      done: entry.noted,
+      when: entry.noted
+        ? `Sem. ${entry.notedWeek || "?"}${entry.notedDate ? ` · ${formatTrackingDateLabel(entry.notedDate)}` : ""}`
+        : "Pendiente",
+    },
+    {
+      label: "Levántate",
+      done: entry.levantate,
+      when: entry.levantate
+        ? `Sem. ${entry.levantateWeek || "?"}${entry.levantateDate ? ` · ${formatTrackingDateLabel(entry.levantateDate)}` : ""}`
+        : "Pendiente",
+    },
+    {
+      label: "Restauración",
+      done: entry.restauracion,
+      when: entry.restauracion
+        ? `Sem. ${entry.restauracionWeek || "?"}${entry.restauracionDate ? ` · ${formatTrackingDateLabel(entry.restauracionDate)}` : ""}`
+        : "Pendiente",
+    },
+    {
+      label: "Cierre semana 16",
+      done: entry.cycleClosed,
+      when: entry.cycleClosed
+        ? `Sem. ${entry.currentWeek || 16}${entry.lastReportDate ? ` · ${formatTrackingDateLabel(entry.lastReportDate)}` : ""}`
+        : "Pendiente",
+    },
+  ];
+  const periodLabel = friendTrackingScopeContext?.year && friendTrackingScopeContext?.quarter
+    ? `Q${friendTrackingScopeContext.quarter} ${friendTrackingScopeContext.year} · Célula ${entry.cellNumber || "—"}`
+    : `Histórico · Célula ${entry.cellNumber || "—"}`;
+
+  if (previewVisitorsDialogTitle) {
+    previewVisitorsDialogTitle.textContent = `${entry.name} · Control del proceso`;
+  }
+
+  previewVisitorsDialogBody.innerHTML = `
+    <div class="friend-control-modal">
+      <section class="friend-control-modal-hero">
+        <div class="friend-control-modal-headline">
+          <p class="friend-control-modal-period">${escapeHtml(periodLabel)}</p>
+          <div class="friend-control-modal-headrow">
+            <strong class="friend-control-modal-name">${escapeHtml(entry.name)}</strong>
+            <span class="friend-process-status friend-process-status-control ${escapeHtml(entry.statusKey === "complete"
+              ? "is-complete"
+              : entry.statusKey === "outside"
+                ? "is-outside"
+                : entry.statusKey === "progress"
+                  ? "is-progress"
+                  : "is-pending")}">${escapeHtml(entry.statusLabel)}</span>
+          </div>
+          <p class="friend-control-modal-summary">Le falta: ${escapeHtml(missingText)}</p>
+        </div>
+        <div class="friend-control-modal-tags">
+          ${(entry.processCount > 1 ? `<span class="friend-control-cycle-badge is-repeat">${escapeHtml(cycleText)}</span>` : `<span class="friend-control-cycle-badge">${escapeHtml(cycleText)}</span>`)}
+          <span class="friend-control-modal-tag">Invitó: ${escapeHtml(entry.invitedBy || "—")}</span>
+          <span class="friend-control-modal-tag">${escapeHtml(formatTrackingRangeLabel(entry.firstReportDate, entry.lastReportDate))}</span>
+        </div>
+      </section>
+
+      <section class="friend-control-modal-section">
+        <div class="friend-control-milestones">
+          ${[
+            { label: entry.noted ? (entry.lateEntry ? "Anotado tardío" : "Anotado") : "No anotado", accent: entry.noted ? "is-done" : "is-off" },
+            { label: "Levántate", accent: entry.levantate ? "is-done" : "is-off" },
+            { label: "Restauración", accent: entry.restauracion ? "is-done" : "is-off" },
+            { label: "Cierre sem. 16", accent: entry.cycleClosed ? "is-done" : "is-off" },
+          ].map((milestone) => `<span class="friend-control-milestone ${milestone.accent}">${escapeHtml(milestone.label)}</span>`).join("")}
+        </div>
+      </section>
+
+      <section class="friend-control-modal-grid">
+        <div class="friend-control-detail-card">
+          <span class="friend-control-detail-label">Lectura</span>
+          <strong class="friend-control-detail-value">${escapeHtml(entry.statusDetail || "—")}</strong>
+        </div>
+        <div class="friend-control-detail-card">
+          <span class="friend-control-detail-label">Salida backend</span>
+          <strong class="friend-control-detail-value">${escapeHtml(outcomeText)}</strong>
+        </div>
+        <div class="friend-control-detail-card friend-control-detail-card-wide">
+          <span class="friend-control-detail-label">Fechas clave</span>
+          <div class="friend-control-timeline">
+            ${milestoneTimeline.map((milestone) => `
+              <div class="friend-control-timeline-row ${milestone.done ? "is-done" : "is-off"}">
+                <span class="friend-control-timeline-step">${escapeHtml(milestone.label)}</span>
+                <span class="friend-control-timeline-when">${escapeHtml(milestone.when)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </section>
+
+      <section class="friend-control-modal-section">
+        <span class="friend-control-detail-label">Ruta</span>
+        <div class="friend-control-route">${escapeHtml(routeItems.join(" · "))}</div>
+      </section>
+
+      <section class="friend-control-modal-metrics">
+        <article class="friend-control-modal-metric">
+          <span class="friend-control-detail-label">Alcance</span>
+          <strong>${escapeHtml(String(entry.reachCount || 0))}</strong>
+        </article>
+        <article class="friend-control-modal-metric">
+          <span class="friend-control-detail-label">Culto</span>
+          <strong>${escapeHtml(String(entry.sundayCount || 0))}</strong>
+        </article>
+        <article class="friend-control-modal-metric">
+          <span class="friend-control-detail-label">Semana máx</span>
+          <strong>${escapeHtml(String(entry.currentWeek || 0))}</strong>
+        </article>
+        <article class="friend-control-modal-metric">
+          <span class="friend-control-detail-label">Histórico</span>
+          <strong>${escapeHtml(cycleText)}</strong>
+        </article>
+      </section>
+    </div>
+  `;
+
+  previewVisitorsDialog.showModal();
+}
+
 function renderFriendTrackingPanel(payload) {
-  if (!friendTrackingSummaryGrid || !friendTrackingFriendsList || !friendTrackingGoals || !friendTrackingQuickChips) return;
+  if (!friendTrackingSummaryGrid || !friendTrackingFriendsList || !friendTrackingGoals || !friendTrackingQuickChips || !friendTrackingRestorationChips || !friendTrackingRestorationList || !friendTrackingControlChips || !friendTrackingControlList) return;
 
   const summary = payload?.summary || {};
   const quickSignals = payload?.quickSignals || {};
   const goals = payload?.goals || {};
   const friends = Array.isArray(payload?.friends) ? payload.friends : [];
+  const restorationVisitors = buildRestorationTrackingEntries(payload?.scope || {});
+  const processControlEntries = buildProcessControlEntries(payload?.scope || {}, friends);
+  friendTrackingControlEntriesIndex = new Map(processControlEntries.map((entry) => [`${String(entry.cellNumber || "").trim()}::${normalizeVisitorName(entry.name)}`, entry]));
   const scope = payload?.scope || {};
   friendTrackingScopeContext = scope;
-  const activeScope = activeDashboardScope || (currentUser?.assignedCellNumber ? "cell" : currentUser?.supervisedSector ? "sector" : "all");
+  const activeScope = getEffectiveDashboardScope();
   const sortedFriends = [...friends].sort((left, right) => {
     const leftWeight = (right?.weeksSeen || 0) - (left?.weeksSeen || 0);
     if (leftWeight !== 0) return leftWeight;
@@ -6374,35 +7493,66 @@ function renderFriendTrackingPanel(payload) {
     </span>
   `).join("");
 
-  friendTrackingGoals.innerHTML = [
-    ["Levántate", goals.levantateGoal || 0],
-    ["Santificar", goals.restauracionGoal || 0],
-    ["Bautismos", goals.bautismosGoal || 0],
+  friendTrackingRestorationChips.innerHTML = [
+    ["En restauración", restorationVisitors.length],
+    ["Con alcance", restorationVisitors.filter((visitor) => (visitor.reachCount || 0) > 0).length],
+    ["Con culto", restorationVisitors.filter((visitor) => (visitor.sundayCount || 0) > 0).length],
+    ["Recurrentes", restorationVisitors.filter((visitor) => (visitor.totalVisits || 0) > 1).length],
   ].map(([label, value]) => `
+    <span class="count-chip friend-tracking-count-chip friend-tracking-count-chip-restoration">
+      <span class="friend-tracking-count-label">${escapeHtml(String(label))}</span>
+      <strong class="friend-tracking-count-value">${escapeHtml(String(value))}</strong>
+    </span>
+  `).join("");
+
+  friendTrackingControlChips.innerHTML = [
+    ["Anotados", processControlEntries.filter((entry) => entry.noted).length],
+    ["Trayecto completo", processControlEntries.filter((entry) => entry.complete).length],
+    ["Pendientes", processControlEntries.filter((entry) => entry.noted && !entry.complete).length],
+    ["Más de un ciclo", processControlEntries.filter((entry) => (entry.processCount || 0) > 1).length],
+    ["Fuera de cohorte", processControlEntries.filter((entry) => entry.outsideCohort).length],
+  ].map(([label, value]) => `
+    <span class="count-chip friend-tracking-count-chip friend-tracking-count-chip-control">
+      <span class="friend-tracking-count-label">${escapeHtml(String(label))}</span>
+      <strong class="friend-tracking-count-value">${escapeHtml(String(value))}</strong>
+    </span>
+  `).join("");
+
+  const goalProgress = payload.goalProgress || {};
+  friendTrackingGoals.innerHTML = [
+    ["Levántate", goals.levantateGoal || 0, goalProgress.levantate || 0],
+    ["Restauración", goals.restauracionGoal || 0, goalProgress.restauracion || 0],
+    ["Bautismos", goals.bautismosGoal || 0, goalProgress.bautismos || 0],
+  ].map(([label, goal, current]) => {
+    const target = Number(goal) || 0;
+    const achieved = Number(current) || 0;
+    const percent = target > 0 ? Math.min(100, Math.round((achieved / target) * 100)) : (achieved > 0 ? 100 : 0);
+    const remaining = Math.max(target - achieved, 0);
+    const foot = remaining > 0 ? `Faltan ${remaining}` : "Meta alcanzada";
+    return `
     <div class="friend-tracking-goal-row friend-tracking-goal-progress-row">
       <div class="friend-tracking-goal-topline">
         <span class="friend-tracking-goal-label">${escapeHtml(label)}</span>
-        <strong class="friend-tracking-goal-value">0/${escapeHtml(String(value))}</strong>
+        <strong class="friend-tracking-goal-value">${escapeHtml(String(achieved))}/${escapeHtml(String(target))}</strong>
       </div>
       <div class="friend-tracking-goal-bar" aria-hidden="true">
-        <div class="friend-tracking-goal-fill" style="width:0%"></div>
+        <div class="friend-tracking-goal-fill" style="width:${percent}%"></div>
       </div>
-      <span class="friend-tracking-goal-foot">Faltan ${escapeHtml(String(value))}</span>
+      <span class="friend-tracking-goal-foot">${escapeHtml(foot)}</span>
     </div>
-  `).join("");
-
-  if (!sortedFriends.length) {
-    friendTrackingFriendsList.innerHTML = '<div class="empty-state" style="padding:16px 0">Sin amigos en seguimiento para este alcance.</div>';
-    return;
-  }
+  `;
+  }).join("");
 
   const renderFriendProcessCard = (friend, options = {}) => {
     const statusLabel = getFriendTrackingStatusLabel(friend);
     const statusCls = friend.completed ? "is-complete" : friend.converted ? "is-converted" : "is-progress";
     const showCellBadge = Boolean(options.showCellBadge) && !!String(friend.cellNumber || "").trim();
     const participationCount = friend.weeksSeen || 0;
+    const totalVisitCount = Math.max(Number(friend.totalReports || 0), participationCount);
     const processLabel = `${participationCount} ${participationCount === 1 ? "visita registrada" : "visitas registradas"}`;
+    const totalVisitLabel = `${totalVisitCount} ${totalVisitCount === 1 ? "visita total" : "visitas totales"}`;
     const visitIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4v6l4 2"/><circle cx="10" cy="10" r="7"/></svg></span>';
+    const totalVisitIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h12"/><path d="M4 10h12"/><path d="M4 13.5h8"/></svg></span>';
     const reachIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2"/><path d="M15.5 4.5l-2.5 2.5"/></svg></span>';
     const sundayIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4l6 5.5"/><path d="M6 8.5V16h8V8.5"/><path d="M9 16v-3h2v3"/></svg></span>';
     const inviteIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><path d="M2.5 16a5 5 0 0 1 9 0"/><path d="M13 7h4M15 5v4"/></svg></span>';
@@ -6415,6 +7565,7 @@ function renderFriendTrackingPanel(payload) {
           <span class="friend-process-status ${statusCls}">${escapeHtml(statusLabel)}</span>
         </div>
         <div class="friend-process-times">${visitIcon}${escapeHtml(processLabel)}</div>
+        ${totalVisitCount > participationCount ? `<div class="friend-process-sub friend-process-total-visits">${totalVisitIcon}Histórico total: ${escapeHtml(totalVisitLabel)}</div>` : ""}
         <div class="friend-process-meta">
           <div class="friend-process-statsbar">
             <span class="friend-process-stat">${reachIcon}Alcance: ${escapeHtml(String(friend.reachCount || 0))}</span>
@@ -6435,50 +7586,229 @@ function renderFriendTrackingPanel(payload) {
     `;
   };  
 
+  const renderRestorationCard = (visitor, options = {}) => {
+    const showCellBadge = Boolean(options.showCellBadge) && !!String(visitor.cellNumber || "").trim();
+    const visitLabel = `${visitor.totalVisits || 0} ${(visitor.totalVisits || 0) === 1 ? "visita registrada" : "visitas registradas"}`;
+    const visitIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4v6l4 2"/><circle cx="10" cy="10" r="7"/></svg></span>';
+    const reachIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2"/><path d="M15.5 4.5l-2.5 2.5"/></svg></span>';
+    const sundayIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4l6 5.5"/><path d="M6 8.5V16h8V8.5"/><path d="M9 16v-3h2v3"/></svg></span>';
+    const inviteIcon = '<span class="friend-inline-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3"/><path d="M2.5 16a5 5 0 0 1 9 0"/><path d="M13 7h4M15 5v4"/></svg></span>';
+    return `
+      <article class="friend-process-item friend-restoration-item">
+        <div class="friend-process-head">
+          <div>
+            <strong class="friend-process-name">${escapeHtml(visitor.name)}</strong>
+          </div>
+          <span class="friend-process-status friend-restoration-status">Restauración</span>
+        </div>
+        <div class="friend-process-times">${visitIcon}${escapeHtml(visitLabel)}</div>
+        <div class="friend-process-meta">
+          <div class="friend-process-statsbar">
+            <span class="friend-process-stat">${reachIcon}Alcance: ${escapeHtml(String(visitor.reachCount || 0))}</span>
+            <span class="friend-process-stat-sep" aria-hidden="true">•</span>
+            <span class="friend-process-stat">${sundayIcon}Culto: ${escapeHtml(String(visitor.sundayCount || 0))}</span>
+          </div>
+        </div>
+        <div class="friend-process-sub friend-process-date">${escapeHtml(formatTrackingRangeLabel(visitor.firstReportDate, visitor.lastReportDate))}</div>
+        <div class="friend-process-sub friend-process-footer">
+          <span class="friend-process-footer-main">${inviteIcon}Invitó: ${escapeHtml(visitor.invitedBy || "—")}</span>
+          <span class="friend-process-footer-actions">
+            <button type="button" class="friend-process-detail-btn" data-action="friend-process-detail" data-friend-name="${escapeHtml(visitor.name)}" data-friend-key="${escapeHtml(normalizeVisitorName(visitor.name))}" data-friend-cell="${escapeHtml(String(visitor.cellNumber || ""))}">Detalle</button>
+            ${showCellBadge ? `<span class="friend-process-cell-badge friend-process-footer-badge">Célula ${escapeHtml(String(visitor.cellNumber))}</span>` : ""}
+          </span>
+        </div>
+      </article>
+    `;
+  };
+
+  const renderProcessControlCard = (entry, options = {}) => {
+    const showCellBadge = Boolean(options.showCellBadge) && !!String(entry.cellNumber || "").trim();
+    const statusClass = entry.statusKey === "complete"
+      ? "is-complete"
+      : entry.statusKey === "outside"
+        ? "is-outside"
+        : entry.statusKey === "progress"
+          ? "is-progress"
+          : "is-pending";
+    const cohortLabel = entry.noted ? (entry.lateEntry ? "Anotado tardío" : "Anotado") : "No anotado";
+    const milestoneItems = [
+      { label: cohortLabel, done: entry.noted, accent: entry.noted ? "is-done" : "is-off" },
+      { label: "Levántate", done: entry.levantate, accent: entry.levantate ? "is-done" : "is-off" },
+      { label: "Restauración", done: entry.restauracion, accent: entry.restauracion ? "is-done" : "is-off" },
+      { label: "Cierre sem. 16", done: entry.cycleClosed, accent: entry.cycleClosed ? "is-done" : "is-off" },
+    ];
+    const missingText = entry.pendingSteps?.length ? entry.pendingSteps.join(", ") : "Ninguno";
+    const cycleText = entry.processCount > 1
+      ? `${entry.processCount} ciclos en histórico`
+      : `${entry.processCount || 0} ciclo${entry.processCount === 1 ? " en histórico" : "s"}`;
+    return `
+      <article class="friend-process-item friend-control-item">
+        <div class="friend-control-main">
+          <div class="friend-process-head friend-control-row-head">
+            <div class="friend-control-heading">
+              <strong class="friend-process-name">${escapeHtml(entry.name)}</strong>
+              ${entry.processCount > 1 ? `<span class="friend-control-cycle-badge is-repeat">${escapeHtml(cycleText)}</span>` : ""}
+            </div>
+            <span class="friend-process-status friend-process-status-control ${statusClass}">${escapeHtml(entry.statusLabel)}</span>
+          </div>
+          <div class="friend-control-summary">
+            <div class="friend-control-summary-main">${entry.complete ? "Trayecto cubierto" : `Le falta: ${escapeHtml(missingText)}`}</div>
+            <div class="friend-control-summary-sub">Alcance ${escapeHtml(String(entry.reachCount || 0))} · Culto ${escapeHtml(String(entry.sundayCount || 0))} · Semana máx ${escapeHtml(String(entry.currentWeek || 0))}</div>
+          </div>
+          <div class="friend-control-milestones">
+            ${milestoneItems.map((milestone) => `
+              <span class="friend-control-milestone ${milestone.accent}">${escapeHtml(milestone.label)}</span>
+            `).join("")}
+          </div>
+        </div>
+        <div class="friend-control-side">
+          <span class="friend-control-footer-meta">${escapeHtml(formatTrackingRangeLabel(entry.firstReportDate, entry.lastReportDate))}</span>
+          <span class="friend-process-footer-actions friend-control-side-actions">
+            <button type="button" class="friend-process-detail-btn" data-action="friend-process-detail" data-friend-name="${escapeHtml(entry.name)}" data-friend-key="${escapeHtml(normalizeVisitorName(entry.name))}" data-friend-cell="${escapeHtml(String(entry.cellNumber || ""))}">Detalle</button>
+            ${showCellBadge ? `<span class="friend-process-cell-badge friend-process-footer-badge">Célula ${escapeHtml(String(entry.cellNumber))}</span>` : ""}
+          </span>
+        </div>
+      </article>
+    `;
+  };
+
   const distinctCellNumbers = [...new Set(sortedFriends.map(friend => String(friend.cellNumber || "").trim()).filter(Boolean))];
   const shouldGroupByCell = activeScope !== "cell" && distinctCellNumbers.length > 1;
   friendTrackingFriendsList.classList.toggle("is-grouped", shouldGroupByCell);
 
-  if (!shouldGroupByCell) {
+  if (!sortedFriends.length) {
+    friendTrackingFriendsList.innerHTML = '<div class="empty-state" style="padding:16px 0">Sin amigos en seguimiento para este alcance.</div>';
+  } else if (!shouldGroupByCell) {
     const showCellBadge = activeScope !== "cell" && distinctCellNumbers.length === 1;
     friendTrackingFriendsList.innerHTML = sortedFriends.map(friend => renderFriendProcessCard(friend, { showCellBadge })).join("");
-    return;
+  } else {
+    const groupedFriends = new Map();
+    sortedFriends.forEach(friend => {
+      const cellNumber = String(friend.cellNumber || "").trim() || "Sin célula";
+      if (!groupedFriends.has(cellNumber)) groupedFriends.set(cellNumber, []);
+      groupedFriends.get(cellNumber).push(friend);
+    });
+
+    const orderedGroupedFriends = [...groupedFriends.entries()].sort(([leftCell], [rightCell]) => {
+      const leftIsNumeric = /^\d+$/.test(leftCell);
+      const rightIsNumeric = /^\d+$/.test(rightCell);
+      if (leftIsNumeric && rightIsNumeric) return Number(leftCell) - Number(rightCell);
+      if (leftIsNumeric) return -1;
+      if (rightIsNumeric) return 1;
+      return leftCell.localeCompare(rightCell, "es", { numeric: true, sensitivity: "base" });
+    });
+
+    friendTrackingFriendsList.innerHTML = orderedGroupedFriends.map(([cellNumber, items]) => {
+      const label = /^\d+$/.test(cellNumber) ? `Célula ${cellNumber}` : cellNumber;
+      const subtitle = `${items.length} ${items.length === 1 ? "amigo en proceso" : "amigos en proceso"}`;
+      return `
+        <details class="friend-process-group">
+          <summary class="friend-process-group-summary">
+            <div class="friend-process-group-heading">
+              <strong class="friend-process-group-title">${escapeHtml(label)}</strong>
+              <span class="friend-process-group-count">${escapeHtml(subtitle)}</span>
+            </div>
+            <span class="friend-process-group-toggle" aria-hidden="true">Ver</span>
+          </summary>
+          <div class="friend-process-group-grid">
+            ${items.map(friend => renderFriendProcessCard(friend)).join("")}
+          </div>
+        </details>
+      `;
+    }).join("");
   }
 
-  const groupedFriends = new Map();
-  sortedFriends.forEach(friend => {
-    const cellNumber = String(friend.cellNumber || "").trim() || "Sin célula";
-    if (!groupedFriends.has(cellNumber)) groupedFriends.set(cellNumber, []);
-    groupedFriends.get(cellNumber).push(friend);
-  });
+  const restorationCellNumbers = [...new Set(restorationVisitors.map(visitor => String(visitor.cellNumber || "").trim()).filter(Boolean))];
+  const shouldGroupRestorationByCell = activeScope !== "cell" && restorationCellNumbers.length > 1;
+  friendTrackingRestorationList.classList.toggle("is-grouped", shouldGroupRestorationByCell);
 
-  const orderedGroupedFriends = [...groupedFriends.entries()].sort(([leftCell], [rightCell]) => {
-    const leftIsNumeric = /^\d+$/.test(leftCell);
-    const rightIsNumeric = /^\d+$/.test(rightCell);
-    if (leftIsNumeric && rightIsNumeric) return Number(leftCell) - Number(rightCell);
-    if (leftIsNumeric) return -1;
-    if (rightIsNumeric) return 1;
-    return leftCell.localeCompare(rightCell, "es", { numeric: true, sensitivity: "base" });
-  });
+  if (!restorationVisitors.length) {
+    friendTrackingRestorationList.innerHTML = '<div class="empty-state" style="padding:16px 0">Sin visitas en restauración para este alcance.</div>';
+  } else if (!shouldGroupRestorationByCell) {
+    const showCellBadge = activeScope !== "cell" && restorationCellNumbers.length === 1;
+    friendTrackingRestorationList.innerHTML = restorationVisitors.map(visitor => renderRestorationCard(visitor, { showCellBadge })).join("");
+  } else {
+    const groupedRestoration = new Map();
+    restorationVisitors.forEach(visitor => {
+      const cellNumber = String(visitor.cellNumber || "").trim() || "Sin célula";
+      if (!groupedRestoration.has(cellNumber)) groupedRestoration.set(cellNumber, []);
+      groupedRestoration.get(cellNumber).push(visitor);
+    });
 
-  friendTrackingFriendsList.innerHTML = orderedGroupedFriends.map(([cellNumber, items]) => {
-    const label = /^\d+$/.test(cellNumber) ? `Célula ${cellNumber}` : cellNumber;
-    const subtitle = `${items.length} ${items.length === 1 ? "amigo en proceso" : "amigos en proceso"}`;
-    return `
-      <details class="friend-process-group">
-        <summary class="friend-process-group-summary">
-          <div class="friend-process-group-heading">
-            <strong class="friend-process-group-title">${escapeHtml(label)}</strong>
-            <span class="friend-process-group-count">${escapeHtml(subtitle)}</span>
+    const orderedGroupedRestoration = [...groupedRestoration.entries()].sort(([leftCell], [rightCell]) => {
+      const leftIsNumeric = /^\d+$/.test(leftCell);
+      const rightIsNumeric = /^\d+$/.test(rightCell);
+      if (leftIsNumeric && rightIsNumeric) return Number(leftCell) - Number(rightCell);
+      if (leftIsNumeric) return -1;
+      if (rightIsNumeric) return 1;
+      return leftCell.localeCompare(rightCell, "es", { numeric: true, sensitivity: "base" });
+    });
+
+    friendTrackingRestorationList.innerHTML = orderedGroupedRestoration.map(([cellNumber, items]) => {
+      const label = /^\d+$/.test(cellNumber) ? `Célula ${cellNumber}` : cellNumber;
+      const subtitle = `${items.length} ${items.length === 1 ? "visita en restauración" : "visitas en restauración"}`;
+      return `
+        <details class="friend-process-group friend-restoration-group">
+          <summary class="friend-process-group-summary">
+            <div class="friend-process-group-heading">
+              <strong class="friend-process-group-title">${escapeHtml(label)}</strong>
+              <span class="friend-process-group-count">${escapeHtml(subtitle)}</span>
+            </div>
+            <span class="friend-process-group-toggle" aria-hidden="true">Ver</span>
+          </summary>
+          <div class="friend-process-group-grid">
+            ${items.map(visitor => renderRestorationCard(visitor)).join("")}
           </div>
-          <span class="friend-process-group-toggle" aria-hidden="true">Ver</span>
-        </summary>
-        <div class="friend-process-group-grid">
-          ${items.map(friend => renderFriendProcessCard(friend)).join("")}
-        </div>
-      </details>
-    `;
-  }).join("");
+        </details>
+      `;
+    }).join("");
+  }
+
+  const controlCellNumbers = [...new Set(processControlEntries.map((entry) => String(entry.cellNumber || "").trim()).filter(Boolean))];
+  const shouldGroupControlByCell = activeScope !== "cell" && controlCellNumbers.length > 1;
+  friendTrackingControlList.classList.toggle("is-grouped", shouldGroupControlByCell);
+
+  if (!processControlEntries.length) {
+    friendTrackingControlList.innerHTML = '<div class="empty-state" style="padding:16px 0">Todavía no hay personas suficientes para comparar cohorte y hitos en este alcance.</div>';
+  } else if (!shouldGroupControlByCell) {
+    const showCellBadge = activeScope !== "cell" && controlCellNumbers.length === 1;
+    friendTrackingControlList.innerHTML = processControlEntries.map((entry) => renderProcessControlCard(entry, { showCellBadge })).join("");
+  } else {
+    const groupedControl = new Map();
+    processControlEntries.forEach((entry) => {
+      const cellNumber = String(entry.cellNumber || "").trim() || "Sin célula";
+      if (!groupedControl.has(cellNumber)) groupedControl.set(cellNumber, []);
+      groupedControl.get(cellNumber).push(entry);
+    });
+
+    const orderedGroupedControl = [...groupedControl.entries()].sort(([leftCell], [rightCell]) => {
+      const leftIsNumeric = /^\d+$/.test(leftCell);
+      const rightIsNumeric = /^\d+$/.test(rightCell);
+      if (leftIsNumeric && rightIsNumeric) return Number(leftCell) - Number(rightCell);
+      if (leftIsNumeric) return -1;
+      if (rightIsNumeric) return 1;
+      return leftCell.localeCompare(rightCell, "es", { numeric: true, sensitivity: "base" });
+    });
+
+    friendTrackingControlList.innerHTML = orderedGroupedControl.map(([cellNumber, items]) => {
+      const label = /^\d+$/.test(cellNumber) ? `Célula ${cellNumber}` : cellNumber;
+      const subtitle = `${items.length} ${items.length === 1 ? "caso" : "casos"}`;
+      return `
+        <details class="friend-process-group friend-control-group">
+          <summary class="friend-process-group-summary">
+            <div class="friend-process-group-heading">
+              <strong class="friend-process-group-title">${escapeHtml(label)}</strong>
+              <span class="friend-process-group-count">${escapeHtml(subtitle)}</span>
+            </div>
+            <span class="friend-process-group-toggle" aria-hidden="true">Ver</span>
+          </summary>
+          <div class="friend-process-group-grid">
+            ${items.map((entry) => renderProcessControlCard(entry)).join("")}
+          </div>
+        </details>
+      `;
+    }).join("");
+  }
 }
 
 async function loadFriendTrackingPanel() {
@@ -6500,29 +7830,9 @@ async function loadFriendTrackingPanel() {
   }
 }
 
-friendTrackingFriendsList?.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-action='friend-process-detail']");
-  if (!button) return;
-  const visitorKey = String(button.dataset.friendKey || "").trim();
-  const visitorName = String(button.dataset.friendName || "").trim();
-  const cellNumber = String(button.dataset.friendCell || "").trim();
-  if (!visitorKey || !visitorName) return;
-
-  const scopeReports = filterVisibleReports(Array.isArray(reportsData) ? reportsData : []).filter((report) => {
-    const reportCell = String(report.cellNumber || report.formData?.cellNumber || "").trim();
-    if (cellNumber && reportCell !== cellNumber) return false;
-    const scopeYear = String(friendTrackingScopeContext?.year || "").trim();
-    const scopeQuarter = String(friendTrackingScopeContext?.quarter || "").trim();
-    if (scopeYear && String(getReportYear(report)) !== scopeYear) return false;
-    if (scopeQuarter && String(getReportQuarter(report)) !== scopeQuarter) return false;
-    return true;
-  });
-
-  const periodLabel = friendTrackingScopeContext?.year && friendTrackingScopeContext?.quarter
-    ? `Célula ${cellNumber || "—"} · Q${friendTrackingScopeContext.quarter} ${friendTrackingScopeContext.year}`
-    : `Célula ${cellNumber || "—"} · Histórico`;
-  openVisitorDetail(visitorKey, visitorName, scopeReports, periodLabel);
-});
+wireFriendTrackingDetailClick(friendTrackingFriendsList);
+wireFriendTrackingDetailClick(friendTrackingRestorationList);
+wireFriendTrackingDetailClick(friendTrackingControlList);
 
 function renderSeguimiento(reports) {
   const cyclesList = document.querySelector("#seguimiento-cycles-list");
@@ -6548,7 +7858,7 @@ function renderSeguimiento(reports) {
 
   const seguimientoScopeTabs = getUserScopeTabs();
   if (!activeDashboardScope || !seguimientoScopeTabs.some(tab => tab.key === activeDashboardScope)) {
-    activeDashboardScope = seguimientoScopeTabs[0]?.key || null;
+    activeDashboardScope = getPreferredDashboardScope(currentUser, seguimientoScopeTabs);
   }
 
   // Filtrar por alcance del usuario
@@ -6633,7 +7943,7 @@ function renderSeguimiento(reports) {
         const reps = groups[cell][year][quarter];
         const byWeek = {};
         reps.forEach(r => { byWeek[String(r.week)] = r; });
-        const totalDone = Object.values(byWeek).filter(r => !isReportEffectivelyDraft(r)).length;
+        const totalDone = Object.values(byWeek).filter(r => !isReportVisuallyDraft(r)).length;
 
         const totalWeeks = getRcmTotalWeeks();
         const chips = Array.from({ length: totalWeeks }, (_, i) => {
@@ -6644,7 +7954,7 @@ function renderSeguimiento(reports) {
           const verb = info?.verb || (Number(w) === totalWeeks ? "CIERRE" : "");
           const isEvent = info?.isEventWeek;
           if (rep) {
-            const isDraft = isReportEffectivelyDraft(rep);
+            const isDraft = isReportVisuallyDraft(rep);
             const stateClass = isDraft ? "is-draft" : "is-done";
             const stateTitle = isDraft ? "borrador en progreso" : escapeHtml(formatShortDate(rep.reportDate));
             return `<button type="button" class="cycle-week-chip ${stateClass} phase-chip-${phaseKey}"
@@ -6770,7 +8080,7 @@ function renderSeguimiento(reports) {
     const reportedSet  = new Set(weeklyReps.map(r => String(r.cellNumber || r.formData?.cellNumber || "")));
     const draftCellSet = new Set(
       weeklyReps
-        .filter(r => isReportEffectivelyDraft(r))
+        .filter(r => isReportVisuallyDraft(r))
         .map(r => String(r.cellNumber || r.formData?.cellNumber || ""))
     );
     const pendingCells = getScopedCells().filter(c => !reportedSet.has(String(c.cellNumber)));
@@ -6829,7 +8139,7 @@ function renderSeguimiento(reports) {
               const leader = r.leaderName || r.formData?.leaderName || "-";
               const cell   = r.cellNumber || r.formData?.cellNumber || "-";
               const initials = leader.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w.charAt(0).toUpperCase()).join(".") + (leader && leader !== "-" ? "." : "");
-              const isDraft = isReportEffectivelyDraft(r);
+              const isDraft = isReportVisuallyDraft(r);
               const chipCls = isDraft ? "rcs-chip-draft" : "rcs-chip-done";
               const draftMark = isDraft ? " · borrador" : "";
               const titleTxt = isDraft
@@ -7076,23 +8386,24 @@ function renderSupervisorSummaryTable(supervisor, cells, reports, week) {
   // ── Aprobación (sector,año,quarter,semana) ────────────────────────────────
   const approval = findApproval(supervisor.sector, weekStr, curYear, curQuarter);
   const state    = approval?.state || "pendiente";
-  const isAdmin      = !!(currentUser && currentUser.isAdmin);
-  const isSupervisor = !!(currentUser && currentUser.isSupervisor &&
-                          String(currentUser.supervisedSector || "") === String(supervisor.sector));
+  const isAdmin = !!(currentUser && currentUser.isAdmin);
+  const isSupervisor = !!(
+    currentUser &&
+    currentUser.isSupervisor &&
+    String(currentUser.supervisedSector || "") === String(supervisor.sector)
+  );
   // Rol efectivo para esta vista: si es supervisor del sector, actúa como
-  // supervisor (aunque también sea coordinador). En cualquier otro caso, si
-  // es admin, actúa como coordinador.
+  // supervisor; si no, pero es admin/coordinador, actúa como coordinador.
   const isCoordinatorOnly = isAdmin && !isSupervisor;
-
-  const stateLabelMap = {
-    pendiente:             t('appr.state.pending'),
-    revisado_supervisor:   t('appr.state.reviewed'),
-    aprobado_coordinador:  t('appr.state.approved'),
-  };
   const stateClassMap = {
     pendiente:             'pending',
     revisado_supervisor:   'reviewed',
     aprobado_coordinador:  'approved',
+  };
+  const stateLabelMap = {
+    pendiente:            t('appr.state.pending'),
+    revisado_supervisor:  t('appr.state.reviewed'),
+    aprobado_coordinador: t('appr.state.approved'),
   };
   const stateBadge = `<span class="appr-badge appr-badge--${stateClassMap[state]}">${escapeHtml(stateLabelMap[state] || state)}</span>`;
 
@@ -7592,6 +8903,11 @@ function exitReadOnlyMode() {
 function resetReportForm() {
   exitReadOnlyMode();
   editingReportId = null;
+  editingReportWasFinalized = false;
+  editingReportOriginWasFinalized = false;
+  editingReportLoadedData = null;
+  resetReportDirtySlices();
+  recentFinalizedReportContext = null;
   submittedEditConfirmedReportId = null;
   suppressWeekChangeHandler = true;
   reportForm.reset();
@@ -7629,6 +8945,7 @@ function resetReportForm() {
   renderReachSupervisorVisits(findCellByNumber(cellField.value));
   // Refrescar permisos (oculta/show el banner de solo-lectura segun la celula activa)
   applyReportFormPermissions();
+  refreshReportVisualState();
   // Llevar al usuario de regreso a la primera etapa (Inicio) para empezar limpio
   showStage("encabezado", { skipWeekCheck: true });
   // Scroll al inicio del formulario por comodidad
@@ -7698,6 +9015,10 @@ function renderSettingsForm() {
   const graceInput = document.getElementById("setting-grace-hours");
   if (graceInput && appSettings.report_grace_hours !== undefined && appSettings.report_grace_hours !== "") {
     graceInput.value = appSettings.report_grace_hours;
+  }
+  const processLateWeeksInput = document.getElementById("setting-process-late-weeks");
+  if (processLateWeeksInput) {
+    processLateWeeksInput.value = appSettings.process_entry_late_weeks ?? "14";
   }
   const levantateInput = document.getElementById("setting-goal-levantate");
   if (levantateInput) levantateInput.value = appSettings.rcm_goal_levantate ?? "4";
@@ -7804,10 +9125,13 @@ document.getElementById("settings-save-btn")?.addEventListener("click", async ()
     const weekDay = daySelect?.value ?? "0";
     const graceInput = document.getElementById("setting-grace-hours");
     const graceHours = parseInt(graceInput?.value ?? "0", 10) || 0;
-    await request("/api/settings", { method: "POST", body: JSON.stringify({ cycle_start_date: val, week_start_day: weekDay, report_grace_hours: String(graceHours) }) });
+    const processLateWeeksInput = document.getElementById("setting-process-late-weeks");
+    const processLateWeeks = Math.max(0, parseInt(processLateWeeksInput?.value ?? "14", 10) || 0);
+    await request("/api/settings", { method: "POST", body: JSON.stringify({ cycle_start_date: val, week_start_day: weekDay, report_grace_hours: String(graceHours), process_entry_late_weeks: String(processLateWeeks) }) });
     appSettings.cycle_start_date = val;
     appSettings.week_start_day = weekDay;
     appSettings.report_grace_hours = String(graceHours);
+    appSettings.process_entry_late_weeks = String(processLateWeeks);
     if (status) { status.textContent = "✓ Guardado"; status.className = "settings-save-status is-ok"; }
     setTimeout(() => { if (status) status.textContent = ""; }, 3000);
     syncWeekFieldWithReportDate(true);
@@ -8733,17 +10057,7 @@ async function handleReportTableClick(event) {
     if (button.dataset.action === "edit-report") {
       const payload = await request(`/api/reports/${reportId}`);
       const report  = payload.report;
-      if (!isReportEditable(report)) {
-        setFeedback(t('fb.reportClosedNoEdit'), true);
-        return;
-      }
-      loadReportIntoForm(report, Number(reportId));
-      const formData = report.formData || report;
-      // Navegar al formulario de reporte y colocar al usuario en la primera etapa pendiente
-      showView("report");
-      const resumeStage = pickResumeStage(formData);
-      showStage(resumeStage, { skipWeekCheck: true });
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      await openReportForEditing(report, reportId);
       return;
     }
 
@@ -9039,6 +10353,7 @@ function handleAttendanceTableInput(event) {
   if (!entry) {
     return;
   }
+  markReportDirty("members");
 
   if (target.dataset.attendanceField === "status" && target instanceof HTMLSelectElement) {
     const stageField = STAGE_STATUS_FIELDS[currentStage];
@@ -9147,6 +10462,7 @@ function handleKidsTableInput(event) {
   if (!kid) {
     return;
   }
+  markReportDirty("kids");
 
   const fieldName = target.dataset.kidField;
   if (["reachAttended", "sundayAttended"].includes(fieldName) && target instanceof HTMLInputElement) {
@@ -9167,6 +10483,7 @@ function handleVisitorTableInput(event) {
   if (!visitor) {
     return;
   }
+  markReportDirty("visitors");
 
   const fieldName = target.dataset.visitorField;
   if (fieldName === "kind" && target instanceof HTMLSelectElement) {
@@ -9174,10 +10491,23 @@ function handleVisitorTableInput(event) {
     if (visitor.kind === "visita") {
       visitor.converted = false;
       visitor.lateRegistration = false;
+      visitor.processEntry = "none";
     } else {
       visitor.promoteToMember = false;
+      visitor.processEntry = normalizeVisitorProcessEntry(visitor.processEntry, visitor.kind, {
+        lateRegistration: visitor.lateRegistration,
+      });
       visitor.lateRegistration = Boolean(visitor.lateRegistration);
     }
+    renderAttendanceSummary();
+    renderVisitorTable();
+    return;
+  }
+  if (fieldName === "processEntry" && target instanceof HTMLSelectElement) {
+    visitor.processEntry = normalizeVisitorProcessEntry(target.value, visitor.kind, {
+      lateRegistration: visitor.lateRegistration,
+    });
+    visitor.lateRegistration = visitor.processEntry === "late";
     renderAttendanceSummary();
     renderVisitorTable();
     return;
@@ -9237,6 +10567,7 @@ async function handleVisitorTableClick(event) {
     if (!ok) return;
   }
   currentVisitors.splice(idx, 1);
+  markReportDirty("visitors");
   renderVisitorTable();
 }
 
@@ -9245,6 +10576,7 @@ function handleKidsTableClick(event) {
   if (!button) {
     return;
   }
+  markReportDirty("kids");
   currentKids.splice(Number(button.dataset.kidIndex), 1);
   renderKidsTable();
 }
@@ -9258,6 +10590,7 @@ function handleBaptismTableInput(event) {
   if (!entry || !(target instanceof HTMLInputElement)) {
     return;
   }
+  markReportDirty("baptisms");
   entry[target.dataset.baptismField] = target.type === "checkbox" ? target.checked : target.value;
   if (target.dataset.baptismField === "promoteToMember") {
     setFeedback(target.checked ? t('fb.bapWillBeMember') : t('fb.bapWontBeMember'));
@@ -9273,12 +10606,14 @@ function handleBaptismTableClick(event) {
   if (!button) {
     return;
   }
+  markReportDirty("baptisms");
   currentBaptisms.splice(Number(button.dataset.baptismIndex), 1);
   renderBaptismTable();
 }
 
 function handleAddVisitorClick() {
-  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, lateRegistration: false, sundayAttended: false, firstVisit: false, converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
+  markReportDirty("visitors");
+  currentVisitors.push({ name: "", kind: "amigo", invitedBy: "", reachAttended: true, lateRegistration: false, sundayAttended: false, firstVisit: false, processEntry: "none", converted: false, promoteToMember: false, contacted: false, eventAttended: false, phone: "", note: "" });
   renderVisitorTable();
 }
 
@@ -9312,6 +10647,7 @@ function handleAddKidClick() {
   }
 
   clearFeedback();
+  markReportDirty("kids");
   currentKids.push({
     personId: null,
     name,
@@ -9351,6 +10687,7 @@ async function handleKidQuickReset() {
 
 function handleAddBaptismClick() {
   const captureStatus = getBaptismCaptureStatus();
+  markReportDirty("baptisms");
   currentBaptisms.push({
     name: "",
     baptismDate: getReportDateValue(),
@@ -9400,19 +10737,17 @@ function handleVisitorQuickSubmit() {
   applyQuickVisitorHistory(name);
   const history = findVisitorHistoryByName(name);
   const quickKind = normalizeVisitorKind(visitorQuickKind?.value);
-  if (quickKind === "amigo" && Boolean(visitorQuickLate?.checked) && history?.visitCount) {
-    setFeedback(`"${history.name}" ya existe en el historial de la célula. Regístralo solo como asistencia normal, no como anotado tardío.`, true);
-    visitorQuickLate?.focus?.();
-    return;
-  }
+  const processEntry = normalizeVisitorProcessEntry(visitorQuickProcessEntry?.value, quickKind);
+  markReportDirty("visitors");
   currentVisitors.push({
     name,
     kind: quickKind,
     invitedBy: String(visitorQuickInvitedBy?.value || "").trim(),
     reachAttended: Boolean(visitorQuickReach?.checked),
-    lateRegistration: quickKind === "amigo" && isLateRegistrationAvailable() ? Boolean(visitorQuickLate?.checked) : false,
+    lateRegistration: processEntry === "late",
     sundayAttended: Boolean(visitorQuickSunday?.checked),
     firstVisit: Boolean(visitorQuickFirstVisit?.checked),
+    processEntry,
     converted: quickKind === "visita" ? false : Boolean(visitorQuickConverted?.checked),
     promoteToMember: false,
     contacted: false,
@@ -9476,6 +10811,8 @@ async function handleMemberListClick(event) {
   }
 }
 
+reportForm.addEventListener("focusin", handleReportNumberInputFocusIn);
+reportForm.addEventListener("focusout", handleReportNumberInputFocusOut);
 reportForm.addEventListener("submit", handleReportSubmit);
 peopleForm.addEventListener("submit", handlePeopleSubmit);
 cellsForm.addEventListener("submit", handleCellsSubmit);
@@ -9893,13 +11230,175 @@ function pickResumeStage(formData) {
   return inferNextIncompleteStage(fd);
 }
 
+function pickHeaderContinueStage(formData) {
+  const resumeStage = pickResumeStage(formData);
+  if (resumeStage !== "encabezado") return resumeStage;
+
+  const fd = formData || {};
+  const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+  const visitors = Array.isArray(fd.visitors) ? fd.visitors.filter(v => String(v?.name || "").trim()) : [];
+  const kids = Array.isArray(fd.kids) ? fd.kids.filter(k => String(k?.name || "").trim()) : [];
+  const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms.filter(b => String(b?.name || "").trim()) : [];
+  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+
+  if (members.some(m => m?.planningAttended || (m?.planningStatus && m.planningStatus !== "pending"))) {
+    return "planificacion";
+  }
+  if (
+    members.some(m => m?.reachAttended || m?.reachPrivileged || (m?.reachStatus && m.reachStatus !== "pending"))
+    || visitors.some(v => v?.reachAttended)
+    || kids.some(k => k?.reachAttended)
+    || reachSupervisorVisits.length > 0
+  ) {
+    return "alcance";
+  }
+  if (
+    members.some(m => m?.sundayAttended || (m?.sundayStatus && m.sundayStatus !== "pending"))
+    || visitors.some(v => v?.sundayAttended)
+    || kids.some(k => k?.sundayAttended)
+    || baptisms.length > 0
+  ) {
+    return "culto";
+  }
+  return "planificacion";
+}
+
+function inferLastCompletedStage(formData) {
+  const fd = formData || {};
+  const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
+  const visitors = Array.isArray(fd.visitors) ? fd.visitors.filter(v => String(v?.name || "").trim()) : [];
+  const kids = Array.isArray(fd.kids) ? fd.kids.filter(k => String(k?.name || "").trim()) : [];
+  const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms.filter(b => String(b?.name || "").trim()) : [];
+  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+  const hasPlanificacion = members.some(m => m?.planningAttended || (m?.planningStatus && m.planningStatus !== "pending"));
+  const hasAlcance = members.some(m => m?.reachAttended || m?.reachPrivileged || (m?.reachStatus && m.reachStatus !== "pending"))
+    || visitors.some(v => v?.reachAttended)
+    || kids.some(k => k?.reachAttended)
+    || reachSupervisorVisits.length > 0;
+  const hasCulto = members.some(m => m?.sundayAttended || (m?.sundayStatus && m.sundayStatus !== "pending"))
+    || visitors.some(v => v?.sundayAttended)
+    || kids.some(k => k?.sundayAttended)
+    || baptisms.length > 0;
+  const hasCierre = baptisms.length > 0 || String(fd.notes || "").trim().length > 0;
+
+  if (hasCierre) return "cierre";
+  if (hasCulto) return "culto";
+  if (hasAlcance) return "alcance";
+  if (hasPlanificacion) return "planificacion";
+  return "encabezado";
+}
+
+function resolveDraftLastStage(formData, fallbackStage) {
+  const fallback = STAGES.includes(fallbackStage) ? fallbackStage : "encabezado";
+  const inferred = inferLastCompletedStage(formData);
+  const stages = [fallback, inferred];
+
+  const loadedLastStage = String(editingReportLoadedData?.lastStage || "").trim();
+  if (STAGES.includes(loadedLastStage)) {
+    stages.push(loadedLastStage);
+  }
+  if (editingReportOriginWasFinalized) {
+    stages.push(inferred);
+  }
+
+  return stages.reduce((furthest, candidate) => {
+    return STAGES.indexOf(candidate) > STAGES.indexOf(furthest) ? candidate : furthest;
+  }, "encabezado");
+}
+
+async function tryOpenExistingReportFromHeaderContinue(cell, week) {
+  let existing = findExistingReportForCellWeek(cell, week);
+  if (!existing) {
+    try {
+      await loadReports();
+    } catch (error) {
+      console.warn("[save-next-encabezado] no se pudo recargar reportsData", error);
+    }
+    existing = findExistingReportForCellWeek(cell, week);
+  }
+
+  if (!existing) return null;
+
+  if (!isReportEditable(existing)) {
+    setFeedback(t('fb.reportClosedNoEdit') || "Esta semana ya está cerrada, no se puede modificar.", true);
+    return false;
+  }
+
+  if (!isReportEffectivelyDraft(existing)) {
+    const confirmed = await appConfirm(
+      `La semana ${week} ya tiene un reporte entregado.\n¿Deseas abrirlo para editarlo?`,
+      "Reporte ya entregado"
+    );
+    if (!confirmed) {
+      setFeedback(t('fb.reportEditCancelled'));
+      return false;
+    }
+  }
+
+  try {
+    const payload = await request(`/api/reports/${existing.id}`);
+    loadReportIntoForm(payload.report, Number(existing.id));
+    if (!isReportEffectivelyDraft(payload.report)) {
+      submittedEditConfirmedReportId = Number(existing.id);
+      refreshReportVisualState();
+    }
+    showStage(pickHeaderContinueStage(payload.report.formData || payload.report), { skipWeekCheck: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setFeedback(
+      isReportEffectivelyDraft(payload.report)
+        ? `Semana ${week} ya tiene reporte; continuando captura existente.`
+        : `Semana ${week} ya fue entregada; editando el reporte existente.`
+    );
+    return true;
+  } catch (error) {
+    console.warn("[save-next-encabezado] no se pudo abrir reporte existente", error);
+    setFeedback("No se pudo abrir el reporte ya entregado. No se realizaron cambios.", true);
+    return false;
+  }
+}
+
+async function tryOpenRecentFinalizedReportFromHeaderContinue(cell, week) {
+  const normalizedCell = String(cell || "").trim();
+  const normalizedWeek = String(week || "").trim();
+  const recent = recentFinalizedReportContext;
+  if (!recent) return null;
+  if (String(recent.cellNumber || "").trim() !== normalizedCell) return null;
+  if (String(recent.week || "").trim() !== normalizedWeek) return null;
+  if (!recent.reportId) return null;
+
+  const payload = await request(`/api/reports/${recent.reportId}`);
+  const report = payload?.report;
+  if (!report) {
+    setFeedback("No se pudo recuperar el reporte recién finalizado. No se realizaron cambios.", true);
+    return false;
+  }
+
+  if (!isReportEditable(report)) {
+    setFeedback(t('fb.reportClosedNoEdit') || "Esta semana ya está cerrada, no se puede modificar.", true);
+    return false;
+  }
+
+  const confirmed = await appConfirm(
+    `La semana ${normalizedWeek} ya tiene un reporte entregado.\n¿Deseas abrirlo para editarlo?`,
+    "Reporte ya entregado"
+  );
+  if (!confirmed) {
+    setFeedback(t('fb.reportEditCancelled'));
+    return false;
+  }
+
+  loadReportIntoForm(report, Number(recent.reportId));
+  submittedEditConfirmedReportId = Number(recent.reportId);
+  refreshReportVisualState();
+  showStage(pickHeaderContinueStage(report.formData || report), { skipWeekCheck: true });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  setFeedback(`Semana ${normalizedWeek} ya fue entregada; editando el reporte existente.`);
+  recentFinalizedReportContext = null;
+  return true;
+}
+
 async function autoLoadExistingReportIfAny(cell, week) {
   if (editingReportId) return;
-  const cycleStartStr = appSettings.cycle_start_date;
-  if (!cycleStartStr) {
-    console.warn("[autoLoad] sin cycle_start_date en settings");
-    return;
-  }
 
   // Si reportsData está vacío, intentar recargar (puede haber fallado durante init)
   if (!Array.isArray(reportsData) || reportsData.length === 0) {
@@ -9911,12 +11410,7 @@ async function autoLoadExistingReportIfAny(cell, week) {
     }
   }
 
-  const existing = reportsData.find(r => {
-    const rCell = String(r.cellNumber || r.formData?.cellNumber || "").trim();
-    const rWeek = Number(getReportWeek(r));
-    const rDate = String(r.reportDate || r.formData?.reportDate || "");
-    return rCell === String(cell) && rWeek === Number(week) && rDate >= cycleStartStr;
-  });
+  const existing = findExistingReportForCellWeek(cell, week);
   if (!existing) {
     console.info(`[autoLoad] sin reporte previo para cell=${cell} week=${week} (reportsData.length=${reportsData.length})`);
     return;
@@ -9936,30 +11430,34 @@ async function autoLoadExistingReportIfAny(cell, week) {
 
   try {
     const payload = await request(`/api/reports/${existing.id}`);
-    loadReportIntoForm(payload.report, Number(existing.id));
-    const formData = payload.report.formData || payload.report;
-    // Coloca al usuario en la primera etapa pendiente (usa lastStage si existe, si no infiere por datos)
-    const resumeStage = pickResumeStage(formData);
-    showStage(resumeStage, { skipWeekCheck: true });
-    if (formData.lastStage) {
-      setFeedback(`Continuando borrador en “${resumeStage}”.`);
-    } else {
-      setFeedback(`Semana ${week} ya tiene reporte — continuando en “${resumeStage}”.`);
-    }
+    const didOpen = await openReportForEditing(payload.report, existing.id, {
+      confirmOnOpen: false,
+      silentCancelledFeedback: true,
+      silentBlockedFeedback: true,
+    });
+    if (!didOpen) return;
+    return payload.report;
   } catch (e) {
     console.error("[autoLoad] error cargando reporte editable", e);
   }
+  return null;
 }
 
 // Carga un reporte en el formulario en el orden correcto, asegurando que
 // currentMemberAttendance/visitors/kids/baptisms queden sincronizados con
 // la data guardada. Centraliza la lógica que antes estaba duplicada en
 // autoLoadExistingReportIfAny / handleReportTableClick / edit-from-preview.
-function loadReportIntoForm(report, reportId) {
+function loadReportIntoForm(report, reportId, options = {}) {
   if (!report) return;
   const formData = report.formData || report;
 
   editingReportId = Number(reportId || report.id);
+  editingReportWasFinalized = !isReportEffectivelyDraft(report);
+  editingReportOriginWasFinalized = options.preserveFinalizeOrigin
+    ? Boolean(editingReportOriginWasFinalized || editingReportWasFinalized)
+    : editingReportWasFinalized;
+  editingReportLoadedData = cloneReportData(formData);
+  resetReportDirtySlices();
   submittedEditConfirmedReportId = null;
 
   // 0. Limpiar badges/draft de las pestañas antes de re-marcarlas según el
@@ -10009,18 +11507,15 @@ function loadReportIntoForm(report, reportId) {
 
   // Refrescar el dropdown "Visita previa" con los amigos previos de esta célula.
   renderVisitorHistoryOptions();
+  syncStageBadgesFromReport({ formData });
+}
 
-  // Restaurar ✓ en pestañas según el estado real del reporte cargado:
-  // - Finalizado: todas las etapas en verde.
-  // - Borrador (cualquier indicio): marcar SOLO hasta la última etapa guardada
-  //   (lastStage). Si no hay lastStage pero sí hay datos, INFERIR qué etapas
-  //   están completas a partir del contenido (members/visitors/kids/baptisms)
-  //   para no pintar las 5 palomitas en falso.
-  // - Vacío: ninguna palomita.
-  // Importante: lastStage es la señal más fiable de "en progreso". Aunque el
-  // flag `_draft` falte por algún motivo, si lastStage existe y no es la etapa
-  // final, debemos respetarlo y NO pintar las 5 palomitas.
+function syncStageBadgesFromReport(report) {
+  const formData = report?.formData || report || {};
   const STAGE_ORDER = ["encabezado", "planificacion", "alcance", "culto", "cierre"];
+  document.querySelectorAll(".stage-tab-badge").forEach(b => { b.hidden = true; });
+  document.querySelectorAll(".stage-tab").forEach(t => t.classList.remove("has-draft"));
+
   const lastStage = formData?.lastStage;
   const isDraftFlag = formData?._draft === true || formData?._draft === "true";
   const inProgress = isDraftFlag || (lastStage && lastStage !== "cierre");
@@ -10029,14 +11524,14 @@ function loadReportIntoForm(report, reportId) {
       const idx = STAGE_ORDER.indexOf(lastStage);
       if (idx >= 0) STAGE_ORDER.slice(0, idx + 1).forEach(markStageSaved);
     } else {
-      // Borrador sin lastStage (compatibilidad con borradores antiguos):
-      // inferir la primera etapa incompleta y marcar las anteriores como guardadas.
       const nextIncomplete = inferNextIncompleteStage(formData);
       const idx = STAGE_ORDER.indexOf(nextIncomplete);
       if (idx > 0) STAGE_ORDER.slice(0, idx).forEach(markStageSaved);
     }
-  } else if (!isReportEffectivelyDraft({ formData })) {
-    // Reporte finalizado → todas las etapas en verde.
+    return;
+  }
+
+  if (!isReportEffectivelyDraft({ formData })) {
     STAGE_ORDER.forEach(markStageSaved);
   }
 }
@@ -10067,20 +11562,13 @@ async function saveDraft(stage) {
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
-  payload.attendanceSummary = computeWeeklySummary();
-  // Si estamos editando un reporte ya finalizado, no degradarlo a borrador.
-  const editingExisting = editingReportId
-    ? (reportsData || []).find(r => Number(r.id) === Number(editingReportId))
-    : null;
-  const wasFinalized = editingExisting
-    && !(editingExisting.formData?._draft === true || editingExisting.formData?._draft === "true");
-  if (!wasFinalized) {
-    payload._draft = true;
-    payload.lastStage = stage;
-  } else {
-    delete payload._draft;
-    delete payload.lastStage;
-  }
+  preserveUntouchedReportSlices(payload);
+  payload.attendanceSummary = computeWeeklySummaryFromPayload(payload);
+  // "Guardar" siempre regresa el reporte a borrador, incluso si antes ya
+  // estaba finalizado. Así la re-edición se acumula como borrador hasta que
+  // el usuario vuelva a finalizar explícitamente.
+  payload._draft = true;
+  payload.lastStage = resolveDraftLastStage(payload, stage);
   payload.cycleReportId = computeCycleReportId(payload.cellNumber, getReportYearValue());
 
   if (!payload.week || !payload.cellNumber) {
@@ -10104,7 +11592,7 @@ async function saveDraft(stage) {
     await loadReports();
     if (savedReportId) {
       const savedPayload = await request(`/api/reports/${savedReportId}`);
-      loadReportIntoForm(savedPayload.report, Number(savedReportId));
+      loadReportIntoForm(savedPayload.report, Number(savedReportId), { preserveFinalizeOrigin: true });
       showStage(stageBeforeSave, { skipWeekCheck: true });
     }
     setFeedback(t("err.draftSaved", { stage }));
@@ -10143,8 +11631,55 @@ function stageHasData(stage) {
   return true;
 }
 
+function memberEntryHasCapturedActivity(member) {
+  if (!member) return false;
+  if (member.planningAttended || member.reachAttended || member.sundayAttended || member.reachPrivileged) return true;
+  if (String(member.note || "").trim()) return true;
+
+  const expectedStatus = {
+    planningStatus: member.attendanceMode === "justified_default" && member.attendanceDefaults?.planning ? "justified" : "pending",
+    reachStatus: member.attendanceMode === "justified_default" && member.attendanceDefaults?.reach ? "justified" : "pending",
+    sundayStatus: member.attendanceMode === "justified_default" && member.attendanceDefaults?.sunday ? "justified" : "pending",
+  };
+
+  return ["planningStatus", "reachStatus", "sundayStatus"].some((fieldName) => {
+    const currentStatus = String(member[fieldName] || "pending").toLowerCase();
+    return currentStatus !== expectedStatus[fieldName];
+  });
+}
+
+function isCurrentReportFormEmpty() {
+  const hasMemberActivity = (currentMemberAttendance || []).some(
+    (member) => memberEntryHasCapturedActivity(member)
+  );
+  const hasVisitors = (currentVisitors || []).some((visitor) => visitor && String(visitor.name || "").trim());
+  const hasKids = (currentKids || []).some((kid) => kid && (
+    kid.reachAttended
+    || kid.sundayAttended
+    || String(kid.note || "").trim()
+    || (kid.source !== "catalog" && String(kid.name || "").trim())
+  ));
+  const hasBaptisms = (currentBaptisms || []).some((entry) => entry && String(entry.name || "").trim());
+  return !hasMemberActivity && !hasVisitors && !hasKids && !hasBaptisms;
+}
+
 // Guardar y continuar — saves then advances to next stage
 async function saveDraftAndAdvance(stage) {
+  if (stage === "encabezado" && !editingReportId && isCurrentReportFormEmpty()) {
+    const cellVal = String(cellField?.value || "").trim();
+    const weekVal = String(weekField?.value || "").trim();
+    if (cellVal && weekVal) {
+      const recentReopenResult = await tryOpenRecentFinalizedReportFromHeaderContinue(cellVal, weekVal);
+      if (recentReopenResult !== null) {
+        return;
+      }
+      const reopenResult = await tryOpenExistingReportFromHeaderContinue(cellVal, weekVal);
+      if (reopenResult !== null) {
+        return;
+      }
+    }
+  }
+
   if (editingReportId && submittedEditConfirmedReportId !== Number(editingReportId)) {
     const editingExisting = (reportsData || []).find(r => Number(r.id) === Number(editingReportId));
     const confirmed = await confirmEditingSubmittedReport(editingExisting);
@@ -10185,7 +11720,8 @@ async function finalizarReporte() {
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
-  payload.attendanceSummary = computeWeeklySummary();
+  preserveUntouchedReportSlices(payload);
+  payload.attendanceSummary = computeWeeklySummaryFromPayload(payload);
   payload.cycleReportId     = computeCycleReportId(payload.cellNumber, getReportYearValue());
   delete payload._draft;
   delete payload.lastStage;
@@ -10252,7 +11788,11 @@ async function finalizarReporte() {
       setFeedback(t('fb.reportClosedNoEdit') || "Esta semana ya está cerrada, no se puede modificar.", true);
       return;
     }
-    const wasFinalized = existing && !(existing.formData?._draft === true || existing.formData?._draft === "true");
+    const wasFinalized = Boolean(
+      editingReportOriginWasFinalized
+      || editingReportWasFinalized
+      || (existing && !isReportEffectivelyDraft(existing))
+    );
     if (wasFinalized) {
       const ok = await appConfirm(
         "Este reporte ya estaba finalizado.\n¿Seguro que deseas guardar los cambios y sobrescribir la versión entregada?",
@@ -10268,15 +11808,20 @@ async function finalizarReporte() {
     : t('fb.reportFinalized');
 
   try {
+    let finalizedReportId = Number(editingReportId || 0) || null;
     if (editingReportId) {
       await request(`/api/reports/${editingReportId}`, { method: "PUT", body: JSON.stringify(payload) });
     } else {
       const result = await request("/api/reports", { method: "POST", body: JSON.stringify(payload) });
-      if (result?.id) editingReportId = result.id;
+      if (result?.id) {
+        editingReportId = result.id;
+        finalizedReportId = Number(result.id) || null;
+      }
     }
     // Al finalizar: marcar TODAS las etapas como completadas (✓ verde).
     ["encabezado", "planificacion", "alcance", "culto", "cierre"].forEach(markStageSaved);
     const savedCell = payload.cellNumber;
+    const savedWeek = String(payload.week || "");
     await loadCatalogs();
     await loadReports();
     resetReportForm();
@@ -10290,11 +11835,21 @@ async function finalizarReporte() {
       cellField.value = String(savedCell);
       syncReportWithCell(true);
       populateWeekOptions();
+      if (savedWeek) weekField.value = savedWeek;
       // populateWeekOptions ya selecciona la semana real en curso y marca
       // "✓ entregado" si esta semana ya fue finalizada. Dejamos esa selección
       // para que el dropdown no aparezca vacío y el indicador de fase se vea.
       syncPhaseIndicator();
+      const finalizedReport = finalizedReportId
+        ? (reportsData || []).find(r => Number(r.id) === Number(finalizedReportId))
+        : null;
+      if (finalizedReport) {
+        syncStageBadgesFromReport(finalizedReport);
+      }
     }
+    recentFinalizedReportContext = finalizedReportId
+      ? { reportId: Number(finalizedReportId), cellNumber: String(savedCell || ""), week: String(savedWeek || "") }
+      : null;
     showStage("encabezado");
     window.scrollTo({ top: 0, behavior: "smooth" });
     setFeedback(msg);
@@ -10490,11 +12045,10 @@ document.getElementById("report-cycles-list")?.addEventListener("click", async (
         editFromSegBtn.hidden = !isReportEditable(report);
         editFromSegBtn.onclick = async () => {
           const fullPayload = await request(`/api/reports/${reportId}`);
-          reportPreviewDialog.close();
-          loadReportIntoForm(fullPayload.report, Number(reportId));
-          showView("report");
-          showStage("encabezado", { skipWeekCheck: true });
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          const didOpen = await openReportForEditing(fullPayload.report, reportId, {
+            resumeStage: "encabezado",
+          });
+          if (didOpen) reportPreviewDialog.close();
         };
       }
       reportPreviewDialog.showModal();
@@ -10555,11 +12109,10 @@ document.getElementById("seguimiento-cycles-list")?.addEventListener("click", as
         // Wire once so no stale listeners
         const handler = async () => {
           const fullPayload = await request(`/api/reports/${reportId}`);
-          reportPreviewDialog.close();
-          loadReportIntoForm(fullPayload.report, Number(reportId));
-          showView("report");
-          showStage("encabezado", { skipWeekCheck: true });
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          const didOpen = await openReportForEditing(fullPayload.report, reportId, {
+            resumeStage: "encabezado",
+          });
+          if (didOpen) reportPreviewDialog.close();
         };
         editFromSegBtn.onclick = handler;
       }
@@ -10729,12 +12282,21 @@ if (visitorQuickName instanceof HTMLInputElement) {
     syncQuickLateRegistrationState(String(visitorQuickName.value || "").trim());
   });
 }
+if (visitorQuickProcessEntry instanceof HTMLSelectElement) {
+  visitorQuickProcessEntry.addEventListener("change", () => {
+    updateVisitorQuickProcessSummary();
+  });
+}
+if (visitorQuickReach instanceof HTMLInputElement) {
+  visitorQuickReach.addEventListener("change", updateVisitorQuickProcessSummary);
+}
 if (resetVisitorQuickButton) {
   resetVisitorQuickButton.addEventListener("click", handleVisitorQuickReset);
 }
 if (visitorQuickHistory instanceof HTMLSelectElement) {
   visitorQuickHistory.addEventListener("change", () => {
     const selectedName = String(visitorQuickHistory.value || "").trim();
+    updateVisitorHistoryHideButton();
     if (visitorQuickName instanceof HTMLInputElement) {
       visitorQuickName.value = selectedName;
     }
@@ -10744,6 +12306,21 @@ if (visitorQuickHistory instanceof HTMLSelectElement) {
     }
   });
 }
+if (visitorQuickHistoryHideButton instanceof HTMLButtonElement) {
+  visitorQuickHistoryHideButton.addEventListener("click", () => {
+    handleHideVisitorHistorySelection().catch((error) => setFeedback(error.message, true));
+  });
+}
+if (visitorQuickHistoryRestoreButton instanceof HTMLButtonElement) {
+  visitorQuickHistoryRestoreButton.addEventListener("click", () => {
+    handleRestoreHiddenVisitorHistory().catch((error) => setFeedback(error.message, true));
+  });
+}
+initMobileFormPickers();
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".mobile-form-picker")) return;
+  closeAllMobileFormPickers();
+});
 fillPlanningMembersButton.addEventListener("click", handleFillPlanningMembers);
 fillReachMembersButton?.addEventListener("click", handleFillReachMembers);
 fillReachPrivilegesButton?.addEventListener("click", handleFillReachPrivileges);
@@ -10761,6 +12338,7 @@ memberList.addEventListener("click", handleMemberListClick);
 reachSupervisorVisitList?.addEventListener("change", (event) => {
   const input = event.target.closest("input[type='checkbox'][data-supervision-name]");
   if (!(input instanceof HTMLInputElement) || !reachSupervisorVisitList) return;
+  markReportDirty("reachSupervisor");
   currentReachSupervisorVisits = Array.from(reachSupervisorVisitList.querySelectorAll("input[type='checkbox'][data-supervision-name]:checked")).map((checkbox) => ({
     personId: String(checkbox.dataset.supervisionPersonId || "").trim() || null,
     name: String(checkbox.dataset.supervisionName || "").trim(),
@@ -10825,6 +12403,7 @@ function getPreviewVisitorPeriodLabel(reportLike) {
 
 function openPreviewVisitorsDialog() {
   if (!previewVisitorsDialog || !previewVisitorsDialogBody || !activePreviewVisitorContext?.report) return;
+  delete previewVisitorsDialog.dataset.mode;
   const reportLike = activePreviewVisitorContext.report;
   const visitors = (Array.isArray(reportLike?.formData?.visitors) ? reportLike.formData.visitors : [])
     .filter((entry) => String(entry?.name || "").trim());
@@ -11209,15 +12788,22 @@ function buildReportPreviewHtmlFromData(report) {
 
   // helper: chip for a member showing status icon
   function memberChip(member, attended, extra, status) {
-    const isJustified = !attended && String(status || "").toLowerCase() === "justified";
-    const cls  = extra === "privileged" ? "privileged"
-               : attended               ? "attended"
-               : isJustified            ? "justified"
-               : "missed";
-    const icon = extra === "privileged" ? "★"
-               : attended               ? "✓"
-               : isJustified            ? "J"
-               : "✗";
+    const normalizedStatus = String(status || "").toLowerCase();
+    const isPending = !normalizedStatus || normalizedStatus === "pending";
+    const isJustified = normalizedStatus === "justified";
+    const isAbsent = normalizedStatus === "absent";
+    const isPresentLike = normalizedStatus === "present" || normalizedStatus === "service" || (isPending && attended);
+    const isPrivileged = extra === "privileged" && isPresentLike && !isJustified && !isAbsent;
+    const cls  = isJustified  ? "justified"
+               : isAbsent     ? "missed"
+               : isPrivileged ? "privileged"
+               : isPresentLike ? "attended"
+               : "pending";
+    const icon = isJustified  ? "J"
+               : isAbsent     ? "✗"
+               : isPrivileged ? "★"
+               : isPresentLike ? "✓"
+               : "•";
     return `<div class="ev-chip ev-chip--${cls}"><span class="ev-chip-icon">${icon}</span><span>${escapeHtml(member.name || "")}</span></div>`;
   }
 

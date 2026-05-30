@@ -6,16 +6,31 @@ import json
 import math
 import os
 import secrets
+import ssl
 import sqlite3
 from datetime import datetime, date, timezone, timedelta
 from pathlib import Path
 
+try:
+    import truststore as _truststore  # type: ignore
+except Exception:
+    _truststore = None
+
+if _truststore is not None:
+    _truststore.inject_into_ssl()
+
 import requests as _requests
 import certifi as _certifi
 import os as _os
-_os.environ.setdefault("REQUESTS_CA_BUNDLE", _certifi.where())
 _http = _requests.Session()
-_http.verify = _certifi.where()
+try:
+    _ssl_context = _truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT) if _truststore is not None else None
+except Exception:
+    _ssl_context = None
+
+if _ssl_context is None:
+    _os.environ.setdefault("REQUESTS_CA_BUNDLE", _certifi.where())
+    _http.verify = _certifi.where()
 from flask import Flask, Response, jsonify, request, send_from_directory
 
 
@@ -133,7 +148,18 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = PROJECT_ROOT / "public"
 DATA_DIR = PROJECT_ROOT / "data"
 DB_PATH = DATA_DIR / "reporte-celular.db"
-TURSO_URL = os.environ.get("TURSO_DATABASE_URL", "")
+
+
+def _normalize_turso_url(url: str) -> str:
+    raw = str(url or "").strip().rstrip("/")
+    if not raw:
+        return ""
+    if raw.startswith("libsql://"):
+        return "https://" + raw[len("libsql://") :]
+    return raw
+
+
+TURSO_URL = _normalize_turso_url(os.environ.get("TURSO_DATABASE_URL", ""))
 TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 DEFAULT_PORT = int(os.environ.get("PORT", "8090"))
 REQUIRED_FIELDS = ("week", "cellNumber", "sector", "leaderName", "reportDate")
@@ -2472,6 +2498,17 @@ def classify_friend_lifecycle(normalized_name: str, friend_cycles: list[dict], m
     return str(latest_cycle.get("outcome") or "in_process")
 
 
+def normalize_visitor_process_entry(visitor: dict) -> str:
+    if normalize_visitor_kind(visitor.get("kind")) != "amigo":
+        return "none"
+    raw = str(visitor.get("processEntry", "")).strip().lower()
+    if raw in {"none", "noted", "late"}:
+        return raw
+    if bool(visitor.get("lateRegistration")):
+        return "late"
+    return "none"
+
+
 def rebuild_friend_tracking(connection) -> None:
     connection.execute("DELETE FROM friend_cycle_steps")
     connection.execute("DELETE FROM friend_cycles")
@@ -2530,7 +2567,9 @@ def rebuild_friend_tracking(connection) -> None:
 
             invited_by = str(visitor.get("invitedBy", "")).strip()
             phone = str(visitor.get("phone", "")).strip()
-            late_registration = bool(visitor.get("lateRegistration"))
+            process_entry = normalize_visitor_process_entry(visitor)
+            first_visit = bool(visitor.get("firstVisit"))
+            late_registration = process_entry == "late"
             converted = bool(visitor.get("converted"))
             reach_attended = bool(visitor.get("reachAttended"))
             sunday_attended = bool(visitor.get("sundayAttended"))
@@ -2562,6 +2601,12 @@ def rebuild_friend_tracking(connection) -> None:
             friend["total_reports"] += 1
 
             cycle_key = (normalized_name, year, quarter)
+            existing_cycle = cycle_map.get(cycle_key)
+            # El proceso es explícito: "Anotar" o "Anotar tardío". Para
+            # reportes viejos sin processEntry se usa una compatibilidad mínima
+            # con las banderas anteriores.
+            if existing_cycle is None and process_entry not in {"noted", "late"}:
+                continue
             cycle = cycle_map.setdefault(cycle_key, {
                 "normalized_name": normalized_name,
                 "year": year,
@@ -2571,7 +2616,7 @@ def rebuild_friend_tracking(connection) -> None:
                 "invited_by": invited_by,
                 "entry_week": week_number,
                 "entry_report_date": report_date,
-                "late_entry": 1 if late_registration or week_number > 2 else 0,
+                "late_entry": 1 if process_entry == "late" else 0,
                 "current_week": week_number,
                 "weeks_seen_set": set(),
                 "total_reach": 0,
@@ -2593,7 +2638,7 @@ def rebuild_friend_tracking(connection) -> None:
                 cycle["sector"] = sector
             if invited_by:
                 cycle["invited_by"] = invited_by
-            cycle["late_entry"] = 1 if cycle.get("late_entry") or late_registration or int(cycle.get("entry_week") or 0) > 2 else 0
+            cycle["late_entry"] = 1 if cycle.get("late_entry") or process_entry == "late" else 0
             cycle["converted"] = 1 if cycle.get("converted") or converted else 0
             if week_number:
                 cycle["weeks_seen_set"].add(week_number)
@@ -2928,6 +2973,68 @@ def build_friend_tracking_payload(connection, *, cell_number: str = "", sector: 
     elif not scoped_cell_numbers:
         goals = dict(base_goals)
 
+    goal_progress = {
+        "levantate": 0,
+        "restauracion": 0,
+        "bautismos": 0,
+    }
+
+    progress_rows = connection.execute(
+        """
+        SELECT fcs.week_number, COUNT(DISTINCT fc.friend_id) AS total
+        FROM friend_cycle_steps fcs
+        INNER JOIN friend_cycles fc ON fc.id = fcs.friend_cycle_id
+        WHERE (? = '' OR fc.cell_number = ?)
+          AND (? = '' OR fc.sector = ?)
+          AND (? = '' OR fc.year = ?)
+          AND (? = '' OR fc.quarter = ?)
+          AND fcs.event_attended = 1
+          AND fcs.week_number IN (6, 11)
+        GROUP BY fcs.week_number
+        """,
+        (cell_number, cell_number, sector, sector, year, year, quarter, quarter),
+    ).fetchall()
+    for row in progress_rows:
+        week_number = int(row["week_number"] or 0)
+        total = int(row["total"] or 0)
+        if week_number == 6:
+            goal_progress["levantate"] = total
+        elif week_number == 11:
+            goal_progress["restauracion"] = total
+
+    baptism_rows = connection.execute(
+        "SELECT payload_json FROM reports"
+    ).fetchall()
+    for row in baptism_rows:
+        payload = parse_payload_json(row["payload_json"])
+        summary = build_report_summary(payload)
+        report_cell = str(summary.get("cellNumber") or "").strip()
+        report_sector = str(summary.get("sector") or "").strip()
+        if cell_number and report_cell != cell_number:
+            continue
+        if sector and report_sector != sector:
+            continue
+        baptisms = payload.get("baptisms")
+        if not isinstance(baptisms, list):
+            continue
+        for entry in baptisms:
+            if not isinstance(entry, dict):
+                continue
+            baptism_date = str(entry.get("baptismDate") or "").strip()
+            if len(baptism_date) < 7:
+                continue
+            baptism_year = baptism_date[:4]
+            try:
+                baptism_month = int(baptism_date[5:7])
+            except ValueError:
+                continue
+            baptism_quarter = "1" if baptism_month <= 4 else "2" if baptism_month <= 8 else "3"
+            if year and baptism_year != year:
+                continue
+            if quarter and baptism_quarter != quarter:
+                continue
+            goal_progress["bautismos"] += 1
+
     return {
         "scope": {
             "cellNumber": cell_number,
@@ -2954,6 +3061,7 @@ def build_friend_tracking_payload(connection, *, cell_number: str = "", sector: 
             "reactivatedWon": reactivated_won_count,
         },
         "goals": goals,
+        "goalProgress": goal_progress,
         "friends": friends,
     }
 

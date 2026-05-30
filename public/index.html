@@ -352,9 +352,13 @@
                 <p class="eyebrow" data-i18n="att.weekly">Semanal</p>
                 <h2 data-i18n="vis.title">Visitas y amigos</h2>
               </div>
-              <button id="add-visitor-button" type="button" class="secondary btn-with-icon">
+              <button id="add-visitor-button" type="button" class="secondary btn-with-icon" hidden>
                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span data-i18n="vis.addManual">Agregar fila manual</span>
+              </button>
+              <button id="visitor-quick-history-restore-button" type="button" class="secondary btn-with-icon" hidden>
+                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 1-2.34-5.66"/><path d="M20 4v7h-7"/></svg>
+                <span class="visitor-quick-history-toolbar-label">Restaurar ocultos</span>
               </button>
             </div>
             <div id="visitor-quick-form" class="visitor-quick-form">
@@ -363,6 +367,11 @@
                 <select id="visitor-quick-history">
                   <option value="">Elegir del historial</option>
                 </select>
+                <div class="visitor-quick-history-actions" aria-label="Acciones de vista previa">
+                  <button id="visitor-quick-history-hide-button" type="button" class="secondary visitor-quick-history-action" hidden>
+                    Ocultar de vista previa
+                  </button>
+                </div>
               </label>
               <label>
                 <span data-i18n="vis.visitorName">Nombre de la visita</span>
@@ -381,21 +390,26 @@
                   <option value="" data-i18n="vis.whoInvited">— Quién invitó —</option>
                 </select>
               </label>
+              <label id="visitor-quick-process-field">
+                <span>Proceso</span>
+                <select id="visitor-quick-process-entry" name="processEntry">
+                  <option value="none">Sin proceso</option>
+                  <option value="noted">Al proceso</option>
+                  <option value="late">Tardío</option>
+                </select>
+                <small id="visitor-quick-process-summary" class="visitor-quick-process-summary">Alcance: sí · Proceso: no</small>
+              </label>
               <div class="visitor-quick-toggles">
                 <label class="quick-toggle-field">
                   <input id="visitor-quick-reach" name="reachAttended" type="checkbox" checked>
                   <span data-i18n="att.reach">Alcance</span>
-                </label>
-                <label id="visitor-quick-late-field" class="quick-toggle-field" hidden>
-                  <input id="visitor-quick-late" name="lateRegistration" type="checkbox">
-                  <span>ANOTAR tardio</span>
                 </label>
                 <label class="quick-toggle-field">
                   <input id="visitor-quick-sunday" name="sundayAttended" type="checkbox">
                   <span data-i18n="stage.service">Culto</span>
                 </label>
                 <label class="quick-toggle-field">
-                  <input id="visitor-quick-first-visit" name="firstVisit" type="checkbox" checked>
+                  <input id="visitor-quick-first-visit" name="firstVisit" type="checkbox">
                   <span data-i18n="vis.firstTime">Primera vez</span>
                 </label>
                 <label id="visitor-quick-converted-field" class="quick-toggle-field">
@@ -437,6 +451,7 @@
                     <th class="col-alcance" data-i18n="att.reach">Alcance</th>
                     <th class="col-culto" data-i18n="stage.service">Culto</th>
                     <th data-i18n="vis.firstTime">Primera vez</th>
+                    <th>Proceso</th>
                     <th class="col-conversion" data-i18n="vis.conversion">Conversión</th>
                     <th id="visitor-event-col-header" hidden data-i18n="att.event">Evento</th>
                     <th class="col-contactado" data-i18n="vis.contacted">Contactado</th>
@@ -1065,12 +1080,29 @@
             <div id="friend-tracking-summary-grid" class="summary-grid"></div>
             <div class="friend-tracking-layout">
               <div class="friend-tracking-main">
-                <section class="friend-tracking-card friend-tracking-card-process">
+                <section class="friend-tracking-card friend-tracking-card-process" hidden>
                   <div class="friend-tracking-card-head friend-tracking-card-head-accent friend-tracking-card-head-blue">
                     <h3>Amigos en proceso (histórico)</h3>
                   </div>
                   <div id="friend-tracking-quick-chips" class="friend-tracking-chip-row friend-tracking-chip-row-inline"></div>
                   <div id="friend-tracking-friends-list" class="friend-tracking-friends-grid"></div>
+                </section>
+                <section class="friend-tracking-card friend-tracking-card-restoration" hidden>
+                  <div class="friend-tracking-card-head friend-tracking-card-head-accent friend-tracking-card-head-green">
+                    <h3>Visitas en restauración</h3>
+                  </div>
+                  <div id="friend-tracking-restoration-chips" class="friend-tracking-chip-row friend-tracking-chip-row-inline"></div>
+                  <div id="friend-tracking-restoration-list" class="friend-tracking-friends-grid"></div>
+                </section>
+                <section class="friend-tracking-card friend-tracking-card-control">
+                  <div class="friend-tracking-card-head friend-tracking-card-head-accent friend-tracking-card-head-gold">
+                    <div>
+                      <h3>Control del proceso</h3>
+                      <p class="friend-tracking-card-copy">Compara la cohorte anotada contra los hitos reales del cuatrimestre.</p>
+                    </div>
+                  </div>
+                  <div id="friend-tracking-control-chips" class="friend-tracking-chip-row friend-tracking-chip-row-inline"></div>
+                  <div id="friend-tracking-control-list" class="friend-tracking-friends-grid friend-tracking-control-list"></div>
                 </section>
               </div>
               <aside class="friend-tracking-side">
@@ -1121,6 +1153,11 @@
                 <div style="display:flex;align-items:center;gap:8px">
                   <input id="setting-grace-hours" type="number" min="0" max="48" step="1" class="settings-input" style="width:80px" placeholder="0" />
                   <span style="font-size:0.8rem;color:var(--muted)" data-i18n="set.graceHoursDesc">horas — el sistema sugiere la semana anterior durante este tiempo</span>
+                </div>
+                <label class="settings-label" for="setting-process-late-weeks" style="margin-top:12px">Prórroga para anotar tardío</label>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <input id="setting-process-late-weeks" type="number" min="0" max="14" step="1" class="settings-input" style="width:80px" placeholder="0" />
+                  <span style="font-size:0.8rem;color:var(--muted)">semanas después de la 2 en las que aún se permite registrar proceso sin contar asistencia</span>
                 </div>
                 <div id="settings-week-preview" class="settings-week-preview" style="margin-top:10px"></div>
               </div>
