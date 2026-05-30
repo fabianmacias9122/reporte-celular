@@ -7824,8 +7824,30 @@ async function loadFriendTrackingPanel() {
   } catch (err) {
     if (token !== friendTrackingRenderToken) return;
     friendTrackingScopeContext = null;
+    const errorMessage = escapeHtml(err.message || "No se pudo cargar el seguimiento de amigos.");
+    if (friendTrackingSummaryGrid) {
+      friendTrackingSummaryGrid.innerHTML = "";
+    }
+    if (friendTrackingQuickChips) {
+      friendTrackingQuickChips.innerHTML = "";
+    }
+    if (friendTrackingRestorationChips) {
+      friendTrackingRestorationChips.innerHTML = "";
+    }
+    if (friendTrackingControlChips) {
+      friendTrackingControlChips.innerHTML = "";
+    }
     if (friendTrackingFriendsList) {
-      friendTrackingFriendsList.innerHTML = `<div class="empty-state" style="padding:16px 0">${escapeHtml(err.message || "No se pudo cargar el seguimiento de amigos.")}</div>`;
+      friendTrackingFriendsList.innerHTML = `<div class="empty-state" style="padding:16px 0">${errorMessage}</div>`;
+    }
+    if (friendTrackingRestorationList) {
+      friendTrackingRestorationList.innerHTML = `<div class="empty-state" style="padding:16px 0">${errorMessage}</div>`;
+    }
+    if (friendTrackingControlList) {
+      friendTrackingControlList.innerHTML = `<div class="empty-state" style="padding:16px 0">${errorMessage}</div>`;
+    }
+    if (friendTrackingGoals) {
+      friendTrackingGoals.innerHTML = `<div class="empty-state" style="padding:16px 0">${errorMessage}</div>`;
     }
   }
 }
