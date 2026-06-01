@@ -160,6 +160,7 @@ Estructura principal:
   "assistantName": "Blanca Vargas",
   "reportDate": "2026-05-04",
   "memberAttendance": [],
+    "externalParticipants": [],
   "visitors": [],
   "kids": [],
   "attendanceSummary": {}
@@ -192,6 +193,20 @@ Campos típicos por fila:
 - `converted`
 - `phone`
 - `note`
+
+### `externalParticipants[]`
+
+Participación semanal de personas que no pertenecen operativamente a la célula que está reportando, pero que sí deben contarse en un evento específico.
+
+Campos típicos por fila:
+
+- `personId`
+- `name`
+- `kind`: `sector_supervision`, `pastoral_visit`, `member_visit`
+- `relatedSector`
+- `homeCellNumber`
+- `countsAs`
+- `stages`: por ahora normalmente `['reach']`
 
 ### `kids[]`
 

@@ -691,6 +691,19 @@ button.ghost, .member-card button, .row-actions .danger { background: var(--dang
   display: grid;
   gap: 8px;
 }
+.reach-external-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-top: 8px;
+}
+.reach-external-add-row > label {
+  flex: 1 1 260px;
+}
+.reach-external-add-row > button {
+  margin-top: 6px;
+}
 .reach-supervision-option {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -718,6 +731,13 @@ button.ghost, .member-card button, .row-actions .danger { background: var(--dang
 }
 .metric-field.is-auto input { background: var(--brand-soft); color: var(--brand-deep); border-color: var(--brand-mid); font-weight: 700; cursor: default; }
 .metric-auto-tag { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 999px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: var(--brand-mid); color: var(--brand-deep); vertical-align: middle; font-style: normal; }
+.metric-field-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
 /* ── Metrics group collapsible ────────────────────────────── */
 .metrics-section-collapse { display: block; }
 .metrics-section-summary { list-style: none; display: flex; align-items: center; justify-content: space-between;

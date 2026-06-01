@@ -236,8 +236,11 @@ const friendTrackingGoalsTabButton = document.querySelector("#seg-tab-goals-butt
 const friendTrackingGoalsTitle = document.querySelector("#friend-tracking-goals-title");
 const reachSupervisionSectorCountField = document.querySelector("#reach-supervision-sector-count");
 const reachSupervisorVisitsJsonField = document.querySelector("#reach-supervisor-visits-json");
+const reachExternalParticipantsJsonField = document.querySelector("#reach-external-participants-json");
 const reachSupervisorVisitSummary = document.querySelector("#reach-supervisor-visit-summary");
 const reachSupervisorVisitList = document.querySelector("#reach-supervisor-visit-list");
+const reachMemberVisitPersonSelect = document.querySelector("#reach-member-visit-person");
+const reachMemberVisitAddButton = document.querySelector("#reach-member-visit-add-button");
 const rcsPending             = document.querySelector("#rcs-pending");
 const rcsActivity            = document.querySelector("#rcs-activity");
 const dashboardAbsenceAlerts = document.querySelector("#dashboard-absence-alerts");
@@ -413,7 +416,7 @@ let currentMemberAttendance = [];
 let currentVisitors = [];
 let currentKids = [];
 let currentBaptisms = [];
-let currentReachSupervisorVisits = [];
+let currentExternalParticipants = [];
 let reportsData = [];
 let approvalsData = [];
 let activeDashboardPeriod = "";
@@ -1346,7 +1349,7 @@ function createReportDirtySlices() {
     visitors: false,
     kids: false,
     baptisms: false,
-    reachSupervisor: false,
+    externalParticipants: false,
   };
 }
 
@@ -1426,8 +1429,8 @@ function reportHasMeaningfulData(report) {
   if (kids.some(k => String(k?.name || "").trim())) return true;
   const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms : [];
   if (baptisms.some(b => String(b?.name || "").trim())) return true;
-  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
-  if (reachSupervisorVisits.length) return true;
+  const externalParticipants = normalizeExternalParticipants(fd.externalParticipants || fd.externalParticipantsJson || fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+  if (externalParticipants.length) return true;
   const members = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
   return members.some(m =>
     m?.planningAttended || m?.reachAttended || m?.sundayAttended ||
@@ -1444,7 +1447,10 @@ function computeWeeklySummaryFromPayload(payload = {}) {
   const namedVisitors = normalizeVisitors(payload.visitors).filter((visitor) => String(visitor.name || "").trim());
   const namedKids = normalizeKids(payload.kids).filter((kid) => String(kid.name || "").trim());
   const baptisms = normalizeBaptisms(payload.baptisms).filter((entry) => entry.name);
-  const reachSupervisorVisits = normalizeReachSupervisorVisits(payload.reachSupervisorVisits || payload.reachSupervisorVisitsJson);
+  const reachSupervisorVisits = getReachExternalParticipants(
+    payload.externalParticipants || payload.externalParticipantsJson || payload.reachSupervisorVisits || payload.reachSupervisorVisitsJson,
+    payload.cellNumber
+  );
   const counts = {
     totalMembers: members.length,
     planningMembersPresent: 0,
@@ -1534,10 +1540,11 @@ function preserveUntouchedReportSlices(payload) {
   if (!reportDirtySlices.baptisms && Array.isArray(base.baptisms)) {
     payload.baptisms = cloneReportData(base.baptisms);
   }
-  if (!reportDirtySlices.reachSupervisor) {
-    const baseSupervisorVisits = base.reachSupervisorVisits ?? base.reachSupervisorVisitsJson;
-    if (baseSupervisorVisits != null) {
-      payload.reachSupervisorVisits = cloneReportData(baseSupervisorVisits);
+  if (!reportDirtySlices.externalParticipants) {
+    const baseExternalParticipants = base.externalParticipants ?? base.externalParticipantsJson ?? base.reachSupervisorVisits ?? base.reachSupervisorVisitsJson;
+    if (baseExternalParticipants != null) {
+      payload.externalParticipants = cloneReportData(baseExternalParticipants);
+      payload.reachSupervisorVisits = getLegacyReachSupervisorVisits(baseExternalParticipants);
     }
   }
   return payload;
@@ -2679,11 +2686,22 @@ function renderMetricSections() {
           <label class="metric-field${isAuto ? " is-auto" : ""}">
             <span>${escapeHtml(label)}${isAuto ? '<em class="metric-auto-tag">auto</em>' : ""}</span>
             <input name="${escapeHtml(name)}" type="number" min="0" step="${isAuto ? "1" : "0.01"}" value="0"${isAuto ? " readonly" : ""}>
+            <small class="metric-field-hint" data-metric-hint-for="${escapeHtml(name)}"></small>
           </label>`;
         }).join("")}
       </div>
     </section>`;
   }).join("");
+}
+
+function getAttendanceBreakdownHints(summary = computeWeeklySummary()) {
+  const reachMembersBase = Math.max(0, Number(summary.reachMembersPresent || 0) - Number(summary.reachSupervisorVisits || 0));
+  return {
+    reachTotal: `${reachMembersBase} hmnos · ${Number(summary.reachSupervisorVisits || 0)} externos · ${Number(summary.reachFriendsPresent || 0)} amigos`,
+    sundayTotal: `${Number(summary.sundayMembersPresent || 0)} hmnos · ${Number(summary.sundayFriendsPresent || 0)} amigos · ${Number(summary.sundayKidsPresent || 0)} niños`,
+    reachMembersPresent: `${reachMembersBase} hmnos base · ${Number(summary.reachSupervisorVisits || 0)} externos`,
+    multiplySundayAttendance: `${Number(summary.sundayMembersPresent || 0)} hmnos · ${Number(summary.sundayFriendsPresent || 0)} amigos · ${Number(summary.sundayKidsPresent || 0)} niños`,
+  };
 }
 
 function populateWeekOptions() {
@@ -5733,7 +5751,7 @@ function normalizeVisitors(savedVisitors = []) {
   });
 }
 
-function normalizeReachSupervisorVisits(value) {
+function normalizeExternalParticipants(value) {
   let source = value;
   if (typeof source === "string") {
     try {
@@ -5753,16 +5771,79 @@ function normalizeReachSupervisorVisits(value) {
       ? catalogs.people.find((person) => String(person.id || "") === personId)
       : null;
     const name = String((entry && typeof entry === "object" ? entry.name : "") || catalogPerson?.name || "").trim();
-    const supervisorSector = String((entry && typeof entry === "object" ? entry.supervisorSector : "") || catalogPerson?.supervisorSector || "").trim();
-    return { personId, name, supervisorSector };
+    const kind = String((entry && typeof entry === "object" ? entry.kind : "") || "sector_supervision").trim() || "sector_supervision";
+    const relatedSector = String((entry && typeof entry === "object" ? (entry.relatedSector ?? entry.supervisorSector) : "") || catalogPerson?.supervisorSector || "").trim();
+    const homeCellNumber = String((entry && typeof entry === "object" ? entry.homeCellNumber : "") || catalogPerson?.assignedCellNumber || "").trim();
+    const countsAs = String((entry && typeof entry === "object" ? entry.countsAs : "") || "member_present").trim() || "member_present";
+    const rawStages = entry && typeof entry === "object" ? entry.stages : null;
+    const stages = Array.isArray(rawStages) && rawStages.length
+      ? rawStages.map((stage) => String(stage || "").trim()).filter(Boolean)
+      : ["reach"];
+    return { personId, name, kind, relatedSector, homeCellNumber, countsAs, stages };
   }).filter((entry) => {
-    const key = entry.personId || entry.name.toLowerCase();
+    const key = `${entry.kind}:${entry.personId || entry.name.toLowerCase()}`;
     if (!key || seen.has(key)) {
       return false;
     }
     seen.add(key);
     return true;
   });
+}
+
+function getReachExternalParticipants(value, cellOrCellNumber = cellField?.value) {
+  return normalizeExternalParticipants(value).filter((entry) => entry.stages.includes("reach") && isExternalParticipantForCell(entry, cellOrCellNumber));
+}
+
+function getLegacyReachSupervisorVisits(value) {
+  return getReachExternalParticipants(value)
+    .filter((entry) => entry.kind === "sector_supervision")
+    .map((entry) => ({
+      personId: entry.personId,
+      name: entry.name,
+      supervisorSector: entry.relatedSector,
+    }));
+}
+
+function normalizeReachSupervisorVisits(value) {
+  return getLegacyReachSupervisorVisits(value);
+}
+
+function getExternalParticipantKindLabel(kind) {
+  if (kind === "pastoral_visit") return "Pastor";
+  if (kind === "member_visit") return "Miembro visitante";
+  return "Supervisor";
+}
+
+function buildExternalParticipantKey(entry) {
+  return `${entry.kind}:${entry.personId || String(entry.name || "").trim().toLowerCase()}`;
+}
+
+function resolveCellContext(cellOrCellNumber) {
+  if (!cellOrCellNumber) return null;
+  if (typeof cellOrCellNumber === "object") return cellOrCellNumber;
+  return findCellByNumber(String(cellOrCellNumber || "").trim());
+}
+
+function doesPersonBelongToCell(personLike, cellOrCellNumber) {
+  const cell = resolveCellContext(cellOrCellNumber);
+  if (!personLike || !cell) return false;
+  const personId = String(personLike.id || personLike.personId || "").trim();
+  const activeCell = String(cell.cellNumber || "").trim();
+  const assignedCellNumber = String(personLike.assignedCellNumber || personLike.homeCellNumber || (personId ? getCellForPerson(personId) : "") || "").trim();
+  if (assignedCellNumber && activeCell && assignedCellNumber === activeCell) {
+    return true;
+  }
+  if (personId && [cell.leaderPersonId, cell.assistantPersonId, cell.hostPersonId].some((value) => String(value || "").trim() === personId)) {
+    return true;
+  }
+  return getCellMembers(cell).some((member) => String(member.id || "").trim() === personId);
+}
+
+function isExternalParticipantForCell(entry, cellOrCellNumber) {
+  const person = entry?.personId
+    ? (catalogs.people || []).find((item) => String(item.id || "").trim() === String(entry.personId || "").trim())
+    : null;
+  return !doesPersonBelongToCell(person || entry, cellOrCellNumber);
 }
 
 function getReachSupervisorCandidates(cell) {
@@ -5773,24 +5854,59 @@ function getReachSupervisorCandidates(cell) {
       if (!supervisorSector) {
         return false;
       }
+      if (!isExternalParticipantForCell(person, cell)) {
+        return false;
+      }
       return !cellSector || supervisorSector === cellSector;
     })
     .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "es"));
 }
 
+function getReachPastorCandidates(cell) {
+  return (catalogs.people || [])
+    .filter((person) => String(person.role || "").trim().toLowerCase() === "pastor")
+    .filter((person) => isExternalParticipantForCell(person, cell))
+    .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "es"));
+}
+
+function getReachMemberVisitCandidates(cell) {
+  const activeCell = String(cell?.cellNumber || "").trim();
+  return (catalogs.people || [])
+    .filter((person) => {
+      const role = String(person.role || "").trim().toLowerCase();
+      if (!["leader", "assistant", "host", "member", "pastor"].includes(role)) return false;
+      const assignedCellNumber = String(person.assignedCellNumber || "").trim();
+      return assignedCellNumber && assignedCellNumber !== activeCell;
+    })
+    .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "es"));
+}
+
+function syncReachMemberVisitSelect(cell) {
+  if (!(reachMemberVisitPersonSelect instanceof HTMLSelectElement)) return;
+  const options = getReachMemberVisitCandidates(cell).map((person) => ({
+    value: String(person.id),
+    label: `${person.name} · Célula ${person.assignedCellNumber || "—"}`,
+  }));
+  renderSelect(reachMemberVisitPersonSelect, options, options.length ? "Selecciona un hermano" : "No hay hermanos de otras células");
+}
+
 function syncReachSupervisorVisitFields() {
+  const reachEntries = getReachExternalParticipants(currentExternalParticipants);
   if (reachSupervisionSectorCountField instanceof HTMLInputElement) {
-    reachSupervisionSectorCountField.value = String(currentReachSupervisorVisits.length);
+    reachSupervisionSectorCountField.value = String(reachEntries.length);
   }
   if (reachSupervisorVisitsJsonField instanceof HTMLInputElement) {
-    reachSupervisorVisitsJsonField.value = JSON.stringify(currentReachSupervisorVisits);
+    reachSupervisorVisitsJsonField.value = JSON.stringify(getLegacyReachSupervisorVisits(currentExternalParticipants));
+  }
+  if (reachExternalParticipantsJsonField instanceof HTMLInputElement) {
+    reachExternalParticipantsJsonField.value = JSON.stringify(currentExternalParticipants);
   }
   if (reachSupervisorVisitSummary) {
-    if (!currentReachSupervisorVisits.length) {
-      reachSupervisorVisitSummary.textContent = "Sin supervisión capturada.";
+    if (!reachEntries.length) {
+      reachSupervisorVisitSummary.textContent = "Sin participación externa capturada.";
     } else {
-      const names = currentReachSupervisorVisits.map((entry) => entry.name).filter(Boolean);
-      const countLabel = `${currentReachSupervisorVisits.length} supervisor${currentReachSupervisorVisits.length === 1 ? "" : "es"} presente${currentReachSupervisorVisits.length === 1 ? "" : "s"}`;
+      const countLabel = `${reachEntries.length} participante${reachEntries.length === 1 ? "" : "s"} externo${reachEntries.length === 1 ? "" : "s"}`;
+      const names = reachEntries.map((entry) => `${getExternalParticipantKindLabel(entry.kind)} · ${entry.name}`).filter(Boolean);
       reachSupervisorVisitSummary.textContent = names.length ? `${countLabel}: ${names.join(", ")}` : countLabel;
     }
   }
@@ -5800,39 +5916,53 @@ function renderReachSupervisorVisits(cell) {
   if (!reachSupervisorVisitList) {
     return;
   }
-  const candidates = getReachSupervisorCandidates(cell);
-  const extras = currentReachSupervisorVisits.filter((entry) => !candidates.some((person) => String(person.id || "") === String(entry.personId || "")));
-  const rows = [...candidates, ...extras.map((entry) => ({
-    id: entry.personId,
-    name: entry.name,
-    supervisorSector: entry.supervisorSector,
-  }))];
+  const selectedEntries = getReachExternalParticipants(currentExternalParticipants, cell);
+  const supervisorRows = getReachSupervisorCandidates(cell).map((person) => ({
+    id: person.id,
+    name: person.name,
+    kind: "sector_supervision",
+    relatedSector: person.supervisorSector || cell?.sector || "",
+    homeCellNumber: person.assignedCellNumber || "",
+  }));
+  const pastorRows = getReachPastorCandidates(cell).map((person) => ({
+    id: person.id,
+    name: person.name,
+    kind: "pastoral_visit",
+    relatedSector: cell?.sector || "",
+    homeCellNumber: person.assignedCellNumber || "",
+  }));
+  const memberRows = selectedEntries.filter((entry) => entry.kind === "member_visit");
+  const rows = [...supervisorRows, ...pastorRows, ...memberRows];
   if (!cell) {
-    currentReachSupervisorVisits = [];
-    reachSupervisorVisitList.innerHTML = '<p class="member-admin-caption">Selecciona una célula para capturar supervisión.</p>';
+    currentExternalParticipants = [];
+    reachSupervisorVisitList.innerHTML = '<p class="member-admin-caption">Selecciona una célula para capturar participación externa.</p>';
+    syncReachMemberVisitSelect(null);
     syncReachSupervisorVisitFields();
     return;
   }
   if (!rows.length) {
-    currentReachSupervisorVisits = [];
-    reachSupervisorVisitList.innerHTML = '<p class="member-admin-caption">No hay supervisores asignados para el sector de esta célula.</p>';
+    currentExternalParticipants = [];
+    reachSupervisorVisitList.innerHTML = '<p class="member-admin-caption">No hay candidatos externos para esta célula.</p>';
+    syncReachMemberVisitSelect(cell);
     syncReachSupervisorVisitFields();
     return;
   }
-  const selectedKeys = new Set(currentReachSupervisorVisits.map((entry) => String(entry.personId || entry.name || "")));
+  const selectedKeys = new Set(selectedEntries.map((entry) => buildExternalParticipantKey(entry)));
   reachSupervisorVisitList.innerHTML = rows.map((person) => {
     const personId = String(person.id || person.personId || "").trim();
-    const key = personId || String(person.name || "").trim();
-    const sector = String(person.supervisorSector || "").trim();
+    const key = buildExternalParticipantKey({ kind: person.kind || "sector_supervision", personId, name: person.name });
+    const sector = String(person.relatedSector || person.supervisorSector || "").trim();
+    const homeCellNumber = String(person.homeCellNumber || "").trim();
     const checked = selectedKeys.has(key);
     return `
       <label class="reach-supervision-option">
-        <input type="checkbox" data-supervision-person-id="${escapeHtml(personId)}" data-supervision-name="${escapeHtml(String(person.name || ""))}" data-supervision-sector="${escapeHtml(sector)}"${checked ? " checked" : ""}>
+        <input type="checkbox" data-supervision-kind="${escapeHtml(String(person.kind || "sector_supervision"))}" data-supervision-person-id="${escapeHtml(personId)}" data-supervision-name="${escapeHtml(String(person.name || ""))}" data-supervision-sector="${escapeHtml(sector)}" data-supervision-home-cell="${escapeHtml(homeCellNumber)}"${checked ? " checked" : ""}>
         <span class="reach-supervision-option-name">${escapeHtml(String(person.name || ""))}</span>
-        ${sector ? `<span class="reach-supervision-option-meta">Sector ${escapeHtml(sector)}</span>` : ""}
+        <span class="reach-supervision-option-meta">${escapeHtml(getExternalParticipantKindLabel(person.kind || "sector_supervision"))}${sector ? ` · Sector ${sector}` : ""}${homeCellNumber ? ` · Célula ${homeCellNumber}` : ""}</span>
       </label>
     `;
   }).join("");
+  syncReachMemberVisitSelect(cell);
   syncReachSupervisorVisitFields();
 }
 
@@ -5876,7 +6006,7 @@ function computeWeeklySummary() {
     else counts.pending += 1;
   });
 
-  counts.reachSupervisorVisits = currentReachSupervisorVisits.length;
+  counts.reachSupervisorVisits = getReachExternalParticipants(currentExternalParticipants).length;
   counts.reachMembersPresent += counts.reachSupervisorVisits;
 
   const spiritualParentsSet = new Set();
@@ -5918,6 +6048,7 @@ function computeWeeklySummary() {
 function syncDerivedMetricFields() {
   const summary = computeWeeklySummary();
   const baptismMetrics = computeBaptismMetrics();
+  const hints = getAttendanceBreakdownHints(summary);
   const fieldValues = {
     planningMembersPresent:    summary.planningMembersPresent,
     planningMembersAbsent:     summary.planningMembersAbsent,
@@ -5961,10 +6092,19 @@ function syncDerivedMetricFields() {
       field.value = String(value);
     }
   });
+
+  Object.entries(hints).forEach(([name, value]) => {
+    const hint = document.querySelector(`[data-metric-hint-for="${name}"]`);
+    if (hint) {
+      hint.textContent = value;
+      hint.hidden = !value;
+    }
+  });
 }
 
 function renderAttendanceSummary() {
   const summary = computeWeeklySummary();
+  const hints = getAttendanceBreakdownHints(summary);
   const activeStageField = STAGE_STATUS_FIELDS[currentStage] || null;
   const markedMembers = activeStageField
     ? currentMemberAttendance.filter((entry) => {
@@ -5974,15 +6114,16 @@ function renderAttendanceSummary() {
     : (summary.totalMembers - summary.pending);
   attendanceProgressChip.textContent = `${markedMembers}/${summary.totalMembers} marcados`;
   attendanceSummaryCards.innerHTML = [
-    [t('dash.planning'), summary.planningMembersPresent, "planificacion"],
-    [t('dash.reach'),    summary.reachTotal,              "alcance"],
-    [t('dash.sunday'),      summary.sundayTotal,             "culto"],
-    [t('dash.friends'),     summary.visitors,               "alcance"],
-    ["Niños",      currentKids.filter((kid) => String(kid.name || "").trim()).length, "alcance"],
-  ].map(([label, value, stage]) => `
+    [t('dash.planning'), summary.planningMembersPresent, "planificacion", ""],
+    [t('dash.reach'), summary.reachTotal, "alcance", hints.reachTotal],
+    [t('dash.sunday'), summary.sundayTotal, "culto", hints.sundayTotal],
+    [t('dash.friends'), summary.visitors, "alcance", ""],
+    ["Niños", currentKids.filter((kid) => String(kid.name || "").trim()).length, "alcance", ""],
+  ].map(([label, value, stage, hint]) => `
     <article class="summary-card summary-card-mini" data-summary-stage="${stage}">
       <span class="summary-label">${escapeHtml(label)}</span>
       <strong class="summary-value">${escapeHtml(String(value))}</strong>
+      ${hint ? `<span class="summary-hint">${escapeHtml(hint)}</span>` : ""}
     </article>
   `).join("");
 
@@ -6421,7 +6562,7 @@ function applyWeeklyCollectionsForCell(cell, savedData = null) {
   currentVisitors = normalizeVisitors(savedData?.visitors);
   currentKids = buildDefaultKidsAttendance(cell, savedData?.kids);
   currentBaptisms = normalizeBaptisms(savedData?.baptisms);
-  currentReachSupervisorVisits = normalizeReachSupervisorVisits(savedData?.reachSupervisorVisits || savedData?.reachSupervisorVisitsJson);
+  currentExternalParticipants = normalizeExternalParticipants(savedData?.externalParticipants || savedData?.externalParticipantsJson || savedData?.reachSupervisorVisits || savedData?.reachSupervisorVisitsJson);
   resetVisitorQuickForm();
   resetKidQuickForm();
   renderReachSupervisorVisits(cell);
@@ -8958,7 +9099,7 @@ function resetReportForm() {
   currentMemberAttendance = [];
   currentKids = [];
   currentBaptisms = [];
-  currentReachSupervisorVisits = [];
+  currentExternalParticipants = [];
   // Clear all stage badges and draft indicators
   document.querySelectorAll(".stage-tab-badge").forEach(b => b.hidden = true);
   document.querySelectorAll(".stage-tab").forEach(t => t.classList.remove("has-draft"));
@@ -9712,7 +9853,8 @@ async function handleReportSubmit(event) {
   payload.hostName = hostField.value || payload.hostName || "";
   payload.address = reportAddress.value || payload.address || "";
   payload.memberAttendance = currentMemberAttendance;
-  payload.reachSupervisorVisits = currentReachSupervisorVisits;
+  payload.externalParticipants = currentExternalParticipants;
+  payload.reachSupervisorVisits = getLegacyReachSupervisorVisits(currentExternalParticipants);
   payload.visitors = currentVisitors.filter((visitor) => String(visitor.name || "").trim());
   payload.kids = currentKids.filter((kid) => String(kid.name || "").trim());
   payload.baptisms = normalizeBaptisms(currentBaptisms).filter((entry) => entry.name);
@@ -11281,7 +11423,10 @@ function pickHeaderContinueStage(formData) {
   const visitors = Array.isArray(fd.visitors) ? fd.visitors.filter(v => String(v?.name || "").trim()) : [];
   const kids = Array.isArray(fd.kids) ? fd.kids.filter(k => String(k?.name || "").trim()) : [];
   const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms.filter(b => String(b?.name || "").trim()) : [];
-  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+  const reachSupervisorVisits = getReachExternalParticipants(
+    fd.externalParticipants || fd.externalParticipantsJson || fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson,
+    fd.cellNumber
+  );
 
   if (members.some(m => m?.planningAttended || (m?.planningStatus && m.planningStatus !== "pending"))) {
     return "planificacion";
@@ -11311,7 +11456,10 @@ function inferLastCompletedStage(formData) {
   const visitors = Array.isArray(fd.visitors) ? fd.visitors.filter(v => String(v?.name || "").trim()) : [];
   const kids = Array.isArray(fd.kids) ? fd.kids.filter(k => String(k?.name || "").trim()) : [];
   const baptisms = Array.isArray(fd.baptisms) ? fd.baptisms.filter(b => String(b?.name || "").trim()) : [];
-  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+  const reachSupervisorVisits = getReachExternalParticipants(
+    fd.externalParticipants || fd.externalParticipantsJson || fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson,
+    fd.cellNumber
+  );
   const hasPlanificacion = members.some(m => m?.planningAttended || (m?.planningStatus && m.planningStatus !== "pending"));
   const hasAlcance = members.some(m => m?.reachAttended || m?.reachPrivileged || (m?.reachStatus && m.reachStatus !== "pending"))
     || visitors.some(v => v?.reachAttended)
@@ -11332,15 +11480,11 @@ function inferLastCompletedStage(formData) {
 
 function resolveDraftLastStage(formData, fallbackStage) {
   const fallback = STAGES.includes(fallbackStage) ? fallbackStage : "encabezado";
-  const inferred = inferLastCompletedStage(formData);
-  const stages = [fallback, inferred];
+  const stages = [fallback];
 
   const loadedLastStage = String(editingReportLoadedData?.lastStage || "").trim();
   if (STAGES.includes(loadedLastStage)) {
     stages.push(loadedLastStage);
-  }
-  if (editingReportOriginWasFinalized) {
-    stages.push(inferred);
   }
 
   return stages.reduce((furthest, candidate) => {
@@ -11601,7 +11745,8 @@ async function saveDraft(stage) {
   payload.address       = reportAddress.value  || payload.address       || "";
   applyCellCatalogFieldsToPayload(payload);
   payload.memberAttendance  = currentMemberAttendance;
-  payload.reachSupervisorVisits = currentReachSupervisorVisits;
+  payload.externalParticipants = currentExternalParticipants;
+  payload.reachSupervisorVisits = getLegacyReachSupervisorVisits(currentExternalParticipants);
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
@@ -11661,7 +11806,7 @@ function stageHasData(stage) {
   if (stage === "alcance") {
     if (members.some(m => m.reachAttended || m.reachPrivileged || (m.reachStatus && m.reachStatus !== "pending"))) return true;
     if (visitors.some(v => v.reachAttended)) return true;
-    if (currentReachSupervisorVisits.length) return true;
+    if (getReachExternalParticipants(currentExternalParticipants).length) return true;
     return false;
   }
   if (stage === "culto") {
@@ -11760,7 +11905,8 @@ async function finalizarReporte() {
   payload.address       = reportAddress.value  || payload.address       || "";
   applyCellCatalogFieldsToPayload(payload);
   payload.memberAttendance  = currentMemberAttendance;
-  payload.reachSupervisorVisits = currentReachSupervisorVisits;
+  payload.externalParticipants = currentExternalParticipants;
+  payload.reachSupervisorVisits = getLegacyReachSupervisorVisits(currentExternalParticipants);
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
   payload.kids              = currentKids.filter(k => String(k.name || "").trim());
   payload.baptisms          = normalizeBaptisms(currentBaptisms).filter(e => e.name);
@@ -11801,7 +11947,10 @@ async function finalizarReporte() {
     emptyStages.push("Planeación");
   }
   if (!anyMarked("reachStatus") && !anyChecked("reachAttended") &&
-      normalizeReachSupervisorVisits(payload.reachSupervisorVisits || payload.reachSupervisorVisitsJson).length === 0 &&
+      getReachExternalParticipants(
+        payload.externalParticipants || payload.externalParticipantsJson || payload.reachSupervisorVisits || payload.reachSupervisorVisitsJson,
+        payload.cellNumber
+      ).length === 0 &&
       (!Array.isArray(payload.visitors) || payload.visitors.length === 0) &&
       (!Array.isArray(payload.kids)     || payload.kids.length === 0)) {
     emptyStages.push("Alcance");
@@ -12382,13 +12531,43 @@ memberList.addEventListener("click", handleMemberListClick);
 reachSupervisorVisitList?.addEventListener("change", (event) => {
   const input = event.target.closest("input[type='checkbox'][data-supervision-name]");
   if (!(input instanceof HTMLInputElement) || !reachSupervisorVisitList) return;
-  markReportDirty("reachSupervisor");
-  currentReachSupervisorVisits = Array.from(reachSupervisorVisitList.querySelectorAll("input[type='checkbox'][data-supervision-name]:checked")).map((checkbox) => ({
+  markReportDirty("externalParticipants");
+  const selectedReachEntries = Array.from(reachSupervisorVisitList.querySelectorAll("input[type='checkbox'][data-supervision-name]:checked")).map((checkbox) => ({
     personId: String(checkbox.dataset.supervisionPersonId || "").trim() || null,
     name: String(checkbox.dataset.supervisionName || "").trim(),
-    supervisorSector: String(checkbox.dataset.supervisionSector || "").trim(),
+    kind: String(checkbox.dataset.supervisionKind || "sector_supervision").trim() || "sector_supervision",
+    relatedSector: String(checkbox.dataset.supervisionSector || "").trim(),
+    homeCellNumber: String(checkbox.dataset.supervisionHomeCell || "").trim(),
+    countsAs: "member_present",
+    stages: ["reach"],
   }));
+  const nonReachEntries = normalizeExternalParticipants(currentExternalParticipants).filter((entry) => !entry.stages.includes("reach"));
+  currentExternalParticipants = normalizeExternalParticipants([...nonReachEntries, ...selectedReachEntries]);
   syncReachSupervisorVisitFields();
+  renderAttendanceSummary();
+});
+
+reachMemberVisitAddButton?.addEventListener("click", () => {
+  const activeCell = findCellByNumber(cellField?.value);
+  if (!(reachMemberVisitPersonSelect instanceof HTMLSelectElement) || !activeCell) return;
+  const personId = String(reachMemberVisitPersonSelect.value || "").trim();
+  if (!personId) return;
+  const person = (catalogs.people || []).find((entry) => String(entry.id || "") === personId);
+  if (!person) return;
+  markReportDirty("externalParticipants");
+  currentExternalParticipants = normalizeExternalParticipants([
+    ...currentExternalParticipants,
+    {
+      personId,
+      name: String(person.name || "").trim(),
+      kind: "member_visit",
+      relatedSector: String(activeCell.sector || "").trim(),
+      homeCellNumber: String(person.assignedCellNumber || "").trim(),
+      countsAs: "member_present",
+      stages: ["reach"],
+    },
+  ]);
+  renderReachSupervisorVisits(activeCell);
   renderAttendanceSummary();
 });
 
@@ -12548,6 +12727,7 @@ function buildReportPreviewHtml() {
   const _namedVisPrev = (Array.isArray(currentVisitors) ? currentVisitors : []).filter(v => String(v?.name || "").trim());
   const _friendsPrev  = _namedVisPrev.filter(v => (v.kind || 'amigo') !== 'visita').length;
   const _restorPrev   = _namedVisPrev.filter(v => (v.kind || 'amigo') === 'visita').length;
+  const previewBreakdowns = getAttendanceBreakdownHints(summary);
 
   // Metric sections
   const metricsHtml = PREVIEW_SECTIONS.map(section => {
@@ -12558,6 +12738,12 @@ function buildReportPreviewHtml() {
       const row = { label, val: num === 0 ? "—" : String(num), isEmpty: num === 0 };
       if (name === "reachFriendsPresent" && _restorPrev > 0) {
         row.sublabel = `${_friendsPrev} amigo${_friendsPrev === 1 ? "" : "s"} · ${_restorPrev} restauración`;
+      }
+      if (name === "reachMembersPresent" && previewBreakdowns.reachMembersPresent) {
+        row.sublabel = previewBreakdowns.reachMembersPresent;
+      }
+      if (name === "multiplySundayAttendance" && previewBreakdowns.sundayTotal) {
+        row.sublabel = previewBreakdowns.sundayTotal;
       }
       return row;
     });
@@ -12590,12 +12776,12 @@ function buildReportPreviewHtml() {
     const justified = currentMemberAttendance.filter(e => e[field] === "justified");
     const pending = currentMemberAttendance.filter(e => !e[field] || e[field] === "pending");
     const reachSupervisors = field === "reachStatus"
-      ? normalizeReachSupervisorVisits(currentReachSupervisorVisits)
+      ? getReachExternalParticipants(currentExternalParticipants)
       : [];
     const presentPills = present.map(e => `<span class="preview-pill is-present">${escapeHtml(e.name)}${e[field] === "service" ? " · sirviendo" : ""}</span>`).join("");
     const absentPills = absent.map(e => `<span class="preview-pill is-absent">${escapeHtml(e.name)}</span>`).join("");
     const justifiedPills = justified.map(e => `<span class="preview-pill is-justified">${escapeHtml(e.name)}</span>`).join("");
-    const supervisorPills = reachSupervisors.map(entry => `<span class="preview-pill is-present">Supervisor · ${escapeHtml(entry.name || "")}</span>`).join("");
+    const supervisorPills = reachSupervisors.map(entry => `<span class="preview-pill is-present">${escapeHtml(getExternalParticipantKindLabel(entry.kind))} · ${escapeHtml(entry.name || "")}</span>`).join("");
     const pendingNote = pending.length ? `<div class="preview-empty-note" style="margin-top:6px">${pending.length} sin marcar</div>` : "";
     return `
       <details class="preview-event-tree">
@@ -12616,7 +12802,7 @@ function buildReportPreviewHtml() {
             </div>` : ""}
           ${reachSupervisors.length ? `
             <div class="preview-event-tree-group">
-              <span class="preview-event-tree-grouplabel">Supervisión (${reachSupervisors.length})</span>
+              <span class="preview-event-tree-grouplabel">Participación externa (${reachSupervisors.length})</span>
               <div class="preview-pills">${supervisorPills}</div>
             </div>` : ""}
           ${absent.length ? `
@@ -12808,7 +12994,10 @@ function buildReportPreviewHtmlFromData(report) {
   const memberAttendance = Array.isArray(fd.memberAttendance) ? fd.memberAttendance : [];
   const namedVisitors = (Array.isArray(fd.visitors) ? fd.visitors : []).filter(v => String(v.name || "").trim());
   const namedKids     = (Array.isArray(fd.kids)     ? fd.kids     : []).filter(k => String(k.name || "").trim());
-  const reachSupervisorVisits = normalizeReachSupervisorVisits(fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson);
+  const reachSupervisorVisits = getReachExternalParticipants(
+    fd.externalParticipants || fd.externalParticipantsJson || fd.reachSupervisorVisits || fd.reachSupervisorVisitsJson,
+    fd.cellNumber
+  );
 
   // ── Resumen global (badges) ─────────────────────────────────────────────────
   const conversions  = Number(s.reachConversions || 0);
@@ -12874,12 +13063,13 @@ function buildReportPreviewHtmlFromData(report) {
   const restorCount  = namedVisitors.filter(v => (v.kind || 'amigo') === 'visita').length;
   const supervisorHtml = reachSupervisorVisits.length ? `
     <div class="ev-subsection">
-      <p class="ev-subsection-title">Supervisión (${reachSupervisorVisits.length})</p>
+      <p class="ev-subsection-title">Participación externa (${reachSupervisorVisits.length})</p>
       <div class="ev-visitor-list">
         ${reachSupervisorVisits.map(entry => `
           <div class="ev-visitor-row">
-            <span class="ev-visitor-name">Supervisor · ${escapeHtml(entry.name || "")}</span>
-            ${entry.supervisorSector ? `<span class="ev-visitor-meta">Sector ${escapeHtml(entry.supervisorSector)}</span>` : ""}
+            <span class="ev-visitor-name">${escapeHtml(getExternalParticipantKindLabel(entry.kind))} · ${escapeHtml(entry.name || "")}</span>
+            ${entry.relatedSector ? `<span class="ev-visitor-meta">Sector ${escapeHtml(entry.relatedSector)}</span>` : ""}
+            ${entry.homeCellNumber ? `<span class="ev-visitor-meta">Célula ${escapeHtml(entry.homeCellNumber)}</span>` : ""}
           </div>`).join("")}
       </div>
     </div>` : "";
@@ -12926,7 +13116,7 @@ function buildReportPreviewHtmlFromData(report) {
     <div class="ev-section">
       <div class="ev-head ev-head--reach">
         <span class="ev-title">🌱 Alcance</span>
-        <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""}${reachSupervisorVisits.length ? ` · ${reachSupervisorVisits.length} supervisor${reachSupervisorVisits.length === 1 ? "" : "es"}` : ""} · ${friendsCount} amigos${restorCount ? ` · ${restorCount} restauración` : ""} · ${namedKids.length} niños</span>
+        <span class="ev-count">${reachPresent} hmnos${reachPriv ? ` · ${reachPriv} privilegiados` : ""}${reachSupervisorVisits.length ? ` · ${reachSupervisorVisits.length} externo${reachSupervisorVisits.length === 1 ? "" : "s"}` : ""} · ${friendsCount} amigos${restorCount ? ` · ${restorCount} restauración` : ""} · ${namedKids.length} niños</span>
       </div>
       <div class="ev-body">
         ${planTotal ? `<div class="ev-chip-grid">${memberAttendance.map(m => memberChip(m, m.reachAttended, m.reachPrivileged ? "privileged" : null, m.reachStatus)).join("")}</div>` : ""}

@@ -569,7 +569,7 @@
             </div>
 
             <div class="metric-subgroup">
-              <p class="metric-subgroup-title" data-i18n="reach.supervision">Supervisión</p>
+              <p class="metric-subgroup-title">Participación externa</p>
               <div class="metric-fields">
                 <input type="hidden" name="supervisionNetwork" value="0">
                 <input type="hidden" name="supervisionSector" id="reach-supervision-sector-count" value="0">
@@ -577,10 +577,18 @@
                 <input type="hidden" name="supervisionRegion" value="0">
                 <input type="hidden" name="supervisionArea" value="0">
                 <input type="hidden" name="reachSupervisorVisitsJson" id="reach-supervisor-visits-json" value="[]">
+                <input type="hidden" name="externalParticipantsJson" id="reach-external-participants-json" value="[]">
                 <div class="reach-supervision-box">
-                  <p class="reach-supervision-help">Marca los supervisores que asistieron a este alcance. Cada uno suma como hermano presente en esta célula esta semana.</p>
+                  <p class="reach-supervision-help">Registra aquí quién acompañó este alcance desde fuera de la célula: supervisión de sector, visita pastoral o hermanos de otra célula. Cada registro suma como hermano presente en esta célula esta semana.</p>
                   <div id="reach-supervisor-visit-summary" class="reach-supervision-summary">Sin supervisión capturada.</div>
                   <div id="reach-supervisor-visit-list" class="reach-supervision-list"></div>
+                  <div class="reach-external-add-row">
+                    <label>
+                      <span>Hermano visitante</span>
+                      <select id="reach-member-visit-person"></select>
+                    </label>
+                    <button type="button" class="secondary" id="reach-member-visit-add-button">Agregar</button>
+                  </div>
                 </div>
               </div>
             </div>
