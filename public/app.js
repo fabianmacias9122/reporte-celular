@@ -8639,11 +8639,31 @@ function renderAdminCellMembers(cell) {
 }
 
 function setCellLinkedFieldsLocked(locked) {
-  [leaderField, assistantField, hostField, reportAddress].forEach((field) => {
+  [
+    leaderField,
+    assistantField,
+    hostField,
+    reportAddress,
+    reportForm.elements.namedItem("networkName"),
+    reportForm.elements.namedItem("sector"),
+    reportForm.elements.namedItem("zoneName"),
+    reportForm.elements.namedItem("districtName"),
+  ].forEach((field) => {
     if (!field) return;
     field.disabled = locked;
     field.closest("label")?.classList.toggle("is-catalog-locked", locked);
   });
+}
+
+function applyCellCatalogFieldsToPayload(payload) {
+  const cell = findCellByNumber(payload?.cellNumber || cellField?.value);
+  if (!cell || !payload) return payload;
+  payload.networkName = cell.networkName || payload.networkName || "";
+  payload.sector = cell.sector || payload.sector || "";
+  payload.zoneName = cell.zoneName || payload.zoneName || "";
+  payload.districtName = cell.districtName || payload.districtName || "";
+  payload.address = reportAddress.value || cell.address || payload.address || "";
+  return payload;
 }
 
 function syncReportWithCell(force = false, savedData = null) {
@@ -11579,6 +11599,7 @@ async function saveDraft(stage) {
   payload.assistantName = assistantField.value || payload.assistantName || "";
   payload.hostName      = hostField.value      || payload.hostName      || "";
   payload.address       = reportAddress.value  || payload.address       || "";
+  applyCellCatalogFieldsToPayload(payload);
   payload.memberAttendance  = currentMemberAttendance;
   payload.reachSupervisorVisits = currentReachSupervisorVisits;
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
@@ -11737,6 +11758,7 @@ async function finalizarReporte() {
   payload.assistantName = assistantField.value || payload.assistantName || "";
   payload.hostName      = hostField.value      || payload.hostName      || "";
   payload.address       = reportAddress.value  || payload.address       || "";
+  applyCellCatalogFieldsToPayload(payload);
   payload.memberAttendance  = currentMemberAttendance;
   payload.reachSupervisorVisits = currentReachSupervisorVisits;
   payload.visitors          = currentVisitors.filter(v => String(v.name || "").trim());
